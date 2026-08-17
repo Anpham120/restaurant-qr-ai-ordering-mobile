@@ -523,9 +523,10 @@ hết vào cuối kỳ.
 
 ## 11. Bước tiếp theo
 
-- [ ] Commit và đẩy tài liệu này lên `personal`.
-- [ ] Tạo GitHub Project/milestone trên fork riêng theo mốc ở §4.3 (danh sách issue đã phác — chờ
-      duyệt lần cuối trước khi tạo thật).
+- [x] Commit và đẩy tài liệu này lên `personal`.
+- [x] Tạo 9 milestone (M1–M9) + nhãn `module:*`/`type:*`/`priority:*` + 35 issue trên
+      `Anpham120/restaurant-qr-ai-ordering-nqh`, đúng theo WBS §4.2, §6, §7, §9.10.
+- [x] Bật branch ruleset cho `main` (chặn force-push và xoá nhánh).
 - [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
-      cho §6 mục #3).
-- [ ] Khởi tạo project Spring Boot (WBS §4.2 bước 2.1) khi sẵn sàng bắt đầu code.
+      cho issue #12 — hạn chế #3).
+- [ ] Khởi tạo project Spring Boot (issue #2) khi sẵn sàng bắt đầu code.
