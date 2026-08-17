@@ -8,6 +8,17 @@
 > [`BAO_CAO_CONG_NGHE_PHAN_MEM.md §5.3–5.4`](../bao-cao/BAO_CAO_CONG_NGHE_PHAN_MEM.md#53-hạn-chế)
 > của nhóm cũ, giữ nguyên để không tự ý diễn giải lại công sức của người khác.
 
+### Lịch sử thay đổi phạm vi
+
+Bản đầu chỉ có Java migration lõi (§5) + 2 hạn chế (§6). Ba lần mở rộng sau, mỗi lần có lý do cụ
+thể, ghi lại để không trông giống scope creep âm thầm:
+
+| Lần | Thêm gì | Vì sao |
+|---|---|---|
+| 1 | App mobile: từ "công cụ nhân viên" → "khách hàng thân thiết" full-parity 2 lớp 3 pha | Người chủ dự án muốn tập trung vào khách quay lại, không phải nhân viên |
+| 2 | Hạn chế #10 thêm phần hiển thị (không chỉ đo); hạn chế #3 (thanh toán tự động qua Casso) | Người chủ dự án chủ động yêu cầu, chấp nhận rủi ro đã nêu ở hạn chế #10 |
+| 3 | §7 — cải tiến UX ba luồng `ops-web`, gộp vào môn Lập trình nâng cao | Người chủ dự án nêu giao diện/thao tác chưa tốt; xác nhận rõ đây là vấn đề UX, không phải thiết kế lại giao diện |
+
 ---
 
 ## 1. Bối cảnh
@@ -21,10 +32,10 @@ Học kỳ này tôi có 4 môn, dùng **một fork duy nhất** làm nền cho 
 
 | Môn | Cách fork phục vụ môn | Trạng thái |
 |---|---|---|
-| Lập trình nâng cao | Viết lại phần lõi backend từ ASP.NET Core sang Java Spring Boot | Bắt đầu ngay — §5 |
-| Quản lý dự án CNTT | Chính fork này là đối tượng quản lý: WBS, mốc, rủi ro | Bắt đầu ngay — §4 |
-| Triển khai phần mềm | Container hoá + CI/CD cho bản Java, so sánh với pipeline .NET hiện có | Kế hoạch đã phác — §7. Bắt đầu code sau khi §5 có gì để đóng gói |
-| Lập trình ứng dụng di động | App Flutter cho khách hàng thân thiết — thẻ thành viên số, điểm thưởng, ưu đãi | Kế hoạch đã phác — §8. Gọi thẳng backend .NET, không phụ thuộc tiến độ §5 |
+| Lập trình nâng cao | Backend ASP.NET → Java Spring Boot, thanh toán tự động, ước lượng thời gian món + huỷ món, cải tiến UX 3 luồng vận hành | Kế hoạch đầy đủ — §5, §6, §7 |
+| Quản lý dự án CNTT | Chính fork này là đối tượng quản lý: WBS, mốc, rủi ro, log thay đổi phạm vi | §4 |
+| Triển khai phần mềm | Container hoá + CI song song cho bản Java, chỉ local, so sánh với pipeline .NET | §8 |
+| Lập trình ứng dụng di động | App Flutter cho khách hàng thân thiết — full parity với web + lớp độc quyền (thẻ thành viên, hồ sơ AI bền vững) | §9 |
 
 ---
 
@@ -51,22 +62,19 @@ trong một học kỳ** — mục 5.1 định phạm vi cụ thể.
 
 Trích nguyên văn từ báo cáo nhóm (Bảng 43, §5.3), giữ số thứ tự gốc để dễ đối chiếu ngược:
 
-| # | Hạn chế | Loại |
-|---|---|---|
-| 1 | Chưa kiểm thử tải (p50 8,6s / p95 13,5s đo trên 1 máy) | Vận hành |
-| 2 | Chưa có human evaluation cho chất lượng câu trả lời AI | AI |
-| 3 | VietQR chưa tự động đối soát — xác nhận thủ công | Nghiệp vụ |
-| 4 | Chưa có coverage report, a11y test, performance budget frontend | Chất lượng |
-| 5 | Độ trễ trợ lý AI cao (p95 13,5s) | AI |
-| 6 | Ảnh Docker AI 2,74 GB | Vận hành |
-| 7 | Nhãn dị nguyên mới phủ 44/91 món, chưa bếp xác nhận | Dữ liệu |
-| 8 | Branch ruleset chỉ mới bật cuối kỳ | Quy trình |
-| 9 | Human peer review mới thiết lập cuối kỳ | Quy trình |
-| 10 | Chưa ước lượng thời gian lên món cho khách | **Nghiệp vụ — backend** |
-| 11 | **Khách chưa tự huỷ được món của mình** (rule nghiệp vụ đã có, thiếu endpoint theo capability token) | **Nghiệp vụ — backend** |
-
-Hạn chế #10 và #11 thuộc đúng mảng tôi phụ trách (Orders/Tables) và **không cần đổi schema** —
-phù hợp nhất để mang sang bản Java làm minh chứng "tôi hiểu nghiệp vụ, không chỉ dịch code".
+| # | Hạn chế | Loại | Xử lý trong kế hoạch này |
+|---|---|---|---|
+| 1 | Chưa kiểm thử tải (p50 8,6s / p95 13,5s đo trên 1 máy) | Vận hành | Ngoài phạm vi — đo trên .NET production, không đo trên Java demo |
+| 2 | Chưa có human evaluation cho chất lượng câu trả lời AI | AI | Ngoài phạm vi — không thuộc backend |
+| 3 | VietQR chưa tự động đối soát — xác nhận thủ công | Nghiệp vụ | **Nhận — §6, webhook Casso** |
+| 4 | Chưa có coverage report, a11y test, performance budget frontend | Chất lượng | Ngoài phạm vi — đo trên .NET production |
+| 5 | Độ trễ trợ lý AI cao (p95 13,5s) | AI | Ngoài phạm vi |
+| 6 | Ảnh Docker AI 2,74 GB | Vận hành | Ngoài phạm vi (tham chiếu khi so sánh image Java ở §8) |
+| 7 | Nhãn dị nguyên mới phủ 44/91 món, chưa bếp xác nhận | Dữ liệu | Ngoài phạm vi — việc dữ liệu/AI |
+| 8 | Branch ruleset chỉ mới bật cuối kỳ | Quy trình | Đã áp dụng ngay từ đầu cho fork này — §4 |
+| 9 | Human peer review mới thiết lập cuối kỳ | Quy trình | Không áp dụng — làm một mình |
+| 10 | Chưa ước lượng thời gian lên món cho khách | **Nghiệp vụ — backend** | **Nhận — §6, có kiểm soát rủi ro ước lượng sai** |
+| 11 | Khách chưa tự huỷ được món của mình | **Nghiệp vụ — backend** | **Nhận — §6** |
 
 ---
 
@@ -78,6 +86,9 @@ phù hợp nhất để mang sang bản Java làm minh chứng "tôi hiểu nghi
 3. **Mỗi việc có tiêu chí hoàn thành đo được** — kế thừa đúng kỷ luật nhóm cũ đã dùng suốt 5 tuần.
 4. **AI/RAG service (Python/FastAPI) giữ nguyên**, không nằm trong phạm vi môn Lập trình nâng cao —
    backend Java gọi sang nó qua đúng hợp đồng REST hiện có (`ai/contracts/ai-chat-v1.schema.json`).
+5. **Không đụng code lõi đang chạy thật của nhóm gốc nếu không bắt buộc** — mọi cải tiến (UX,
+   tính năng mới) ưu tiên làm ở bản Java đang xây mới, hoặc ở fork riêng, tránh sửa trực tiếp vào
+   những đường đã test kỹ và nhạy cảm với race condition trên bản .NET production thật.
 
 ---
 
@@ -85,68 +96,79 @@ phù hợp nhất để mang sang bản Java làm minh chứng "tôi hiểu nghi
 
 ### 4.1 Tuyên bố phạm vi (project charter rút gọn)
 
-- **Mục tiêu:** một bản backend Java Spring Boot phục vụ đúng luồng dine-in lõi (QR → menu → giỏ →
-  đơn → bếp → thanh toán), cộng hai nghiệp vụ hoàn thiện (#10, #11), chạy được với frontend React
-  hiện có mà không sửa API contract của các endpoint đã port.
-- **Ngoài phạm vi học kỳ này:** Loyalty, Promotions, Counter shift, Reports, AI/Chat (giữ Python),
-  multi-tenant, mobile app thật (đẩy sang môn Lập trình di động).
-- **Ràng buộc:** 1 người, chạy song song 4 môn, không có ngân sách hạ tầng ngoài máy cá nhân + VPS
-  demo hiện có (nếu dùng chung với repo gốc phải xin phép, xem §9).
+- **Mục tiêu:** một bản backend Java Spring Boot phục vụ luồng dine-in lõi, cộng ba nghiệp vụ hoàn
+  thiện (#3, #10, #11) và một đợt cải tiến UX có mục tiêu cho 3 luồng vận hành, chạy được với
+  frontend React hiện có mà không sửa API contract của các endpoint đã port.
+- **Ngoài phạm vi học kỳ này:** Loyalty/Promotions ở backend Java (ở lại .NET), Counter shift,
+  Reports, AI/Chat (giữ Python), multi-tenant, thiết kế lại giao diện trực quan (đã xác nhận UI
+  hiện tại ổn, chỉ tối ưu UX).
+- **Ràng buộc:** 1 người, chạy song song 4 môn, không có ngân sách hạ tầng ngoài máy cá nhân +
+  1 tài khoản ngân hàng cá nhân (cho webhook Casso). Không dùng VPS production của nhóm gốc.
 - **Tiêu chí xong (Definition of Done) cấp dự án:** `dotnet test` cũ và bộ test Java mới cùng xanh
   trên cùng một tập kịch bản nghiệp vụ; Docker Compose khởi động được bản Java thay cho bản .NET
-  trong `deploy/docker-compose.yml` (biến thể riêng, không sửa file gốc).
+  trong biến thể riêng; app Flutter chạy được tầng Lõi (M1) tối thiểu.
 
 ### 4.2 WBS (Work Breakdown Structure)
 
 ```
 1. Khởi tạo fork và quản trị dự án
-   1.1 Tạo fork riêng, cấu hình remote                          [XONG — §9]
+   1.1 Tạo fork riêng, cấu hình remote                          [XONG]
    1.2 Tài liệu kế hoạch (tài liệu này)                          [XONG]
    1.3 Thiết lập issue/milestone cho học kỳ (GitHub Projects)
 2. Java Spring Boot — nền tảng
    2.1 Khởi tạo project (Gradle/Maven, cấu trúc package-by-feature)
    2.2 Kết nối PostgreSQL (Flyway, tái dùng schema 21 migration hiện có)
-   2.3 Auth + Users (JWT, phân quyền role)
+   2.3 Auth + Users (JWT, phân quyền role, trường MemberId tuỳ chọn khi mở phiên)
 3. Java Spring Boot — nghiệp vụ lõi
    3.1 Menu + Categories
    3.2 Tables + QR session (state machine resume state)
    3.3 Orders + OrderItems (state machine, order_status_history)
-   3.4 Payments (COD bắt buộc; VietQR nếu còn thời gian)
+   3.4 Payments (COD, VietQR, webhook Casso tự động đối soát)
    3.5 Realtime (WebSocket/STOMP thay SignalR, có polling fallback)
 4. Hoàn thiện nghiệp vụ còn dang dở (song song bước 3)
    4.1 Hạn chế #11 — khách tự huỷ món qua capability token
-   4.2 Hạn chế #10 — mốc thời gian theo món (đo trước, chưa hiển thị ước lượng)
-5. Kiểm chứng
-   5.1 Bộ test tích hợp Java đối chiếu invariant V1–V63 liên quan module đã port
-   5.2 So khớp hành vi song song (chạy .NET và Java, cùng kịch bản, so response)
-6. Đóng gói môn học
-   6.1 Báo cáo Lập trình nâng cao (quyết định kỹ thuật, so sánh ASP.NET vs Spring Boot)
-   6.2 Cập nhật tài liệu quản lý dự án (mục này) theo tiến độ thật
+   4.2 Hạn chế #10 — đo + hiển thị ước lượng có kiểm soát rủi ro
+   4.3 Hạn chế #3 — webhook Casso đối soát VietQR tự động
+5. Cải tiến UX ba luồng vận hành (độc lập tiến độ Java, chạy trên React hiện có)
+   5.1 Counter — optimistic UI, xác nhận đóng ca, xác nhận hàng loạt COD
+   5.2 Kitchen — optimistic UI, chuyển trạng thái hàng loạt song song, tìm kiếm món 86
+   5.3 Admin — optimistic UI cho CRUD bàn/người dùng, chuẩn hoá hộp xác nhận
+   5.4 Dọn code debug sót (fetch 127.0.0.1:7639 trong 3 file Kitchen)
+6. Kiểm chứng
+   6.1 Bộ test tích hợp Java đối chiếu invariant liên quan module đã port
+   6.2 So khớp hành vi song song (chạy .NET và Java, cùng kịch bản, so response)
+7. Đóng gói môn học
+   7.1 Báo cáo Lập trình nâng cao (quyết định kỹ thuật, so sánh ASP.NET vs Spring Boot)
+   7.2 Cập nhật tài liệu quản lý dự án (mục này) theo tiến độ thật
 ```
+
+Track riêng, không tính vào 14 tuần dưới đây vì thuộc môn khác: **App Flutter (§9)** — WBS và mốc
+thời gian nằm trong §9.10, chạy song song theo lịch môn Lập trình di động.
 
 ### 4.3 Mốc thời gian đề xuất (khung 14 tuần, điều chỉnh theo lịch môn thật)
 
 | Tuần | Mốc | Đầu ra kiểm chứng được |
 |---|---|---|
-| 1–2 | Khởi tạo Spring Boot, kết nối DB, Auth | Login trả JWT giống contract cũ, test đăng nhập xanh |
+| 1–2 | Khởi tạo Spring Boot, kết nối DB, Auth (+ trường MemberId tuỳ chọn) | Login trả JWT giống contract cũ, test đăng nhập xanh |
 | 3–4 | Menu + Categories + Tables/QR | `GET /api/menu`, `GET /api/tables/{code}` tương đương .NET |
-| 5–7 | Orders + OrderItems + state machine | Toàn bộ luồng Placed→...→Completed có test |
-| 8 | Hạn chế #11 (khách tự huỷ món) | Endpoint mới + test theo capability token |
-| 9 | Hạn chế #10 (đo mốc thời gian món) | Cột/bảng ghi mốc thời gian, chưa hiển thị ước lượng |
-| 10 | Payments (COD, VietQR nếu kịp) | Luồng thanh toán qua được test tích hợp |
+| 5–7 | Orders + OrderItems + state machine + hạn chế #11 | Toàn bộ luồng Placed→...→Completed có test; khách huỷ được món `Pending` |
+| 8 | Hạn chế #10 — đo + hiển thị ước lượng có ngưỡng mẫu | Ước lượng chỉ hiện khi ≥20 mẫu, dạng khoảng, tính hàng đợi bếp |
+| 9–10 | Payments (COD, VietQR) + webhook Casso (hạn chế #3) | Thanh toán tự động xác nhận qua webhook, có test idempotent + race với xác nhận tay |
 | 11 | Realtime (WebSocket) | Bếp nhận `order.created` qua WebSocket + polling fallback |
-| 12 | So khớp hành vi song song .NET/Java | Báo cáo đối chiếu, liệt kê sai khác đã biết |
-| 13 | Đóng gói Docker + cập nhật docs | `docker-compose` biến thể chạy được bản Java |
-| 14 | Báo cáo + chuẩn bị vấn đáp | Tài liệu môn Lập trình nâng cao hoàn chỉnh |
+| 12 | Cải tiến UX Counter/Kitchen/Admin (§7) + dọn code debug | Optimistic UI, xác nhận đóng ca, bulk actions — có trước/sau đối chiếu |
+| 13 | So khớp hành vi song song .NET/Java | Báo cáo đối chiếu, liệt kê sai khác đã biết |
+| 14 | Đóng gói Docker (§8) + báo cáo + chuẩn bị vấn đáp | `docker-compose` biến thể chạy được bản Java, tài liệu hoàn chỉnh |
 
 ### 4.4 Sổ rủi ro (risk register)
 
 | Rủi ro | Khả năng | Ảnh hưởng | Giảm thiểu |
 |---|---|---|---|
-| Một người làm việc của 5 người trong 1 kỳ — hết thời gian trước khi port xong | Cao | Cao | Giữ đúng scope §5.1 (7 module lõi, không phải 17); descope công khai từng tuần nếu trễ |
-| SignalR → WebSocket lệch hành vi realtime, khó phát hiện | Trung bình | Trung bình | Giữ polling fallback y như bản .NET đã có sẵn (V53), không phụ thuộc 100% vào realtime |
-| Concurrency (`xmin`, serializable retry) khó tái tạo đúng bằng JPA | Trung bình | Cao | Ưu tiên port đúng 1 luồng có tranh chấp thật (tạo Order Round) trước, dùng `@Version` + Spring Retry, viết test tái tạo race condition như bản .NET (B24, B35) |
-| Trùng lịch 4 môn cùng lúc | Cao | Trung bình | Việc ở §4.2 bước 3–4 dùng chung cho cả môn PM lẫn Lập trình nâng cao — không làm hai lần |
+| Một người làm việc của 5 người trong 1 kỳ — hết thời gian trước khi xong | Cao | Cao | Giữ đúng scope §5.1 (7 module lõi); mọi hạng mục mới đều gắn "Lõi/Stretch/Để dành", ưu tiên demo-được-từng-phần |
+| Phạm vi đã mở rộng 3 lần kể từ bản đầu (xem log đầu tài liệu) | Đã xảy ra | Trung bình | Không mở rộng thêm nữa nếu không có lý do tương đương; mỗi lần mở rộng đều đối chiếu mã thật trước khi nhận |
+| SignalR → WebSocket lệch hành vi realtime, khó phát hiện | Trung bình | Trung bình | Giữ polling fallback y như bản .NET đã có sẵn (V53) |
+| Concurrency (`xmin`, serializable retry) khó tái tạo đúng bằng JPA | Trung bình | Cao | Ưu tiên port đúng 1 luồng có tranh chấp thật trước, dùng `@Version` + Spring Retry, viết test tái tạo race condition (B24, B35) |
+| Webhook Casso phụ thuộc dịch vụ ngoài + tài khoản ngân hàng cá nhân — giới hạn gói miễn phí, đổi API ngoài tầm kiểm soát | Trung bình | Trung bình | Giữ nguyên nút xác nhận thủ công của quầy làm phương án dự phòng vĩnh viễn, không xoá |
+| Ước lượng thời gian món sai làm hỏng lòng tin khách (rủi ro team gốc đã né) | Trung bình nếu bỏ qua kiểm soát | Cao | Bắt buộc 3 điều kiện ở §6 mục #10 (ngưỡng mẫu, hiện khoảng, tính hàng đợi) trước khi hiển thị bất kỳ số nào |
 | Sửa nhầm vào repo gốc của nhóm thay vì fork | Thấp (đã tách remote) | Cao nếu xảy ra | `origin` = repo nhóm (chỉ đọc/fetch), `personal` = fork riêng; không `git push origin` |
 
 ---
@@ -160,14 +182,14 @@ chạy được, không phải "dở dang không demo được":
 
 | Ưu tiên | Module | Vì sao |
 |---|---|---|
-| Bắt buộc | Auth + Users | Mọi thứ khác cần JWT |
+| Bắt buộc | Auth + Users | Mọi thứ khác cần JWT; nhận thêm trường `MemberId` tuỳ chọn khi mở phiên bàn (§9.5) |
 | Bắt buộc | Menu + Categories | CRUD đơn giản, khởi động nhanh, có dữ liệu để demo |
 | Bắt buộc | Tables | Nền cho QR session |
-| Bắt buộc | Orders | Lõi nghiệp vụ, nhiều invariant nhất |
-| Bắt buộc | Payments | Hoàn tất luồng dine-in |
+| Bắt buộc | Orders | Lõi nghiệp vụ, nhiều invariant nhất; nơi làm hạn chế #10, #11 |
+| Bắt buộc | Payments | Hoàn tất luồng dine-in; nơi làm hạn chế #3 (webhook Casso) |
 | Nên có | Realtime | Giá trị demo cao (bếp cập nhật trực tiếp) |
 | Nếu còn thời gian | Chat (chỉ proxy) | Gọi sang AI service Python có sẵn, không viết lại RAG |
-| **Để lại bản .NET** | Loyalty, Promotions, Counter, Reports | Không ảnh hưởng luồng dine-in lõi; ghi rõ trong báo cáo là descope có chủ đích |
+| **Để lại bản .NET** | Loyalty, Promotions, Counter, Reports | Không ảnh hưởng luồng dine-in lõi; app mobile (§9) là lý do nghiệp vụ thật để giữ Loyalty/Promotions sống trên .NET |
 
 ### 5.2 Ánh xạ công nghệ
 
@@ -180,6 +202,7 @@ chạy được, không phải "dở dang không demo được":
 | Optimistic concurrency | PostgreSQL `xmin` đọc thủ công → `409 CONFLICT_STALE` | JPA `@Version` (Hibernate optimistic locking) → bắt `OptimisticLockException` → map `409` |
 | Retry giao dịch serializable | `Database.CreateExecutionStrategy()` (Npgsql) | Spring Retry (`@Retryable`) quanh `@Transactional(isolation = SERIALIZABLE)` |
 | Realtime | SignalR hub | Spring WebSocket + STOMP, giữ nguyên polling fallback ở frontend |
+| Thanh toán VietQR | Ảnh QR tĩnh (`img.vietqr.io`), xác nhận tay | Giữ vẽ QR tương tự + thêm `POST /api/payments/webhooks/casso` xác minh chữ ký, đối soát tự động |
 | Cấu hình | `appsettings.json` + biến môi trường | `application.yml` + Spring profiles (`dev`/`staging`/`production`) |
 | Test tích hợp | `WebApplicationFactory` + EF InMemory | `@SpringBootTest` + Testcontainers PostgreSQL (khuyến nghị hơn H2, vì hệ thống phụ thuộc hành vi PostgreSQL thật — `xmin`, unique index có điều kiện) |
 | Đóng gói | Dockerfile .NET SDK | Dockerfile multi-stage Maven/Gradle + JRE 21 (image nhẹ như đã lưu ý ở hạn chế #6 cho AI image) |
@@ -187,8 +210,7 @@ chạy được, không phải "dở dang không demo được":
 ### 5.3 Kiến trúc đề xuất cho bản Java
 
 Bản .NET đã là modular monolith có port sẵn (`IUserStore`, `IChatStore`), nhưng ranh giới
-domain/adapter không tách vật lý. Bản Java tận dụng đúng lúc chuyển ngôn ngữ để làm rõ hơn — đây
-cũng là nội dung "tối ưu kiến trúc" cho môn Lập trình nâng cao:
+domain/adapter không tách vật lý. Bản Java tận dụng đúng lúc chuyển ngôn ngữ để làm rõ hơn:
 
 ```
 com.cmc.restaurant
@@ -210,162 +232,300 @@ machine mà không cần khởi động DB thật cho phần lớn test, chỉ i
 - Không đổi API contract của các endpoint đã port (frontend React không sửa được trong phạm vi
   môn này).
 - Không viết lại AI/RAG bằng Java — giữ nguyên service Python, chỉ proxy.
-- Không cố port `xmin`/execution-strategy y hệt byte-for-byte — mục tiêu là **giữ đúng bất biến**
-  (ví dụ V16: order round creation và settlement không được cùng commit từ một session version),
+- Không cố port `xmin`/execution-strategy y hệt byte-for-byte — mục tiêu là **giữ đúng bất biến**,
   không phải giữ đúng cơ chế.
 
 ---
 
 ## 6. Nghiệp vụ ưu tiên hoàn thiện trong bản Java
 
-Chọn từ 11 hạn chế đã biết (§2.1), tiêu chí chọn: **nằm trong luồng dine-in lõi đã đưa vào phạm vi
-Java (§5.1) + không cần đổi schema lớn + có thể chứng minh bằng test**:
+Ba hạn chế nhận vào phạm vi — tiêu chí chọn: nằm trong luồng dine-in lõi đã port (§5.1), có thể
+chứng minh bằng test, và (với #10) có kiểm soát rủi ro rõ ràng thay vì lặp lại đúng thứ team gốc
+đã né.
 
-1. **#11 — Khách tự huỷ món.** Rule nghiệp vụ đã có sẵn trong domain cũ (chỉ huỷ được món
-   `Pending`, khoá huỷ cả lượt khi một món vào bếp). Việc còn thiếu là mở endpoint cho vai trò
-   Customer, xác thực bằng capability token của lượt gọi thay vì role nhân viên. Port module này
-   thẳng vào bản Java kèm luôn tính năng mới — không port version thiếu rồi vá sau.
-2. **#10 — Mốc thời gian theo món.** Chỉ làm phần "đo trước": thêm cột/bảng ghi mốc thời gian theo
-   từng `OrderItem` (không phải theo lượt gọi như hiện tại). **Không** hiển thị ước lượng cho
-   khách trong phạm vi học kỳ này — đúng như lý do nhóm cũ đã nêu (ước lượng sai hại hơn không có).
+### #11 — Khách tự huỷ món
 
-Hai mục còn lại phù hợp nhưng **không** đưa vào phạm vi Java (để bản .NET xử lý nếu cần, vì không
-liên quan chuyển ngôn ngữ):
-- #1 (load test), #4 (coverage/a11y) là việc đo lường, áp dụng cho hệ thống nào đang chạy thật —
-  ưu tiên đo trên bản .NET đang production, không đo trên bản Java demo.
-- #7 (audit nhãn dị nguyên) là việc dữ liệu/AI, không thuộc backend.
+Rule nghiệp vụ đã có sẵn trong domain cũ (chỉ huỷ được món `Pending`, khoá huỷ cả lượt khi một món
+vào bếp). Việc còn thiếu là mở endpoint cho vai trò Customer, xác thực bằng capability token của
+lượt gọi thay vì role nhân viên. Port module này thẳng vào bản Java kèm luôn tính năng mới.
+
+### #10 — Mốc thời gian theo món, có hiển thị được kiểm soát
+
+Đo mốc thời gian theo từng `OrderItem` (không theo lượt gọi như hiện tại). Team gốc từng cố tình
+**không** hiển thị ước lượng, lý do ghi thẳng trong báo cáo: *"một ước lượng sai làm hỏng lòng tin
+nhiều hơn là không có ước lượng nào"*. Quyết định lần này là **có hiển thị**, nhưng bắt buộc ba
+điều kiện để không lặp lại đúng rủi ro đó:
+
+1. Chỉ hiện khi món đã có **đủ mẫu lịch sử** (≥20 lần nấu) — món mới/hiếm gọi hiện "Đang chuẩn bị",
+   không đoán liều.
+2. Hiện **khoảng** ("10–15 phút"), không hiện số chính xác giả tạo độ tin cậy không có thật.
+3. Tính cả **độ sâu hàng đợi bếp hiện tại**, không chỉ thời gian nấu trung bình riêng món đó.
+
+Nút "Huỷ món" (#11) đặt cạnh ước lượng trong cùng màn hình theo dõi đơn — khách thấy ước lượng dài
+có thể huỷ ngay nếu món chưa vào bếp. Hai tính năng dùng chung một màn hình, một mạch UX.
+
+### #3 — VietQR tự động đối soát
+
+Đọc mã xác nhận: `VietQrProvider.cs` hiện chỉ vẽ ảnh QR tĩnh qua `img.vietqr.io` (bank + số tài
+khoản + số tiền + nội dung), không có bước xác minh giao dịch nào — quầy phải tự nhìn sao kê rồi
+bấm xác nhận tay.
+
+Thiết kế tích hợp qua **Casso** (dịch vụ đối soát ngân hàng, liên kết tài khoản cá nhân):
+
+- `POST /api/payments/webhooks/casso` — **xác minh chữ ký/token trong header trước mọi xử lý khác**
+  (bỏ qua bước này là lỗ hổng nghiêm trọng: ai đó có thể gửi payload giả để đánh dấu đơn đã thanh
+  toán mà không cần trả tiền).
+- Đối chiếu `description` theo đúng định dạng có sẵn `"CMC {orderCode}"`, so khớp `amount`.
+- Idempotent: dùng trường `ProviderTransactionId` đã có sẵn trong `PaymentTransaction` (hiện bỏ
+  trống), gắn unique theo `reference` của Casso — Casso thử lại tới 17 lần/24h nếu không nhận
+  `200 OK`, endpoint phải chịu được gọi trùng.
+- Tranh chấp với nút xác nhận tay của quầy (**giữ lại vĩnh viễn làm phương án dự phòng**, không
+  xoá): dùng optimistic concurrency (`@Version`, cùng pattern với Order Round) để chỉ một bên thắng.
+- Secret lưu qua biến môi trường theo đúng convention `.env.example` sẵn có, không commit.
+
+### Không nhận vào phạm vi Java
+
+- #1 (load test), #4 (coverage/a11y) — việc đo lường áp dụng cho hệ thống đang chạy thật, ưu tiên
+  đo trên bản .NET production, không đo trên bản Java demo.
+- #7 (audit nhãn dị nguyên) — việc dữ liệu/AI, không thuộc backend.
 
 ---
 
-## 7. Kế hoạch triển khai phần mềm (môn Triển khai phần mềm)
+## 7. Cải tiến UX ba luồng vận hành (`ops-web`)
 
-### 7.1 Ranh giới an toàn
+> Xác nhận trước khi đọc phần này: **UI (màu sắc, bố cục) đã được đánh giá là ổn, không cần thiết
+> kế lại.** Đây là cải tiến UX/thao tác thuần — dựa trên báo cáo đọc mã thật ba luồng Counter,
+> Kitchen, Admin trong `frontend/apps/admin-web` (tên package `@cmc/ops-web`).
+
+### 7.1 Đính chính một giả định sai ảnh hưởng tới §9
+
+Số điện thoại loyalty **không phải do quầy gõ tay** như tài liệu vận hành cũ mô tả — mà do chính
+**khách hàng tự gõ** lúc thanh toán trên `ordering-web`
+(`frontend/src/ordering/TableInvoicePaymentModal.tsx:141-149`, input tự do, không kiểm định dạng,
+không tra cứu trùng). Quầy chỉ **nhìn thấy** số đó dạng chỉ đọc
+(`frontend/src/pages/StaffPaymentsPage.tsx:141`), không có cách sửa nếu khách gõ sai hoặc bỏ trống.
+
+Hệ quả cho §9: giá trị thật của app mobile ở bước này không phải "quầy quét thẻ thành viên", mà là
+**tự động điền số điện thoại đúng ở bước khách đang tự gõ** khi khách đã đăng nhập — bỏ hẳn thao
+tác thủ công dễ sai, không cần quầy làm gì thêm.
+
+### 7.2 Counter
+
+| Vấn đề | File | Sửa |
+|---|---|---|
+| Xác nhận thanh toán chờ refetch cả danh sách, không optimistic | `StaffPaymentsPage.tsx:143-154` | Xoá khỏi danh sách "chờ thu" ngay khi bấm, rollback nếu API lỗi |
+| **Đóng ca — thao tác không thể hoàn tác, ghi lệch quỹ tiền mặt — không có hộp xác nhận nào** | `CounterShiftPanel.tsx:73-87` (`handleCloseShift`) | Thêm hộp xác nhận có hiện số tiền lệch trước khi chốt — đây là khoảng trống an toàn, không chỉ UX |
+| Không có xác nhận hàng loạt lúc đông khách | `StaffPaymentsPage.tsx` | Thêm nút "Xác nhận tất cả COD" cho các hoá đơn COD đang chờ |
+| Không phím tắt | toàn bộ `pages/counter/*` | Thêm phím tắt cho thao tác xác nhận lặp lại nhiều nhất |
+
+**Giữ nguyên, không sửa:** `useOpsRealtime` (WebSocket + polling fallback 5s) đã cập nhật hàng chờ
+hoá đơn tốt, không cần bấm "Làm mới".
+
+### 7.3 Kitchen
+
+**Giữ nguyên, không sửa — đây là luồng UX tốt nhất hệ thống:** kéo-thả giữa cột
+(`KitchenBoard.tsx:449-505`), vuốt cảm ứng (`handleTouchEnd:125-131`), điều hướng bàn phím đầy đủ
+(Enter mở chi tiết, Space chuyển trạng thái, `onKeyDown:145-151`).
+
+| Vấn đề | File | Sửa |
+|---|---|---|
+| Mỗi thao tác vẫn chờ round-trip mới cập nhật giao diện, dù là chuyển trạng thái đã biết trước | `KitchenBoard.tsx:414-447, 507-522` | Optimistic update — patch trạng thái tại chỗ, rollback nếu API lỗi (đúng pattern menu-availability toggle đã có ở Admin) |
+| "Chuyển tất cả sang trạng thái kế" chạy tuần tự từng món (`for` + `await`), N món = N round-trip nối tiếp | `KitchenBoard.tsx:429-434` (`handleMoveNext`) | Đổi sang `Promise.all` |
+| Panel "86 hết món" mặc định thu gọn, không tìm kiếm, phải cuộn tay lúc gấp | `KitchenRealtimePage.tsx:192-212` | Mở sẵn trong giờ cao điểm hoặc thêm ô tìm kiếm nhanh |
+
+### 7.4 Admin
+
+**Giữ nguyên, không sửa — mẫu tốt nên nhân rộng:** quản lý menu đã có filter/search, modal sửa,
+optimistic toggle khả dụng (`AdminMenuManager.tsx:171-178, 196-237`); sửa tên bàn tại chỗ
+(inline-edit, `AdminTableCrudPanel.tsx:179-188, 197-210`).
+
+| Vấn đề | File | Sửa |
+|---|---|---|
+| Sửa bàn/người dùng refetch toàn bộ sau mỗi thao tác thay vì cập nhật tại chỗ | `AdminTableCrudPanel.tsx:75-117`, `AdminUserManager.tsx:170-208` | Áp dụng đúng pattern optimistic đã có ở `AdminMenuManager` |
+| Hộp xác nhận xoá dùng `confirm()` thô của trình duyệt, rải rác không nhất quán | `AdminCategoryManager.tsx:66`, `AdminMenuManager.tsx:161`, `AdminUserManager.tsx:196`, `AdminTableSessionMonitor.tsx:87`, `AdminTableCrudPanel.tsx:105` | Một component `ConfirmDialog` dùng chung, có "gõ để xác nhận" cho thao tác xoá không thể hoàn tác |
+| Không có thao tác hàng loạt (menu, bàn, người dùng đều sửa từng dòng) | toàn bộ Admin | Thêm chọn nhiều dòng + hành động hàng loạt cho thao tác lặp lại nhiều nhất (vd bật/tắt nhiều món cùng lúc) |
+
+### 7.5 Dọn dẹp phát hiện phụ
+
+Có code debug/agent-harness sót lại — `fetch("http://127.0.0.1:7639/ingest/...")` kèm
+`hypothesisId`/`sessionId` trong xử lý lỗi, xuất hiện ở `KitchenRealtimePage.tsx:109-126`,
+`OpsToastProvider.tsx`, `OpsErrorBoundary.tsx`. Không phải vấn đề UX nhưng nên xoá — không nên còn
+trong mã nộp báo cáo.
+
+---
+
+## 8. Kế hoạch triển khai phần mềm (môn Triển khai phần mềm)
+
+### 8.1 Ranh giới an toàn
 
 Pipeline hiện có (`.github/workflows/*`, VPS production) **thuộc về repo nhóm gốc**, đang phục vụ
 điểm môn INFO2005 của 4 người khác — không sửa `deploy-staging.yml`/`deploy-production.yml` gốc,
 không SSH hay deploy thật lên VPS đó. Toàn bộ việc dưới đây chỉ chạy trong fork cá nhân và **chỉ
-local Docker Compose** — quyết định đã chốt, không có bước lên VPS thật trong phạm vi môn này.
+local Docker Compose**.
 
-### 7.2 Vì sao không chỉ viết báo cáo phân tích
+### 8.2 Vì sao không chỉ viết báo cáo phân tích
 
 Pipeline gốc đã rất đầy đủ (9 workflow, staging/production tách biệt, auto-rollback, CodeQL +
-Trivy + gitleaks + dependency-review, 14 cổng generator-check). Phân tích lại nó không tạo ra chứng
-cứ kỹ năng mới. Việc có giá trị hơn cho môn học: **tự tay dựng một đường triển khai song song cho
-bản Java**, rồi so sánh có số liệu với bản .NET đang chạy thật — đó mới là "triển khai", không
-phải "đọc triển khai người khác làm".
+Trivy + gitleaks + dependency-review, 14 cổng generator-check). Việc có giá trị hơn cho môn học:
+**tự tay dựng một đường triển khai song song cho bản Java**, so sánh có số liệu với bản .NET đang
+chạy thật.
 
-### 7.3 Việc cụ thể
+### 8.3 Việc cụ thể
 
 | # | Việc | Đối chiếu với hạ tầng .NET hiện có |
 |---|---|---|
-| D1 | Dockerfile multi-stage cho Spring Boot (build: Maven/Gradle, runtime: JRE slim) | So kích thước image với `backend/Dockerfile` (.NET SDK/runtime) |
+| D1 | Dockerfile multi-stage cho Spring Boot (build: Maven/Gradle, runtime: JRE slim) | So kích thước image với `backend/Dockerfile` |
 | D2 | `deploy/docker-compose.java.yml` — biến thể thay service `api` bằng image Java, giữ nguyên `postgres`, `ai-service`, `frontend` | Tái dùng đúng healthcheck pattern `/api/health`, `depends_on: service_healthy` |
-| D3 | Service `migrate` one-shot chạy Flyway thay EF Core, theo đúng mẫu `migrate` hiện có (`--migrate-only`) | Giữ nguyên nguyên tắc V10: migration tách khỏi API boot |
-| D4 | Workflow `ci-java.yml` mirror job `backend-test` của `ci.yml` (build/test Maven/Gradle + Testcontainers) | Không đụng `ci.yml` gốc — file mới, chạy độc lập trên fork |
-| D5 | Báo cáo so sánh có số liệu: build time, image size, cold start, RAM idle | Đo trên cùng máy, cùng điều kiện với bản .NET để số liệu so được |
-| D6 | *(nếu còn thời gian)* diễn tập rollback thủ công trên local: dừng service Java giả lập lỗi, phục hồi từ image trước | Không bắt buộc — chỉ VPS thật mới cần rollback tự động như `rollback.yml` gốc |
+| D3 | Service `migrate` one-shot chạy Flyway thay EF Core | Giữ nguyên nguyên tắc V10: migration tách khỏi API boot |
+| D4 | Workflow `ci-java.yml` mirror job `backend-test` của `ci.yml` | File mới, chạy độc lập trên fork, không đụng `ci.yml` gốc |
+| D5 | Báo cáo so sánh có số liệu: build time, image size, cold start, RAM idle | Đo trên cùng máy, cùng điều kiện với bản .NET |
+| D6 | *(nếu còn thời gian)* diễn tập rollback thủ công trên local | Không bắt buộc — chỉ VPS thật mới cần rollback tự động như `rollback.yml` gốc |
 
-### 7.4 Ngoài phạm vi
+### 8.4 Ngoài phạm vi
 
 Không CI/CD thật lên staging/production, không secrets thật, không sửa branch ruleset của repo
-nhóm gốc. Đây là bài tập triển khai **có kiểm chứng bằng số liệu local**, không phải vận hành thật.
+nhóm gốc.
 
 ---
 
-## 8. Kế hoạch ứng dụng di động (môn Lập trình ứng dụng di động)
+## 9. Kế hoạch ứng dụng di động (môn Lập trình ứng dụng di động)
 
-> Đổi hướng so với bản trước: không làm app cho nhân viên phục vụ nữa. Tập trung vào **khách hàng
-> thân thiết**, với giá trị mà web QR không thể làm được (danh tính bền vững qua nhiều lần ghé),
-> thay vì lặp lại luồng gọi món ẩn danh đã có.
-
-### 8.1 Vì sao đây là bài toán khác, không phải "làm lại web trên mobile"
+### 9.1 Vì sao đây là bài toán khác, không phải "làm lại web trên mobile"
 
 QR ordering trên web **cố tình ẩn danh và theo từng lượt**: mở phiên khi quét bàn, hết giá trị khi
-rời quán. Đúng cho khách vãng lai — không ai muốn cài app chỉ để ăn một bữa. Nhưng mô hình đó cấu
-trúc không cho phép bất cứ thứ gì cần **nhớ khách qua nhiều lần ghé**: điểm thưởng, ưu đãi riêng,
-lịch sử gọi món. App nhắm đúng vào khoảng đó — nhóm khách quay lại nhiều lần, có động lực đổi lấy
-một app để được nhận biết.
+rời quán. Đúng cho khách vãng lai. Nhưng mô hình đó cấu trúc không cho phép bất cứ thứ gì cần
+**nhớ khách qua nhiều lần ghé**. App nhắm đúng vào khoảng đó.
 
-Phát hiện đáng chú ý khi đọc mã: backend **đã có sẵn hạ tầng tài khoản khách hàng** —
-`POST /api/auth/register` (role mặc định `Customer`), `POST /api/auth/login`, policy
-`CustomerOnly` — nhưng **không có luồng nào trong sản phẩm hiện dùng nó**. Luồng QR dùng table
-session, không dùng tài khoản khách. App này sẽ là người dùng thật đầu tiên của hạ tầng đang nằm
-không đó.
+Quyết định phạm vi (đã chốt): app **không phải companion nhỏ** — có đầy đủ tính năng ngang
+`ordering-web` (menu, giỏ, đơn, theo dõi, thanh toán, chat), cộng một lớp tính năng độc quyền chỉ
+app mới có.
 
-### 8.2 Stack: Flutter (Dart)
+Phát hiện nền tảng: backend **đã có sẵn hạ tầng tài khoản khách hàng** — `POST /api/auth/register`
+(role mặc định `Customer`), `POST /api/auth/login`, policy `CustomerOnly` — nhưng **không có luồng
+nào trong sản phẩm hiện dùng nó**. App này là người dùng thật đầu tiên của hạ tầng đang nằm không.
 
-### 8.3 Đối chiếu với mã thật — cái gì dùng ngay, cái gì phải xây thêm
+### 9.2 Stack: Flutter (Dart)
 
-| Dùng ngay, không sửa backend | Cần thêm nhỏ (1 endpoint, không đổi schema) | Để dành — cần đổi schema/nghiệp vụ |
+### 9.3 Kiến trúc 2 lớp
+
+| Lớp | Nội dung |
+|---|---|
+| **Lớp nền** (ngang web) | Đăng nhập, mở/tiếp tục phiên bàn theo đúng resume-state (V51-52), menu, giỏ hàng, tạo đơn, theo dõi đơn realtime + polling fallback (V53), ước lượng thời gian + huỷ món (§6 #10/#11), thanh toán COD/VietQR (tự động xác nhận khi webhook Casso đã có), chat AI trong phiên |
+| **Lớp độc quyền** | Định danh bền vững qua nhiều lần ghé: tự động điền SĐT lúc thanh toán, điểm + ưu đãi, khuyến mãi riêng thành viên, lịch sử đơn nhiều lần ghé, đặt lại món cũ, hồ sơ AI bền vững (§9.8) |
+
+### 9.4 Cơ chế gắn định danh khách vào phiên bàn
+
+Vì lớp nền bắt buộc app phải tự gọi `POST /api/table-sessions` (để lấy resume state, menu, giỏ —
+không có cách nào tránh gọi endpoint này nếu muốn full parity), việc gắn định danh khách vào đúng
+lúc mở phiên trở thành **một trường nullable cộng thêm, không phải một đường xử lý mới**:
+
+- Nếu request có `Authorization` hợp lệ với role `Customer` → set `TableSession.MemberId`.
+- Nếu không có (khách vãng lai qua web như hiện tại) → giữ nguyên hành vi ẩn danh, không đổi gì.
+- **Không sửa logic mở phiên hiện có** (nơi có lịch sử race-condition thật — bug B73, invariant
+  V51/V52) — chỉ thêm một field và một nhánh gán giá trị, tách biệt hoàn toàn khỏi phần logic đang
+  nhạy cảm.
+
+Việc này mở khoá: lịch sử đơn theo tài khoản, "món hay gọi", và là điều kiện tiên quyết cho hồ sơ
+AI bền vững ở §9.8.
+
+### 9.5 Đối chiếu mã thật — cái gì dùng ngay, cái gì phải xây thêm
+
+| Dùng ngay | Cần thêm nhỏ | Cần thêm — nối vào §5/§6 (đang port Java) |
 |---|---|---|
-| Đăng ký/đăng nhập khách (`/api/auth/register`, `/login`) | `GET /api/promotions/active` — hiện chỉ có `/api/promotions/validate` (kiểm 1 mã) và CRUD admin, chưa có danh sách công khai cho khách xem | Đổi điểm lấy ưu đãi — `LoyaltyReward` mới chỉ lọc "đủ điều kiện", chưa có endpoint trừ điểm |
-| Tra điểm + ưu đãi đủ điều kiện (`GET /api/loyalty/lookup?phone=`, đã yêu cầu đăng nhập) | | Liên kết tài khoản ↔ hồ sơ loyalty — `LoyaltyMember` định danh theo **số điện thoại**, `AppUser` định danh theo **email**; hai bảng không có khoá ngoại nối nhau |
-| Xem menu không cần đang ở bàn (`GET /api/menu` không đòi hỏi table session) | | Lịch sử đơn theo tài khoản — `Order` hiện chỉ gắn `TableSession`, không gắn `AppUser` |
-| | | Chat AI ngoài phiên bàn — khoá cứng bởi invariant V5 (chat capability chỉ sống khi có `TableSession` đang mở) |
-| | | Push notification thật (FCM/APNs) — hiện chỉ có SignalR trong tab trình duyệt, không hoạt động khi app đóng |
+| Đăng ký/đăng nhập khách (`/api/auth/register`, `/login`) | `GET /api/promotions/active` — hiện chỉ có `/api/promotions/validate` và CRUD admin | Toàn bộ luồng đơn/giỏ/thanh toán/thời gian ước lượng/huỷ món — theo tiến độ port module tương ứng |
+| Tra điểm + ưu đãi đủ điều kiện (`GET /api/loyalty/lookup?phone=`) | `TableSession.MemberId` (§9.4) | Webhook Casso (§6 #3) — app chỉ cần hiển thị trạng thái thanh toán tự cập nhật, không tự xử lý webhook |
+| Xem menu không cần đang ở bàn (`GET /api/menu`) | | |
 
-### 8.4 Tính năng đề xuất — 3 tầng, chọn theo còn bao nhiêu thời gian
+### 9.6 Tính năng theo 3 pha
 
-**Lõi (làm chắc trong học kỳ — client + tối đa 1 endpoint mới):**
+| Pha | Nội dung | Phụ thuộc |
+|---|---|---|
+| **M1** | Đăng nhập, mở phiên có gắn `MemberId`, xem menu, xem đơn + trạng thái realtime (chỉ đọc), điểm/ưu đãi, khuyến mãi độc quyền | Không phụ thuộc tiến độ Java — gọi được ngay vào bản .NET hiện có |
+| **M2** | Giỏ hàng, tạo đơn, thanh toán COD/VietQR (tự động nếu Casso đã xong), chat AI trong phiên, ước lượng thời gian + huỷ món | Phụ thuộc Orders/Payments/Realtime port xong (§5 tuần 5–11) |
+| **M3** | Lịch sử đơn nhiều lần ghé, đặt lại món cũ, đổi điểm lấy ưu đãi, hồ sơ AI bền vững | Phụ thuộc M1 (đã có `MemberId`) + M2 (đã có Order gắn định danh) |
 
-1. Đăng ký/đăng nhập tài khoản khách hàng.
-2. **Thẻ thành viên số** — màn hình hiển thị mã QR/vạch dựng từ số điện thoại khách đã lưu trong
-   app, để quầy quét thay vì gõ tay lúc thanh toán.
-3. Trang điểm thưởng + danh sách ưu đãi đủ điều kiện đổi (dữ liệu lấy thẳng từ response có sẵn của
-   `/api/loyalty/lookup`, không cần dựng lại logic).
-4. Xem menu mọi lúc, không cần có mặt tại quán — khác biệt thật với web QR.
-5. Danh sách khuyến mãi/flash sale đang chạy — cần thêm đúng 1 endpoint đọc (mục 8.3, cột giữa).
+M1 tách biệt tiến độ Java hoàn toàn — có thể làm và demo được ngay cả khi §5 chưa xong module nào,
+vì M1 chỉ cần Auth + Loyalty + Promotions + Menu, toàn bộ đã có sẵn trên bản .NET.
 
-**Stretch (nếu còn thời gian, cần thêm backend nhỏ-vừa):**
+### 9.7 Vì sao "tự động điền SĐT" là tính năng lõi, không phải điểm/ưu đãi
 
-6. Đổi điểm lấy ưu đãi ngay trong app — cần endpoint redeem trừ điểm **có khoá chống tranh chấp**;
-   đây là dịp làm đúng ngay từ đầu bài học từ bug B28 (loyalty accrual cũ dùng read-modify-write
-   không khoá).
-7. Liên kết tài khoản ↔ hồ sơ loyalty tự động (thêm `UserId` vào `LoyaltyMember` thay vì chỉ khớp
-   qua số điện thoại khách tự gõ).
-8. Push notification thật (FCM) khi có ưu đãi mới hoặc flash sale.
+Đã đính chính ở §7.1: đây là tính năng duy nhất giải quyết đúng vấn đề thật thấy trong mã — khách
+tự gõ SĐT dễ sai, không kiểm định dạng, không tra trùng. App loại bỏ hẳn bước gõ tay đó khi khách
+đã đăng nhập.
 
-**Để dành lâu dài (không nhận trong học kỳ này):**
+### 9.8 Hồ sơ khách hàng bền vững cho AI
 
-9. Lịch sử đơn & đặt lại món cũ — đổi cách `Order` liên kết định danh khách là thay đổi
-   schema/nghiệp vụ không nhỏ, không hợp một học kỳ làm kèm 3 môn khác.
-10. Chat AI ngoài phiên bàn — đụng thẳng invariant V5 đang bảo vệ; mở rộng cần thiết kế lại
-    guardrail, không phải việc nhỏ.
-11. Đặt bàn trước / đặt món mang về — ngoài phạm vi nghiệp vụ đã chốt trong tài liệu BA/SA hiện tại.
+Đọc mã thấy hệ thống **đã có đúng khái niệm này nhưng bị xoá theo từng lượt khách**:
+`ChatSessionFact` (`Kind`: allergen/diet/spice/budget/party_size/language, `Value`, `Confidence`)
+trích xuất đúng thứ cần nhớ — nhưng comment trong `ChatSession.cs` ghi thẳng: *"Khi phiên bàn đóng/
+hết hạn, mọi chat session gắn với nó sẽ bị xóa để phục vụ khách mới"*.
 
-### 8.5 Vì sao "thẻ thành viên số" là tính năng lõi, không phải điểm/ưu đãi
+**Thiết kế:**
 
-Vì nó là tính năng **duy nhất giải quyết một vấn đề vận hành có thật đang thấy trong mã**: quầy
-hiện phải gõ tay số điện thoại khách mỗi lần thanh toán để cộng điểm (`LoyaltyService.AccruePointsAsync`
-nhận `phoneNumber` dạng chuỗi tự do) — một mã quét được giảm hẳn sai sót gõ nhầm số, và là lý do
-thật để khách chấp nhận cài thêm một app.
+- Bảng mới `CustomerProfileFact` — cùng hình dạng `ChatSessionFact` nhưng khoá theo `MemberId`
+  thay vì `ChatSessionId`, **không** bị xoá khi bàn đóng.
+- **Promote:** khi `ChatSession` của khách đã đăng nhập đóng lại, fact `Kind=allergen/diet/spice`
+  được chép sang hồ sơ bền vững.
+- **Seed:** mở `ChatSession` mới cho khách đã có hồ sơ → nạp sẵn fact cũ ngay từ tin đầu tiên —
+  khách không phải khai lại dị ứng mỗi lần.
+- **"Món hay gọi":** không cần cơ chế mới — truy vấn top món từ lịch sử `Order` theo `MemberId`
+  (có từ M2/M3).
 
-### 8.6 Gọi vào backend nào
+**Ranh giới an toàn cần nói rõ:** đây là lớp cá nhân hoá tiện lợi, **không thay thế** cơ chế chặn
+cứng theo nhãn dị nguyên của món (hạn chế #7 — mới phủ 44/91 món — vẫn còn nguyên, không liên quan
+gì đến việc này). Có hồ sơ không có nghĩa là an toàn hơn về nhãn món.
 
-Gọi **bản .NET**, không đổi sang bản Java — vì Loyalty và Promotions nằm trong danh sách module
-**cố tình để lại bản .NET**, không thuộc phạm vi port Java (§5.1). App mobile là lý do nghiệp vụ
-thật để giữ hai module đó sống tiếp trên bản .NET, không phải chỉ vì "chưa kịp port".
+**Phân công:** bảng/logic promote-seed là backend + AI-service (Python), không tính vào môn Lập
+trình di động — việc của Flutter chỉ là hiển thị ("Món tôi hay gọi", chat cảm giác "nhớ" khách).
 
-### 8.7 WBS rút gọn (tầng Lõi)
+### 9.9 Gọi vào backend nào
 
-1. Đăng ký/đăng nhập, lưu JWT an toàn trên thiết bị.
-2. Màn hình thẻ thành viên (dựng mã QR từ số điện thoại đã lưu).
-3. Trang điểm thưởng + ưu đãi đủ điều kiện.
-4. Trình duyệt menu (không cần table context).
-5. Thêm `GET /api/promotions/active` ở backend + màn hình danh sách khuyến mãi.
-6. Kiểm thử trên thiết bị thật, chụp bằng chứng cho báo cáo môn học.
+Theo module, không phải theo toàn bộ backend:
+
+- Auth, Menu, Tables, Orders, Payments, Realtime → gọi bản đang chạy tại thời điểm đó (**.NET
+  trước khi §5 port xong module tương ứng, chuyển sang Java sau** — API contract không đổi nên
+  Flutter không cần sửa gì khi chuyển).
+- Loyalty, Promotions, hồ sơ AI bền vững → **luôn gọi bản .NET**, vì các module này cố tình để lại
+  .NET (§5.1), không nằm trong lộ trình port Java.
+
+### 9.10 WBS theo pha
+
+**M1**
+1. Đăng nhập, lưu JWT an toàn trên thiết bị.
+2. Mở phiên bàn có gắn `MemberId` (cần thêm field ở backend đang dùng — §9.4).
+3. Trang điểm thưởng + ưu đãi đủ điều kiện, danh sách khuyến mãi (`GET /api/promotions/active` mới).
+4. Trình duyệt menu (không cần table context) + xem đơn/trạng thái chỉ đọc.
+
+**M2**
+5. Giỏ hàng + tạo đơn, theo đúng resume-state đã có ở web.
+6. Thanh toán COD/VietQR, phản ánh trạng thái tự động khi webhook Casso đã xong.
+7. Ước lượng thời gian món + nút huỷ món trong màn theo dõi đơn.
+8. Chat AI trong phiên.
+
+**M3**
+9. Lịch sử đơn nhiều lần ghé + đặt lại món cũ.
+10. Đổi điểm lấy ưu đãi.
+11. Hồ sơ AI bền vững — hiển thị phía app (logic backend/AI ở §9.8 do phần Lập trình nâng cao làm).
+
+Kiểm thử trên thiết bị thật, chụp bằng chứng cho báo cáo môn học ở mỗi pha hoàn thành, không dồn
+hết vào cuối kỳ.
 
 ---
 
-## 9. Đã thực hiện
+## 10. Đã thực hiện
 
 - [x] Tạo repo riêng `Anpham120/restaurant-qr-ai-ordering-nqh` (private), remote `personal` trỏ
       vào đó; remote `origin` giữ nguyên trỏ về repo nhóm, chỉ dùng để đồng bộ đọc.
-- [x] Đối chiếu hiện trạng thật (module/endpoint/invariant/hạn chế) trước khi lập kế hoạch, không
-      suy đoán từ README một cách chung chung.
+- [x] Đối chiếu hiện trạng thật (module/endpoint/invariant/hạn chế) trước khi lập kế hoạch.
+- [x] Đọc mã thật cho từng quyết định lớn: `LoyaltyService`/`VietQrProvider` (thanh toán),
+      `ChatSessionFact`/`ChatSession` (hồ sơ AI), ba luồng `ops-web` qua agent khảo sát riêng (UX).
+- [x] Tra tài liệu kỹ thuật thật của Casso Webhook V2 trước khi thiết kế tích hợp thanh toán.
 
-## 10. Bước tiếp theo
+## 11. Bước tiếp theo
 
-- [ ] Commit và đẩy tài liệu này + toàn bộ mã nguồn lên `personal`.
-- [ ] Tạo GitHub Project/milestone trên fork riêng theo mốc ở §4.3.
-- [ ] Khởi tạo project Spring Boot (bước 2.1 trong WBS) khi sẵn sàng bắt đầu code.
+- [ ] Commit và đẩy tài liệu này lên `personal`.
+- [ ] Tạo GitHub Project/milestone trên fork riêng theo mốc ở §4.3 (danh sách issue đã phác — chờ
+      duyệt lần cuối trước khi tạo thật).
+- [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
+      cho §6 mục #3).
+- [ ] Khởi tạo project Spring Boot (WBS §4.2 bước 2.1) khi sẵn sàng bắt đầu code.
