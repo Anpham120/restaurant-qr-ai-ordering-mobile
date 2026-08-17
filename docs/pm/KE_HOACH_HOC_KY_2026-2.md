@@ -24,7 +24,7 @@ Học kỳ này tôi có 4 môn, dùng **một fork duy nhất** làm nền cho 
 | Lập trình nâng cao | Viết lại phần lõi backend từ ASP.NET Core sang Java Spring Boot | Bắt đầu ngay — §5 |
 | Quản lý dự án CNTT | Chính fork này là đối tượng quản lý: WBS, mốc, rủi ro | Bắt đầu ngay — §4 |
 | Triển khai phần mềm | Container hoá + CI/CD cho bản Java, so sánh với pipeline .NET hiện có | Kế hoạch đã phác — §7. Bắt đầu code sau khi §5 có gì để đóng gói |
-| Lập trình ứng dụng di động | App Flutter cho nhân viên phục vụ (khoảng trống đã ghi nhận, khớp roadmap gốc mục 17) | Kế hoạch đã phác — §8. Bắt đầu code sau khi §5 port xong Orders |
+| Lập trình ứng dụng di động | App Flutter cho khách hàng thân thiết — thẻ thành viên số, điểm thưởng, ưu đãi | Kế hoạch đã phác — §8. Gọi thẳng backend .NET, không phụ thuộc tiến độ §5 |
 
 ---
 
@@ -274,41 +274,86 @@ nhóm gốc. Đây là bài tập triển khai **có kiểm chứng bằng số 
 
 ## 8. Kế hoạch ứng dụng di động (môn Lập trình ứng dụng di động)
 
-### 8.1 Bài toán — không phải tính năng tự nghĩ ra
+> Đổi hướng so với bản trước: không làm app cho nhân viên phục vụ nữa. Tập trung vào **khách hàng
+> thân thiết**, với giá trị mà web QR không thể làm được (danh tính bền vững qua nhiều lần ghé),
+> thay vì lặp lại luồng gọi món ẩn danh đã có.
 
-[`docs/frontend/OPS_APP.md`](../frontend/OPS_APP.md) ghi thẳng: *"No mobile floor-staff UI. Service
-staff coordinate via radio; counter staff use the POS workspace only."* Nhân viên phục vụ hiện
-**không có công cụ số nào** — biết bàn nào có món sẵn sàng hoàn toàn qua bộ đàm/đi hỏi bếp. Đây là
-khoảng trống đã được chính hệ thống ghi nhận, và khớp thẳng roadmap gốc mục 17 ("ứng dụng di động
-cho nhân viên phục vụ"). Không thêm app khách hàng — mô hình QR ordering cố tình không cần cài app,
-thêm app khách sẽ mâu thuẫn với giá trị cốt lõi đó.
+### 8.1 Vì sao đây là bài toán khác, không phải "làm lại web trên mobile"
+
+QR ordering trên web **cố tình ẩn danh và theo từng lượt**: mở phiên khi quét bàn, hết giá trị khi
+rời quán. Đúng cho khách vãng lai — không ai muốn cài app chỉ để ăn một bữa. Nhưng mô hình đó cấu
+trúc không cho phép bất cứ thứ gì cần **nhớ khách qua nhiều lần ghé**: điểm thưởng, ưu đãi riêng,
+lịch sử gọi món. App nhắm đúng vào khoảng đó — nhóm khách quay lại nhiều lần, có động lực đổi lấy
+một app để được nhận biết.
+
+Phát hiện đáng chú ý khi đọc mã: backend **đã có sẵn hạ tầng tài khoản khách hàng** —
+`POST /api/auth/register` (role mặc định `Customer`), `POST /api/auth/login`, policy
+`CustomerOnly` — nhưng **không có luồng nào trong sản phẩm hiện dùng nó**. Luồng QR dùng table
+session, không dùng tài khoản khách. App này sẽ là người dùng thật đầu tiên của hạ tầng đang nằm
+không đó.
 
 ### 8.2 Stack: Flutter (Dart)
 
-### 8.3 Phạm vi — hẹp có chủ đích
+### 8.3 Đối chiếu với mã thật — cái gì dùng ngay, cái gì phải xây thêm
 
-| Có | Không |
-|---|---|
-| Đăng nhập role Staff (`POST /api/auth/login`, JWT lưu secure storage) | Gọi món hộ khách, giỏ hàng |
-| Danh sách đơn đang hoạt động theo trạng thái (`GET /api/orders?status=active`) | Toàn bộ nghiệp vụ Counter/Kitchen trên mobile |
-| Thông báo realtime khi đơn chuyển `Ready` (nối vào order hub hiện có) | Thay thế `ops-web` |
-| Nút "Đã phục vụ" → `PATCH /api/orders/{code}/status` = `Served` (role Staff đã được phép theo V54) | Đổi API contract để tiện cho mobile |
-| Polling fallback khi mất realtime (đúng tinh thần V53 bản web) | Tính năng mới ngoài luồng phục vụ bàn |
+| Dùng ngay, không sửa backend | Cần thêm nhỏ (1 endpoint, không đổi schema) | Để dành — cần đổi schema/nghiệp vụ |
+|---|---|---|
+| Đăng ký/đăng nhập khách (`/api/auth/register`, `/login`) | `GET /api/promotions/active` — hiện chỉ có `/api/promotions/validate` (kiểm 1 mã) và CRUD admin, chưa có danh sách công khai cho khách xem | Đổi điểm lấy ưu đãi — `LoyaltyReward` mới chỉ lọc "đủ điều kiện", chưa có endpoint trừ điểm |
+| Tra điểm + ưu đãi đủ điều kiện (`GET /api/loyalty/lookup?phone=`, đã yêu cầu đăng nhập) | | Liên kết tài khoản ↔ hồ sơ loyalty — `LoyaltyMember` định danh theo **số điện thoại**, `AppUser` định danh theo **email**; hai bảng không có khoá ngoại nối nhau |
+| Xem menu không cần đang ở bàn (`GET /api/menu` không đòi hỏi table session) | | Lịch sử đơn theo tài khoản — `Order` hiện chỉ gắn `TableSession`, không gắn `AppUser` |
+| | | Chat AI ngoài phiên bàn — khoá cứng bởi invariant V5 (chat capability chỉ sống khi có `TableSession` đang mở) |
+| | | Push notification thật (FCM/APNs) — hiện chỉ có SignalR trong tab trình duyệt, không hoạt động khi app đóng |
 
-### 8.4 Gọi vào backend nào
+### 8.4 Tính năng đề xuất — 3 tầng, chọn theo còn bao nhiêu thời gian
 
-Gọi thẳng vào **bản .NET đang chạy** trước — nó đã ổn định, đủ endpoint cần, không phải chờ Java
-port xong Orders. Khi bản Java hoàn tất module Orders + Realtime (WBS §4.2 mục 3.3, 3.5), đổi
-`baseUrl` sang bản Java là đủ — vì nguyên tắc §3 mục 1 giữ API contract không đổi giữa hai bản, phía
-Flutter không cần sửa model hay logic gọi API.
+**Lõi (làm chắc trong học kỳ — client + tối đa 1 endpoint mới):**
 
-### 8.5 WBS rút gọn
+1. Đăng ký/đăng nhập tài khoản khách hàng.
+2. **Thẻ thành viên số** — màn hình hiển thị mã QR/vạch dựng từ số điện thoại khách đã lưu trong
+   app, để quầy quét thay vì gõ tay lúc thanh toán.
+3. Trang điểm thưởng + danh sách ưu đãi đủ điều kiện đổi (dữ liệu lấy thẳng từ response có sẵn của
+   `/api/loyalty/lookup`, không cần dựng lại logic).
+4. Xem menu mọi lúc, không cần có mặt tại quán — khác biệt thật với web QR.
+5. Danh sách khuyến mãi/flash sale đang chạy — cần thêm đúng 1 endpoint đọc (mục 8.3, cột giữa).
 
-1. Thiết kế 3 màn hình: đăng nhập, danh sách bàn cần phục vụ, chi tiết đơn.
-2. Tích hợp API đăng nhập + danh sách đơn (gọi bản .NET hiện có).
-3. Tích hợp realtime + polling fallback.
-4. Nút "Đã phục vụ" + xử lý lỗi mạng/offline.
-5. Kiểm thử trên thiết bị thật, chụp bằng chứng cho báo cáo môn học.
+**Stretch (nếu còn thời gian, cần thêm backend nhỏ-vừa):**
+
+6. Đổi điểm lấy ưu đãi ngay trong app — cần endpoint redeem trừ điểm **có khoá chống tranh chấp**;
+   đây là dịp làm đúng ngay từ đầu bài học từ bug B28 (loyalty accrual cũ dùng read-modify-write
+   không khoá).
+7. Liên kết tài khoản ↔ hồ sơ loyalty tự động (thêm `UserId` vào `LoyaltyMember` thay vì chỉ khớp
+   qua số điện thoại khách tự gõ).
+8. Push notification thật (FCM) khi có ưu đãi mới hoặc flash sale.
+
+**Để dành lâu dài (không nhận trong học kỳ này):**
+
+9. Lịch sử đơn & đặt lại món cũ — đổi cách `Order` liên kết định danh khách là thay đổi
+   schema/nghiệp vụ không nhỏ, không hợp một học kỳ làm kèm 3 môn khác.
+10. Chat AI ngoài phiên bàn — đụng thẳng invariant V5 đang bảo vệ; mở rộng cần thiết kế lại
+    guardrail, không phải việc nhỏ.
+11. Đặt bàn trước / đặt món mang về — ngoài phạm vi nghiệp vụ đã chốt trong tài liệu BA/SA hiện tại.
+
+### 8.5 Vì sao "thẻ thành viên số" là tính năng lõi, không phải điểm/ưu đãi
+
+Vì nó là tính năng **duy nhất giải quyết một vấn đề vận hành có thật đang thấy trong mã**: quầy
+hiện phải gõ tay số điện thoại khách mỗi lần thanh toán để cộng điểm (`LoyaltyService.AccruePointsAsync`
+nhận `phoneNumber` dạng chuỗi tự do) — một mã quét được giảm hẳn sai sót gõ nhầm số, và là lý do
+thật để khách chấp nhận cài thêm một app.
+
+### 8.6 Gọi vào backend nào
+
+Gọi **bản .NET**, không đổi sang bản Java — vì Loyalty và Promotions nằm trong danh sách module
+**cố tình để lại bản .NET**, không thuộc phạm vi port Java (§5.1). App mobile là lý do nghiệp vụ
+thật để giữ hai module đó sống tiếp trên bản .NET, không phải chỉ vì "chưa kịp port".
+
+### 8.7 WBS rút gọn (tầng Lõi)
+
+1. Đăng ký/đăng nhập, lưu JWT an toàn trên thiết bị.
+2. Màn hình thẻ thành viên (dựng mã QR từ số điện thoại đã lưu).
+3. Trang điểm thưởng + ưu đãi đủ điều kiện.
+4. Trình duyệt menu (không cần table context).
+5. Thêm `GET /api/promotions/active` ở backend + màn hình danh sách khuyến mãi.
+6. Kiểm thử trên thiết bị thật, chụp bằng chứng cho báo cáo môn học.
 
 ---
 
