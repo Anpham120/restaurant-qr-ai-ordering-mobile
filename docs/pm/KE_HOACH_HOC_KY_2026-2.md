@@ -1,6 +1,6 @@
 # Kế hoạch học kỳ 2026-2 — Fork cá nhân CMC Restaurant
 
-**Chủ fork:** Phạm Duy An (BIT240002) · **Repo:** `Anpham120/restaurant-qr-ai-ordering-nqh` (private) · **Nguồn:** `Anpham120/restaurant-qr-ai-ordering` (INFO2005, đã v0.3.0)
+**Chủ fork:** Phạm Duy An (BIT240002) · **Repo:** `Anpham120/restaurant-qr-ai-ordering-mobile` (private) · **Nguồn:** `Anpham120/restaurant-qr-ai-ordering` (INFO2005, đã v0.3.0)
 **Ngày lập:** 2026-08-17
 
 > Tài liệu này là kế hoạch làm việc cho một fork cá nhân, phục vụ 4 môn học kỳ này. Nó không thay
@@ -514,7 +514,7 @@ hết vào cuối kỳ.
 
 ## 10. Đã thực hiện
 
-- [x] Tạo repo riêng `Anpham120/restaurant-qr-ai-ordering-nqh` (private), remote `personal` trỏ
+- [x] Tạo repo riêng `Anpham120/restaurant-qr-ai-ordering-mobile` (private), remote `personal` trỏ
       vào đó; remote `origin` giữ nguyên trỏ về repo nhóm, chỉ dùng để đồng bộ đọc.
 - [x] Đối chiếu hiện trạng thật (module/endpoint/invariant/hạn chế) trước khi lập kế hoạch.
 - [x] Đọc mã thật cho từng quyết định lớn: `LoyaltyService`/`VietQrProvider` (thanh toán),
@@ -525,7 +525,7 @@ hết vào cuối kỳ.
 
 - [x] Commit và đẩy tài liệu này lên `personal`.
 - [x] Tạo 9 milestone (M1–M9) + nhãn `module:*`/`type:*`/`priority:*` + 35 issue trên
-      `Anpham120/restaurant-qr-ai-ordering-nqh`, đúng theo WBS §4.2, §6, §7, §9.10.
+      `Anpham120/restaurant-qr-ai-ordering-mobile`, đúng theo WBS §4.2, §6, §7, §9.10.
 - [x] Bật branch ruleset cho `main` (chặn force-push và xoá nhánh).
 - [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
       cho issue #12 — hạn chế #3).
