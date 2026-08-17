@@ -23,8 +23,8 @@ Học kỳ này tôi có 4 môn, dùng **một fork duy nhất** làm nền cho 
 |---|---|---|
 | Lập trình nâng cao | Viết lại phần lõi backend từ ASP.NET Core sang Java Spring Boot | Bắt đầu ngay — §5 |
 | Quản lý dự án CNTT | Chính fork này là đối tượng quản lý: WBS, mốc, rủi ro | Bắt đầu ngay — §4 |
-| Triển khai phần mềm | Container hoá + CI/CD cho bản Java, so sánh với pipeline .NET hiện có | Làm sau — §8 |
-| Lập trình ứng dụng di động | App di động cho nhân viên phục vụ (đã có sẵn trong roadmap gốc, mục 17) | Làm sau — §8 |
+| Triển khai phần mềm | Container hoá + CI/CD cho bản Java, so sánh với pipeline .NET hiện có | Kế hoạch đã phác — §7. Bắt đầu code sau khi §5 có gì để đóng gói |
+| Lập trình ứng dụng di động | App Flutter cho nhân viên phục vụ (khoảng trống đã ghi nhận, khớp roadmap gốc mục 17) | Kế hoạch đã phác — §8. Bắt đầu code sau khi §5 port xong Orders |
 
 ---
 
@@ -237,28 +237,89 @@ liên quan chuyển ngôn ngữ):
 
 ---
 
-## 7. Việc để dành — Triển khai phần mềm & Lập trình di động
+## 7. Kế hoạch triển khai phần mềm (môn Triển khai phần mềm)
 
-Không làm trong đợt này, ghi lại để không quên phạm vi:
+### 7.1 Ranh giới an toàn
 
-- **Triển khai phần mềm:** dùng `deploy/docker-compose.yml` hiện có làm baseline, viết biến thể
-  thay `api` service bằng image Java; so sánh kích thước image, thời gian cold start, chiến lược
-  rollback giữa hai bản — đúng chất liệu môn học (không cần build hạ tầng mới từ đầu).
-- **Lập trình ứng dụng di động:** roadmap gốc mục 17 đã đề xuất sẵn "ứng dụng di động cho nhân viên
-  phục vụ" — dùng đúng ý tưởng này thay vì nghĩ tính năng mới, vì nó đã được nhóm cũ xác định là có
-  giá trị vận hành thật (thay vì thêm ứng dụng khách hàng — QR ordering vốn đã cố tình không cần
-  cài app, thêm app khách sẽ mâu thuẫn với giá trị cốt lõi đó).
+Pipeline hiện có (`.github/workflows/*`, VPS production) **thuộc về repo nhóm gốc**, đang phục vụ
+điểm môn INFO2005 của 4 người khác — không sửa `deploy-staging.yml`/`deploy-production.yml` gốc,
+không SSH hay deploy thật lên VPS đó. Toàn bộ việc dưới đây chỉ chạy trong fork cá nhân và **chỉ
+local Docker Compose** — quyết định đã chốt, không có bước lên VPS thật trong phạm vi môn này.
+
+### 7.2 Vì sao không chỉ viết báo cáo phân tích
+
+Pipeline gốc đã rất đầy đủ (9 workflow, staging/production tách biệt, auto-rollback, CodeQL +
+Trivy + gitleaks + dependency-review, 14 cổng generator-check). Phân tích lại nó không tạo ra chứng
+cứ kỹ năng mới. Việc có giá trị hơn cho môn học: **tự tay dựng một đường triển khai song song cho
+bản Java**, rồi so sánh có số liệu với bản .NET đang chạy thật — đó mới là "triển khai", không
+phải "đọc triển khai người khác làm".
+
+### 7.3 Việc cụ thể
+
+| # | Việc | Đối chiếu với hạ tầng .NET hiện có |
+|---|---|---|
+| D1 | Dockerfile multi-stage cho Spring Boot (build: Maven/Gradle, runtime: JRE slim) | So kích thước image với `backend/Dockerfile` (.NET SDK/runtime) |
+| D2 | `deploy/docker-compose.java.yml` — biến thể thay service `api` bằng image Java, giữ nguyên `postgres`, `ai-service`, `frontend` | Tái dùng đúng healthcheck pattern `/api/health`, `depends_on: service_healthy` |
+| D3 | Service `migrate` one-shot chạy Flyway thay EF Core, theo đúng mẫu `migrate` hiện có (`--migrate-only`) | Giữ nguyên nguyên tắc V10: migration tách khỏi API boot |
+| D4 | Workflow `ci-java.yml` mirror job `backend-test` của `ci.yml` (build/test Maven/Gradle + Testcontainers) | Không đụng `ci.yml` gốc — file mới, chạy độc lập trên fork |
+| D5 | Báo cáo so sánh có số liệu: build time, image size, cold start, RAM idle | Đo trên cùng máy, cùng điều kiện với bản .NET để số liệu so được |
+| D6 | *(nếu còn thời gian)* diễn tập rollback thủ công trên local: dừng service Java giả lập lỗi, phục hồi từ image trước | Không bắt buộc — chỉ VPS thật mới cần rollback tự động như `rollback.yml` gốc |
+
+### 7.4 Ngoài phạm vi
+
+Không CI/CD thật lên staging/production, không secrets thật, không sửa branch ruleset của repo
+nhóm gốc. Đây là bài tập triển khai **có kiểm chứng bằng số liệu local**, không phải vận hành thật.
 
 ---
 
-## 8. Đã thực hiện
+## 8. Kế hoạch ứng dụng di động (môn Lập trình ứng dụng di động)
+
+### 8.1 Bài toán — không phải tính năng tự nghĩ ra
+
+[`docs/frontend/OPS_APP.md`](../frontend/OPS_APP.md) ghi thẳng: *"No mobile floor-staff UI. Service
+staff coordinate via radio; counter staff use the POS workspace only."* Nhân viên phục vụ hiện
+**không có công cụ số nào** — biết bàn nào có món sẵn sàng hoàn toàn qua bộ đàm/đi hỏi bếp. Đây là
+khoảng trống đã được chính hệ thống ghi nhận, và khớp thẳng roadmap gốc mục 17 ("ứng dụng di động
+cho nhân viên phục vụ"). Không thêm app khách hàng — mô hình QR ordering cố tình không cần cài app,
+thêm app khách sẽ mâu thuẫn với giá trị cốt lõi đó.
+
+### 8.2 Stack: Flutter (Dart)
+
+### 8.3 Phạm vi — hẹp có chủ đích
+
+| Có | Không |
+|---|---|
+| Đăng nhập role Staff (`POST /api/auth/login`, JWT lưu secure storage) | Gọi món hộ khách, giỏ hàng |
+| Danh sách đơn đang hoạt động theo trạng thái (`GET /api/orders?status=active`) | Toàn bộ nghiệp vụ Counter/Kitchen trên mobile |
+| Thông báo realtime khi đơn chuyển `Ready` (nối vào order hub hiện có) | Thay thế `ops-web` |
+| Nút "Đã phục vụ" → `PATCH /api/orders/{code}/status` = `Served` (role Staff đã được phép theo V54) | Đổi API contract để tiện cho mobile |
+| Polling fallback khi mất realtime (đúng tinh thần V53 bản web) | Tính năng mới ngoài luồng phục vụ bàn |
+
+### 8.4 Gọi vào backend nào
+
+Gọi thẳng vào **bản .NET đang chạy** trước — nó đã ổn định, đủ endpoint cần, không phải chờ Java
+port xong Orders. Khi bản Java hoàn tất module Orders + Realtime (WBS §4.2 mục 3.3, 3.5), đổi
+`baseUrl` sang bản Java là đủ — vì nguyên tắc §3 mục 1 giữ API contract không đổi giữa hai bản, phía
+Flutter không cần sửa model hay logic gọi API.
+
+### 8.5 WBS rút gọn
+
+1. Thiết kế 3 màn hình: đăng nhập, danh sách bàn cần phục vụ, chi tiết đơn.
+2. Tích hợp API đăng nhập + danh sách đơn (gọi bản .NET hiện có).
+3. Tích hợp realtime + polling fallback.
+4. Nút "Đã phục vụ" + xử lý lỗi mạng/offline.
+5. Kiểm thử trên thiết bị thật, chụp bằng chứng cho báo cáo môn học.
+
+---
+
+## 9. Đã thực hiện
 
 - [x] Tạo repo riêng `Anpham120/restaurant-qr-ai-ordering-nqh` (private), remote `personal` trỏ
       vào đó; remote `origin` giữ nguyên trỏ về repo nhóm, chỉ dùng để đồng bộ đọc.
 - [x] Đối chiếu hiện trạng thật (module/endpoint/invariant/hạn chế) trước khi lập kế hoạch, không
       suy đoán từ README một cách chung chung.
 
-## 9. Bước tiếp theo
+## 10. Bước tiếp theo
 
 - [ ] Commit và đẩy tài liệu này + toàn bộ mã nguồn lên `personal`.
 - [ ] Tạo GitHub Project/milestone trên fork riêng theo mốc ở §4.3.
