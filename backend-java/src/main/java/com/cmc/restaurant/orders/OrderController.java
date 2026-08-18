@@ -97,6 +97,14 @@ public class OrderController {
 				orderCode, orderItemId, request.status(), ActorContext.fromAuthentication(authentication));
 	}
 
+	/** Hạn chế #11 — customer self-cancel, gated by the per-order {@code X-Order-Token} capability
+	 * token instead of a staff role (see PR description). */
+	@PostMapping("/api/orders/{orderCode}/items/{orderItemId}/cancel")
+	public OrderDtos.OrderResponse cancelOrderItem(
+			@PathVariable String orderCode, @PathVariable String orderItemId, HttpServletRequest request) {
+		return orderService.cancelOrderItemAsCustomer(orderCode, orderItemId, request.getHeader("X-Order-Token"));
+	}
+
 	private static boolean hasRole(Authentication authentication, String role) {
 		return authentication != null
 				&& authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_" + role));
