@@ -29,6 +29,14 @@ payments:
     # failure mode — accepting unauthenticated payloads would mark orders paid for free.
     secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
 
+chat:
+  ai:
+    # Same env var names the .NET backend and docker-compose already use, so both backends can point
+    # at one running Python service instead of two sets of settings to keep in sync.
+    service-url: ${AI_SERVICE_URL:}
+    internal-token: ${AI_INTERNAL_TOKEN:}
+    timeout-seconds: ${BACKEND_AI_TIMEOUT_SECONDS:12}
+
 jwt:
   issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
   audience: ${JWT_AUDIENCE:RestaurantQrAiOrdering.Client}

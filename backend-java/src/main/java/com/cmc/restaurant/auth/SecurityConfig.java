@@ -54,6 +54,10 @@ public class SecurityConfig {
 						// The WebSocket handshake carries no JWT; authorization happens per-SUBSCRIBE
 						// in StompSubscriptionGuard, mirroring the .NET hub's Watch* guards.
 						.requestMatchers("/hub/orders/**").permitAll()
+						// Chat is an anonymous QR-customer flow: the table session gates opening a
+						// chat, and X-Chat-Session-Token gates every message after that.
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/messages").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -9,18 +9,20 @@ import javax.crypto.spec.SecretKeySpec;
 
 /** Byte-compatible port of {@code RestaurantQrAiOrdering.Api.Auth.CapabilityTokenSigner} (.NET):
  * HMAC-SHA256(HMAC-SHA256(signingKey, purpose), payload), base64url-encoded. */
-final class CapabilityTokenSigner {
+// Widened from package-private to public in issue #14: the Chat module signs its own capability
+// tokens with a different purpose string, exactly as ChatSessionCapability does in .NET.
+public final class CapabilityTokenSigner {
 
 	private static final String ALGORITHM = "HmacSHA256";
 
 	private CapabilityTokenSigner() {
 	}
 
-	static String createToken(String signingKey, String purpose, String payload) {
+	public static String createToken(String signingKey, String purpose, String payload) {
 		return encode(createSignature(signingKey, purpose, payload));
 	}
 
-	static boolean isValid(String suppliedToken, String signingKey, String purpose, String payload) {
+	public static boolean isValid(String suppliedToken, String signingKey, String purpose, String payload) {
 		byte[] supplied;
 		try {
 			supplied = decode(suppliedToken);
