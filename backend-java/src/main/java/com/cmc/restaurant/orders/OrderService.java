@@ -264,6 +264,48 @@ public class OrderService {
 		return toResponse(order);
 	}
 
+	/** Hạn chế #11 — customer self-cancel. No .NET equivalent exists; ported straight into Java
+	 * per the plan. Auth is the per-order {@code X-Order-Token} (same capability token already used
+	 * by {@link #getOrder}), not a staff role. Unlike the staff transition (which also allows
+	 * cancelling a Preparing item via {@link #canTransitionItem}), a customer may only cancel while
+	 * the item is still Pending — locked the moment the kitchen starts on that item, regardless of
+	 * the order's aggregate status (other items in the same order may already be Preparing). */
+	@Transactional
+	public OrderDtos.OrderResponse cancelOrderItemAsCustomer(
+			String orderCode, String orderItemId, String suppliedAccessToken) {
+		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+
+		if (!hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
+			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
+		}
+
+		List<OrderItemEntity> items = itemsOf(order);
+		OrderItemEntity item = items.stream().filter(i -> i.getId().equalsIgnoreCase(orderItemId)).findFirst()
+				.orElseThrow(() -> ApiException.notFound("ORDER_ITEM_NOT_FOUND", "Order item was not found."));
+
+		if (!OrderItemStatus.PENDING.equals(item.getStatus())) {
+			throw ApiException.badRequest("ORDER_ITEM_CANCEL_NOT_ALLOWED",
+					"This item can no longer be cancelled once the kitchen has started preparing it.");
+		}
+
+		OffsetDateTime now = OffsetDateTime.now();
+		String previousOrderStatus = order.getStatus();
+		item.setStatus(OrderItemStatus.CANCELLED);
+		item.setUpdatedAt(now);
+		orderItemRepository.save(item);
+
+		String aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
+		if (!aggregateStatus.equals(order.getStatus())) {
+			order.setStatus(aggregateStatus);
+			appendHistory(order, previousOrderStatus, aggregateStatus, ActorContext.CUSTOMER, null, now);
+		}
+		order.setUpdatedAt(now);
+		orderRepository.save(order);
+
+		return toResponse(order);
+	}
+
 	// --- state machine ---------------------------------------------------------------------
 
 	static boolean canTransitionOrder(String current, String next) {
