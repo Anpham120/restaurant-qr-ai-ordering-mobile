@@ -35,14 +35,16 @@ public class PaymentService {
 	private final PaymentTransactionRepository transactionRepository;
 	private final OrderRepository orderRepository;
 	private final OrderService orderService;
+	private final VietQrProvider vietQrProvider;
 
 	public PaymentService(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
-			OrderRepository orderRepository, OrderService orderService) {
+			OrderRepository orderRepository, OrderService orderService, VietQrProvider vietQrProvider) {
 		this.paymentRepository = paymentRepository;
 		this.transactionRepository = transactionRepository;
 		this.orderRepository = orderRepository;
 		this.orderService = orderService;
+		this.vietQrProvider = vietQrProvider;
 	}
 
 	public PaymentDtos.PaymentResponse getPayment(String orderCode, String suppliedAccessToken, boolean isOperator) {
@@ -75,12 +77,6 @@ public class PaymentService {
 		if (!"COD".equals(method) && !"VietQR".equals(method)) {
 			throw ApiException.badRequest("PAYMENT_METHOD_INVALID", "Payment method must be COD or VietQR.");
 		}
-		if ("VietQR".equals(method)) {
-			// Issue #11 removes this — VietQrProvider (static QR image) isn't ported yet.
-			throw ApiException.badRequest(
-					"VIETQR_NOT_AVAILABLE_YET", "VietQR payment is not available yet; use COD for now.");
-		}
-
 		String requestFingerprint = RequestIdempotency.computeFingerprint(new MethodFingerprint(method));
 		Optional<PaymentTransactionEntity> existingRequest =
 				transactionRepository.findByIdempotencyKey(idempotencyKey);
@@ -92,14 +88,26 @@ public class PaymentService {
 			throw ApiException.conflict("PAYMENT_ALREADY_REQUESTED", "Payment was already requested or completed.");
 		}
 
+		// Built before any mutation, exactly as in .NET: an unconfigured VietQR deployment must
+		// fail the request outright rather than leave the payment flipped to Pending with no QR.
+		VietQrProvider.VietQrPayload payload = null;
+		if ("VietQR".equals(method)) {
+			try {
+				payload = vietQrProvider.createPayload(order.getOrderCode(), payment.getAmount());
+			} catch (IllegalStateException e) {
+				throw ApiException.badRequest("VIETQR_CONFIG_MISSING", "VietQR bank configuration is missing.");
+			}
+		}
+
 		OffsetDateTime now = OffsetDateTime.now();
 		payment.setMethod(method);
 		payment.setStatus("Pending");
 		payment.setUpdatedAt(now);
 		PaymentTransactionEntity transaction = new PaymentTransactionEntity(
 				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(), method, "Pending",
-				payment.getAmount(), method, null, "Customer requested cash payment.", now, idempotencyKey,
-				requestFingerprint);
+				payment.getAmount(), method, payload == null ? null : payload.transferContent(),
+				payload == null ? "Customer requested cash payment." : "Customer requested VietQR payment.",
+				now, idempotencyKey, requestFingerprint);
 
 		try {
 			paymentRepository.save(payment);
@@ -115,7 +123,20 @@ public class PaymentService {
 					"CONFLICT_STALE", "Payment was modified by another request. Reload and try again.");
 		}
 
-		return new PaymentDtos.PaymentRequestResponse(toResponse(payment, order.getOrderCode()), null);
+		return new PaymentDtos.PaymentRequestResponse(
+				toResponse(payment, order.getOrderCode()),
+				toVietQrResponse(payload, order.getOrderCode(), "Pending"));
+	}
+
+	private static PaymentDtos.VietQrResponse toVietQrResponse(
+			VietQrProvider.VietQrPayload payload, String orderCode, String paymentStatus) {
+		if (payload == null) {
+			return null;
+		}
+		return new PaymentDtos.VietQrResponse(
+				orderCode, payload.amount(), payload.transferContent(), payload.bankId(), payload.accountNumber(),
+				payload.accountName(), payload.quickLink(), payload.qrPayload(), payload.qrImageDataUri(),
+				paymentStatus);
 	}
 
 	private PaymentDtos.PaymentRequestResponse replayOrConflict(
@@ -280,7 +301,14 @@ public class PaymentService {
 				payment.getId(), orderCode, requestTransaction.getMethod(), requestTransaction.getStatus(),
 				payment.getAmount(), null, payment.getCreatedAt(), null, requestTransaction.getCreatedAt(),
 				transactions);
-		return new PaymentDtos.PaymentRequestResponse(original, null);
+
+		// Regenerated rather than stored: the QR is a pure function of (orderCode, amount, bank
+		// config), so a replay reproduces the same quick link the customer already scanned.
+		VietQrProvider.VietQrPayload payload = "VietQR".equals(requestTransaction.getMethod())
+				? vietQrProvider.createPayload(orderCode, payment.getAmount())
+				: null;
+		return new PaymentDtos.PaymentRequestResponse(
+				original, toVietQrResponse(payload, orderCode, requestTransaction.getStatus()));
 	}
 
 	private PaymentDtos.PaymentTransactionResponse toTransactionResponse(PaymentTransactionEntity transaction) {
