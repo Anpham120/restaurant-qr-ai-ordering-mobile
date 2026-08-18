@@ -84,25 +84,33 @@ public class VietQrProvider {
 
 	private static String createQrDataUri(String payload) {
 		try {
-			BitMatrix matrix = new QRCodeWriter().encode(
+			// Encoded once (the expensive step: segmentation, Reed-Solomon, mask selection), then
+			// scaled by hand below. Passing 0x0 makes ZXing return the natural module grid.
+			BitMatrix modules = new QRCodeWriter().encode(
 					payload, BarcodeFormat.QR_CODE, 0, 0,
-					Map.of(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.Q,
-							EncodeHintType.MARGIN, QUIET_ZONE_MODULES,
-							EncodeHintType.CHARACTER_SET, StandardCharsets.UTF_8.name()));
-			// Ask ZXing for the natural module count, then scale up by MODULE_PIXELS so each
-			// module is exactly 8px — QRCoder's GetGraphic(8) means the same thing.
-			BitMatrix scaled = new QRCodeWriter().encode(
-					payload, BarcodeFormat.QR_CODE,
-					matrix.getWidth() * MODULE_PIXELS, matrix.getHeight() * MODULE_PIXELS,
 					Map.of(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.Q,
 							EncodeHintType.MARGIN, QUIET_ZONE_MODULES,
 							EncodeHintType.CHARACTER_SET, StandardCharsets.UTF_8.name()));
 
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			MatrixToImageWriter.writeToStream(scaled, "PNG", out);
+			MatrixToImageWriter.writeToStream(scale(modules, MODULE_PIXELS), "PNG", out);
 			return "data:image/png;base64," + Base64.getEncoder().encodeToString(out.toByteArray());
 		} catch (WriterException | IOException e) {
 			throw new IllegalStateException("Failed to render the VietQR image.", e);
 		}
+	}
+
+	/** Blows each module up into a {@code factor}×{@code factor} block, so one module is exactly 8
+	 * pixels — what QRCoder's {@code GetGraphic(8)} does in the .NET original. */
+	private static BitMatrix scale(BitMatrix modules, int factor) {
+		BitMatrix scaled = new BitMatrix(modules.getWidth() * factor, modules.getHeight() * factor);
+		for (int y = 0; y < modules.getHeight(); y++) {
+			for (int x = 0; x < modules.getWidth(); x++) {
+				if (modules.get(x, y)) {
+					scaled.setRegion(x * factor, y * factor, factor, factor);
+				}
+			}
+		}
+		return scaled;
 	}
 }
