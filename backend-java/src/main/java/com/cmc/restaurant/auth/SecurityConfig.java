@@ -48,6 +48,9 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/orders/*/items/*/cancel").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/orders/*/payment").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders/*/payment/request").permitAll()
+						// Casso authenticates with its own Secure-Token header, verified inside the
+						// handler before the payload is touched — not with a JWT.
+						.requestMatchers(HttpMethod.POST, "/api/payments/webhooks/casso").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
