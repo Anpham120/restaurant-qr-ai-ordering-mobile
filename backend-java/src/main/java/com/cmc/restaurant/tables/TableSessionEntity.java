@@ -80,24 +80,32 @@ public class TableSessionEntity {
 		this.updatedAt = openedAt;
 	}
 
+	/** Lifecycle rules live in {@link com.cmc.restaurant.tables.domain.TableSession} since issue
+	 * #62; these delegate so there is exactly one copy of them. The entity keeps them as methods
+	 * rather than forcing every caller to build a domain object for a yes/no question. */
+	private com.cmc.restaurant.tables.domain.TableSession asDomain() {
+		return new com.cmc.restaurant.tables.domain.TableSession(
+				id, restaurantTableId, tableCode, status, expiresAt, closedAt, updatedAt);
+	}
+
 	public boolean isActiveAt(OffsetDateTime now) {
-		return status == TableSessionStatus.Open && closedAt == null && expiresAt.isAfter(now);
+		return asDomain().isActiveAt(now);
+	}
+
+	public boolean isExpired(OffsetDateTime now) {
+		return asDomain().isExpiredAt(now);
 	}
 
 	/** Returns true (and mutates state to Expired) only if it actually transitioned. */
 	public boolean expireIfPast(OffsetDateTime now) {
-		if (status != TableSessionStatus.Open || closedAt != null || expiresAt.isAfter(now)) {
+		com.cmc.restaurant.tables.domain.TableSession session = asDomain();
+		if (!session.expireIfPast(now)) {
 			return false;
 		}
-		this.status = TableSessionStatus.Expired;
-		this.closedAt = now;
-		this.updatedAt = now;
+		this.status = session.status();
+		this.closedAt = session.closedAt();
+		this.updatedAt = session.updatedAt();
 		return true;
-	}
-
-	public boolean isExpired(OffsetDateTime now) {
-		return status == TableSessionStatus.Expired
-				|| (status == TableSessionStatus.Open && !expiresAt.isAfter(now));
 	}
 
 	public String getId() {
