@@ -26,8 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Mirrors {@code PaymentEndpoints.cs} (.NET) — issue #10 scope is the COD/manual-confirmation
  * flow. {@code method == "VietQR"} is rejected for now (issue #11 wires real QR generation);
- * realtime notification and Loyalty accrual on confirm are out of scope (Realtime is issue #13;
- * Loyalty deliberately stays on .NET — see PR description).
+ * realtime notification is out of scope here (Realtime is issue #13). Loyalty accrual on confirm
+ * was added in issue #54, when the Loyalty module was ported.
  */
 @Service
 public class PaymentService {
@@ -39,11 +39,14 @@ public class PaymentService {
 	private final OrderService orderService;
 	private final VietQrProvider vietQrProvider;
 	private final OrderRealtimeNotifier realtimeNotifier;
+	private final com.cmc.restaurant.loyalty.LoyaltyService loyaltyService;
 
 	public PaymentService(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
 			OrderRepository orderRepository, OrderService orderService, VietQrProvider vietQrProvider,
-			OrderRealtimeNotifier realtimeNotifier) {
+			OrderRealtimeNotifier realtimeNotifier,
+			com.cmc.restaurant.loyalty.LoyaltyService loyaltyService) {
+		this.loyaltyService = loyaltyService;
 		this.paymentRepository = paymentRepository;
 		this.transactionRepository = transactionRepository;
 		this.orderRepository = orderRepository;
@@ -185,9 +188,11 @@ public class PaymentService {
 	public PaymentDtos.PaymentResponse confirmPayment(
 			String orderCode, PaymentDtos.ConfirmPaymentRequest request, ActorContext actor) {
 		String providerTransactionId = request == null ? null : request.providerTransactionId();
-		return applyManualAction(
+		PaymentDtos.PaymentResponse response = applyManualAction(
 				orderCode, request == null ? null : request.note(), "Manual staff confirmation.", actor,
 				(payment, now) -> payment.confirmManually(providerTransactionId, now));
+		accrueLoyalty(orderCode, response.amount());
+		return response;
 	}
 
 	@Transactional
@@ -204,6 +209,22 @@ public class PaymentService {
 		return applyManualAction(
 				orderCode, request == null ? null : request.note(), "Manual payment refund.", actor,
 				(payment, now) -> payment.refund(now));
+	}
+
+	/**
+	 * Awards loyalty points once the money is in. Deliberately after the payment has been saved and
+	 * never in a way that can fail the payment: a customer who paid must not see an error because a
+	 * points row could not be written, and points can always be added later by hand.
+	 */
+	private void accrueLoyalty(String orderCode, java.math.BigDecimal amount) {
+		try {
+			orderRepository.findByOrderCode(orderCode.trim())
+					.map(OrderEntity::getCustomerPhoneNumber)
+					.ifPresent(phone -> loyaltyService.accrue(phone, amount, OffsetDateTime.now()));
+		} catch (RuntimeException e) {
+			org.slf4j.LoggerFactory.getLogger(PaymentService.class)
+					.warn("Loyalty accrual failed for {}; payment stands.", orderCode, e);
+		}
 	}
 
 	// --- helpers -----------------------------------------------------------------------------
