@@ -57,6 +57,7 @@ public class OrderService {
 	private final OrderItemEstimationService estimationService;
 	private final OrderRealtimeNotifier realtimeNotifier;
 	private final OrderPersistenceAdapter persistence;
+	private final com.cmc.restaurant.cart.CartService cartService;
 
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
@@ -64,7 +65,8 @@ public class OrderService {
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
 			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
-			OrderPersistenceAdapter persistence) {
+			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService) {
+		this.cartService = cartService;
 		this.realtimeNotifier = realtimeNotifier;
 		this.persistence = persistence;
 		this.orderRepository = orderRepository;
@@ -154,7 +156,9 @@ public class OrderService {
 		payment.setAmount(order.getTotalAmount());
 		paymentRepository.save(payment);
 
-		jdbcTemplate.update("delete from table_session_cart_items where table_session_id = ?", session.getId());
+		// Was a raw DELETE while Cart still lived on .NET (issue #7). Now the Cart module owns its
+		// own table, so Orders asks it instead of reaching into another module.s rows.
+		cartService.clearAfterOrderPlaced(session.getId());
 
 		// DoD của issue #13: bếp nhận order.created qua WebSocket.
 		realtimeNotifier.orderCreated(new RealtimeDtos.OrderCreatedEvent(
