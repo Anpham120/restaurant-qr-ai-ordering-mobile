@@ -15,3 +15,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+jwt:
+  issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
+  audience: ${JWT_AUDIENCE:RestaurantQrAiOrdering.Client}
+  # Dev-only default so the app boots without extra setup; production MUST override via env.
+  signing-key: ${JWT_SIGNING_KEY:dev-only-signing-key-change-me-before-any-real-deploy}
+  access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:60}
