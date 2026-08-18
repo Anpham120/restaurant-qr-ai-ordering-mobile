@@ -43,6 +43,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*/invoice").permitAll()
+						// Cart is part of the anonymous QR flow; the capability token gates it.
+						.requestMatchers("/api/table-sessions/*/cart", "/api/table-sessions/*/cart/items").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/orders/*").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders/*/items/*/cancel").permitAll()
