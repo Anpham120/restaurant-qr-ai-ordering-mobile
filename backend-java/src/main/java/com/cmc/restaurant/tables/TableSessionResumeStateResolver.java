@@ -1,5 +1,7 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import java.util.List;
 import java.util.Set;
 

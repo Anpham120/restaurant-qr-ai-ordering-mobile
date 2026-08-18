@@ -1,5 +1,7 @@
 package com.cmc.restaurant.orders;
 
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

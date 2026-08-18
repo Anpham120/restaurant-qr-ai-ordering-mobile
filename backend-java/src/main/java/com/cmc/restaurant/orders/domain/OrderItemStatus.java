@@ -1,4 +1,4 @@
-package com.cmc.restaurant.orders;
+package com.cmc.restaurant.orders.domain;
 
 /** Mirrors {@code RestaurantQrAiOrdering.Enums.OrderItemStatus} (.NET). Enum since issue #60 — see
  * {@link OrderStatus} for why. Names match the database strings exactly. */
