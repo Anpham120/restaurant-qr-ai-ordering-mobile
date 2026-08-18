@@ -1,5 +1,6 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import java.time.OffsetDateTime;
 
 /** Mirrors {@code RestaurantQrAiOrdering.Api.Tables.TableContracts} (.NET) — public surface only

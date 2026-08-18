@@ -1,5 +1,6 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
 import com.cmc.restaurant.auth.JwtProperties;
 import com.cmc.restaurant.shared.ApiException;

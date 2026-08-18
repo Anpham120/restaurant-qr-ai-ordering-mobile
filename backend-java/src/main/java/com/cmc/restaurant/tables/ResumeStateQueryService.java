@@ -1,5 +1,6 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;

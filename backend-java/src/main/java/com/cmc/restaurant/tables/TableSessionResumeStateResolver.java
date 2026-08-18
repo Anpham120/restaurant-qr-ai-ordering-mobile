@@ -1,38 +1,23 @@
 package com.cmc.restaurant.tables;
 
-import com.cmc.restaurant.orders.domain.OrderItemStatus;
-import com.cmc.restaurant.orders.domain.OrderStatus;
+import com.cmc.restaurant.tables.domain.TableSession;
+import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import java.util.List;
-import java.util.Set;
 
-/** Mirrors {@code TableSessionResumeStateResolver.Resolve} (.NET) exactly — invariants V51/V52. */
+/**
+ * Kept as a thin delegate so existing call sites do not all have to change in one commit; the rule
+ * itself moved into {@link TableSession#resolveResumeState} (issue #62).
+ *
+ * <p>Deliberately not deleted yet and deliberately not reimplemented here — a second copy of the
+ * resume rules is exactly the drift the domain split exists to prevent.
+ */
 public final class TableSessionResumeStateResolver {
-
-	private static final Set<String> IN_PROGRESS_ORDER_STATUSES =
-			Set.of("Draft", "Placed", "Confirmed", "Preparing", "Ready");
 
 	private TableSessionResumeStateResolver() {
 	}
 
 	public static TableSessionResumeState resolve(
 			long cartItemCount, List<String> orderStatuses, String invoiceStatus) {
-		if ("Paid".equals(invoiceStatus) || "Confirmed".equals(invoiceStatus)) {
-			return TableSessionResumeState.Paid;
-		}
-
-		if ("Pending".equals(invoiceStatus)) {
-			return TableSessionResumeState.PaymentPending;
-		}
-
-		List<String> activeOrderStatuses = orderStatuses.stream()
-				.filter(status -> !"Cancelled".equals(status))
-				.toList();
-
-		if (activeOrderStatuses.isEmpty()) {
-			return cartItemCount > 0 ? TableSessionResumeState.CartPending : TableSessionResumeState.New;
-		}
-
-		boolean anyInProgress = activeOrderStatuses.stream().anyMatch(IN_PROGRESS_ORDER_STATUSES::contains);
-		return anyInProgress ? TableSessionResumeState.OrderInProgress : TableSessionResumeState.ReadyForPayment;
+		return TableSession.resolveResumeState(cartItemCount, orderStatuses, invoiceStatus);
 	}
 }
