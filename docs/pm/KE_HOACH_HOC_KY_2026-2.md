@@ -130,6 +130,26 @@ Trích nguyên văn từ báo cáo nhóm (Bảng 43, §5.3), giữ số thứ t�
   trên cùng một tập kịch bản nghiệp vụ; Docker Compose khởi động được bản Java thay cho bản .NET
   trong biến thể riêng; app Flutter chạy được tầng Lõi (M1) tối thiểu.
 
+### 4.1a Quy trình Git
+
+Tái dùng đúng mô hình nhánh đã có trong [`GIT_AND_TEAM.md`](../devops/GIT_AND_TEAM.md) của dự án
+gốc, không phát minh lại — hợp lý hơn khi 4/5 cộng tác viên đã quen quy trình này:
+
+- `main` — nhánh release, chỉ nhận code qua PR đã được duyệt từ `develop`.
+- `develop` — nhánh tích hợp, nơi các issue-branch merge vào trước.
+- `issue-<số>/<github-username>-<việc-ngắn>` — nhánh riêng cho từng issue, tạo từ `develop`.
+
+Cả `main` và `develop` đều đã bật branch protection trên
+`Anpham120/restaurant-qr-ai-ordering-mobile`: bắt buộc PR + tối thiểu 1 approve (dismiss stale
+reviews khi có commit mới), chặn force-push và xoá nhánh. Khác nhóm gốc ở chỗ **không có CI** làm
+required status check (dự án Java chưa tồn tại để có gì mà test) — human review là cổng chặn duy
+nhất lúc này; required status checks sẽ bổ sung khi có `ci-java.yml` (issue liên quan §8).
+
+Quy trình làm 1 issue: `git checkout develop && git pull` → tạo
+`issue-<số>/<username>-<việc-ngắn>` → làm đúng phạm vi issue → PR vào `develop` với
+`Closes #<số>` → 1 approve → merge. Khi `develop` ổn định (một cụm issue cùng milestone đã xong),
+mở PR riêng từ `develop` sang `main`.
+
 ### 4.2 WBS (Work Breakdown Structure)
 
 ```
@@ -554,6 +574,9 @@ hết vào cuối kỳ.
 - [x] Bật branch ruleset cho `main` (chặn force-push và xoá nhánh).
 - [x] Bật `required_pull_request_reviews` (≥1 approve, dismiss stale reviews) trong branch
       protection của `main` — hạn chế #9 (§2.1) giờ thật sự "áp dụng lại", không chỉ ghi trên giấy.
+- [x] Tạo nhánh `develop` từ `main`, bật cùng branch protection; ghi lại quy trình nhánh ở §4.1a.
 - [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
       cho issue #12 — hạn chế #3).
-- [ ] Khởi tạo project Spring Boot (issue #2) khi sẵn sàng bắt đầu code.
+- [ ] Khởi tạo project Spring Boot (issue #2) khi sẵn sàng bắt đầu code — nhớ tạo branch
+      `issue-2/anpham120-init-spring-boot` từ `develop` theo đúng quy trình mới, không code thẳng
+      trên `develop`/`main`.
