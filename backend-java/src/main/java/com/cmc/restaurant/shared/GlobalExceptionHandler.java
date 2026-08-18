@@ -38,6 +38,21 @@ public class GlobalExceptionHandler {
 		return error(status, violation.code(), violation.getMessage());
 	}
 
+	/**
+	 * Same split as {@link OrderRuleViolation}: the Payment aggregate reports which rule broke, the
+	 * web layer decides the status code.
+	 *
+	 * <p>Every payment rule maps to 400. That is not laziness — a payment refusal is always "you
+	 * asked for something this payment's current state does not allow", which is a bad request, not
+	 * a conflict with a concurrent writer. Genuine races surface as {@code CONFLICT_STALE} from the
+	 * optimistic-lock path instead, and that one is already an {@link ApiException}.
+	 */
+	@ExceptionHandler(com.cmc.restaurant.payments.domain.PaymentRuleViolation.class)
+	public ResponseEntity<Map<String, Object>> handlePaymentRuleViolation(
+			com.cmc.restaurant.payments.domain.PaymentRuleViolation violation) {
+		return error(HttpStatus.BAD_REQUEST, violation.code(), violation.getMessage());
+	}
+
 	private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String code, String message) {
 		return ResponseEntity.status(status).body(Map.of(
 				"error", Map.of("code", code, "message", message, "details", Map.of())));

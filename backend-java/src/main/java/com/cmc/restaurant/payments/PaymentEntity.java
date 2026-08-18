@@ -1,7 +1,12 @@
 package com.cmc.restaurant.payments;
 
 import jakarta.persistence.Column;
+import com.cmc.restaurant.payments.domain.Payment;
+import com.cmc.restaurant.payments.domain.PaymentMethod;
+import com.cmc.restaurant.payments.domain.PaymentStatus;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -25,11 +30,13 @@ public class PaymentEntity {
 	@Column(name = "order_id")
 	private String orderId;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private String method;
+	private PaymentMethod method;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private String status;
+	private PaymentStatus status;
 
 	@Column(nullable = false)
 	private BigDecimal amount;
@@ -57,8 +64,8 @@ public class PaymentEntity {
 	public PaymentEntity(String id, String orderId, OffsetDateTime now) {
 		this.id = id;
 		this.orderId = orderId;
-		this.method = "Unselected";
-		this.status = "NotRequested";
+		this.method = PaymentMethod.Unselected;
+		this.status = PaymentStatus.NotRequested;
 		this.amount = BigDecimal.ZERO;
 		this.createdAt = now;
 		this.updatedAt = now;
@@ -72,19 +79,19 @@ public class PaymentEntity {
 		return orderId;
 	}
 
-	public String getMethod() {
+	public PaymentMethod getMethod() {
 		return method;
 	}
 
-	public void setMethod(String method) {
+	public void setMethod(PaymentMethod method) {
 		this.method = method;
 	}
 
-	public String getStatus() {
+	public PaymentStatus getStatus() {
 		return status;
 	}
 
-	public void setStatus(String status) {
+	public void setStatus(PaymentStatus status) {
 		this.status = status;
 	}
 
@@ -122,5 +129,19 @@ public class PaymentEntity {
 
 	public void setUpdatedAt(OffsetDateTime updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	/** Lifts the row into the aggregate that owns the payment rules (issue #63). */
+	public Payment toDomain() {
+		return new Payment(id, amount, status, method, providerTransactionId, paidAt, updatedAt);
+	}
+
+	/** Writes back what the aggregate decided. The only place payment state is copied into a row. */
+	public void applyFrom(Payment payment) {
+		this.status = payment.status();
+		this.method = payment.method();
+		this.providerTransactionId = payment.providerTransactionId();
+		this.paidAt = payment.paidAt();
+		this.updatedAt = payment.updatedAt();
 	}
 }
