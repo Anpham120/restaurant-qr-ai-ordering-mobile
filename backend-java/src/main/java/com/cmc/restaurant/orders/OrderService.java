@@ -4,6 +4,8 @@ import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.payments.PaymentEntity;
 import com.cmc.restaurant.payments.PaymentRepository;
+import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
+import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.CustomerTokenGuard;
 import com.cmc.restaurant.tables.RestaurantTableEntity;
@@ -47,13 +49,15 @@ public class OrderService {
 	private final TableSessionRepository tableSessionRepository;
 	private final JdbcTemplate jdbcTemplate;
 	private final OrderItemEstimationService estimationService;
+	private final OrderRealtimeNotifier realtimeNotifier;
 
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
 			OrderStatusHistoryRepository orderStatusHistoryRepository, PaymentRepository paymentRepository,
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
 			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
-			OrderItemEstimationService estimationService) {
+			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier) {
+		this.realtimeNotifier = realtimeNotifier;
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
 		this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -143,6 +147,11 @@ public class OrderService {
 
 		jdbcTemplate.update("delete from table_session_cart_items where table_session_id = ?", session.getId());
 
+		// DoD của issue #13: bếp nhận order.created qua WebSocket.
+		realtimeNotifier.orderCreated(new RealtimeDtos.OrderCreatedEvent(
+				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
+				order.getStatus(), order.getCreatedAt()));
+
 		return toCreateResponse(order);
 	}
 
@@ -229,6 +238,10 @@ public class OrderService {
 		}
 
 		orderRepository.save(order);
+		realtimeNotifier.orderStatusChanged(
+				new RealtimeDtos.OrderStatusChangedEvent(
+						order.getId(), order.getOrderCode(), order.getStatus(), order.getUpdatedAt()),
+				order.getTableCode());
 		return toResponse(order);
 	}
 
@@ -269,6 +282,7 @@ public class OrderService {
 		order.setUpdatedAt(now);
 		orderRepository.save(order);
 
+		publishItemStatusChanged(order, item, previousOrderStatus);
 		return toResponse(order);
 	}
 
@@ -311,7 +325,27 @@ public class OrderService {
 		order.setUpdatedAt(now);
 		orderRepository.save(order);
 
+		// A customer cancelling a dish must reach the kitchen board as fast as a staff change would
+		// — that is the whole point of hạn chế #11.
+		publishItemStatusChanged(order, item, previousOrderStatus);
 		return toResponse(order);
+	}
+
+	/** Emits the item event, plus an order event when the item change rolled the order's aggregate
+	 * status forward — matching {@code OrderEndpoints}, which fires both when {@code
+	 * OrderStatusChanged} is true. */
+	private void publishItemStatusChanged(OrderEntity order, OrderItemEntity item, String previousOrderStatus) {
+		realtimeNotifier.orderItemStatusChanged(
+				new RealtimeDtos.OrderItemStatusChangedEvent(
+						order.getId(), order.getOrderCode(), item.getId(), item.getMenuItemName(),
+						item.getStatus(), item.getUpdatedAt()),
+				order.getTableCode());
+		if (!order.getStatus().equals(previousOrderStatus)) {
+			realtimeNotifier.orderStatusChanged(
+					new RealtimeDtos.OrderStatusChangedEvent(
+							order.getId(), order.getOrderCode(), order.getStatus(), order.getUpdatedAt()),
+					order.getTableCode());
+		}
 	}
 
 	// --- state machine ---------------------------------------------------------------------
