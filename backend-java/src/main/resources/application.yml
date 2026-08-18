@@ -24,6 +24,10 @@ payments:
     account-number: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:}
     account-name: ${PAYMENTS_VIETQR_ACCOUNTNAME:}
     template: ${PAYMENTS_VIETQR_TEMPLATE:compact2}
+  casso:
+    # No default either: an unset token makes the webhook reject every call, which is the safe
+    # failure mode — accepting unauthenticated payloads would mark orders paid for free.
+    secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
 
 jwt:
   issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
