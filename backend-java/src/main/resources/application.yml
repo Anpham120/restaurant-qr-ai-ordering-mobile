@@ -16,6 +16,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+payments:
+  vietqr:
+    # No defaults on purpose (mirrors appsettings.json): an unconfigured deployment must fail with
+    # VIETQR_CONFIG_MISSING rather than render a QR pointing at nobody's account.
+    bank-id: ${PAYMENTS_VIETQR_BANKID:}
+    account-number: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:}
+    account-name: ${PAYMENTS_VIETQR_ACCOUNTNAME:}
+    template: ${PAYMENTS_VIETQR_TEMPLATE:compact2}
+
 jwt:
   issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
   audience: ${JWT_AUDIENCE:RestaurantQrAiOrdering.Client}
