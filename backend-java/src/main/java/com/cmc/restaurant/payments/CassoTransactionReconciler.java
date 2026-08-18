@@ -13,8 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,23 +49,21 @@ public class CassoTransactionReconciler {
 		this.orderService = orderService;
 	}
 
-	/** Commits (or rolls back) on its own, so a bad entry never undoes an already-settled sibling
-	 * in the same Casso batch. */
+	/**
+	 * Commits (or rolls back) on its own, so a bad entry never undoes an already-settled sibling in
+	 * the same Casso batch.
+	 *
+	 * <p>Concurrency failures are deliberately NOT caught here. Once Hibernate raises an optimistic
+	 * lock clash — or Postgres rejects a duplicate reference — this transaction can no longer
+	 * commit. Swallowing that inside the transactional method would let Spring attempt a commit
+	 * anyway and blow up with {@code UnexpectedRollbackException} <em>after</em> a tidy result had
+	 * already been produced, turning a settled transfer into a 500 that Casso then retries 17
+	 * times. Letting it propagate lets the proxy roll back cleanly;
+	 * {@link CassoWebhookService#handle} classifies the outcome from outside the boundary.
+	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public CassoDtos.TransactionResult reconcile(CassoDtos.Transaction transaction) {
-		try {
-			return attempt(transaction);
-		} catch (ObjectOptimisticLockingFailureException e) {
-			// The counter confirmed this payment by hand between our read and our write. Their
-			// write stands — report it rather than overwriting a human decision.
-			return result(transaction, "already_settled", null,
-					"Payment was settled by another actor while this webhook was being processed.");
-		} catch (DataIntegrityViolationException e) {
-			// Lost the race against a concurrent delivery of the SAME reference; the partial unique
-			// index (V7) rejected the second ledger row. From Casso's side that is still success.
-			return result(transaction, "duplicate", null,
-					"This bank reference was already reconciled by a concurrent delivery.");
-		}
+		return attempt(transaction);
 	}
 
 	private CassoDtos.TransactionResult attempt(CassoDtos.Transaction transaction) {
