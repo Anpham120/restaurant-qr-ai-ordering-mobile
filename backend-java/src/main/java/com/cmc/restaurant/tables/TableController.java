@@ -20,10 +20,14 @@ public class TableController {
 
 	private final RestaurantTableRepository tableRepository;
 	private final TableSessionService sessionService;
+	private final TableInvoiceService invoiceService;
 
-	public TableController(RestaurantTableRepository tableRepository, TableSessionService sessionService) {
+	public TableController(
+			RestaurantTableRepository tableRepository, TableSessionService sessionService,
+			TableInvoiceService invoiceService) {
 		this.tableRepository = tableRepository;
 		this.sessionService = sessionService;
+		this.invoiceService = invoiceService;
 	}
 
 	@GetMapping("/api/tables/{tableCode}")
@@ -58,5 +62,11 @@ public class TableController {
 	@PreAuthorize("hasAnyRole('Staff', 'Admin')")
 	public TableSessionResponse closeTableSession(@PathVariable String sessionId) {
 		return sessionService.closeSession(sessionId);
+	}
+
+	@GetMapping("/api/table-sessions/{sessionId}/invoice")
+	public TableInvoiceDtos.InvoiceResponse getInvoice(
+			@PathVariable String sessionId, HttpServletRequest request) {
+		return invoiceService.getInvoice(sessionId, request.getHeader("X-Table-Session-Token"));
 	}
 }
