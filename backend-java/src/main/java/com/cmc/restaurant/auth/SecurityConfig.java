@@ -42,6 +42,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/tables/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*/invoice").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/orders/*").permitAll()
 						.anyRequest().authenticated())

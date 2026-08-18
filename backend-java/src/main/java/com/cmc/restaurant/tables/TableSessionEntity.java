@@ -5,11 +5,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.OffsetDateTime;
 
 /** Mirrors {@code RestaurantQrAiOrdering.Entities.TableSession} (.NET), including its domain
- * methods {@code IsActiveAt}/{@code ExpireIfPast}. Adds {@code memberId} (§9.4, migration V3) —
- * the one field the .NET entity does not have. */
+ * methods {@code IsActiveAt}/{@code ExpireIfPast}. Adds {@code memberId} (§9.4, migration V3) and
+ * {@code version} (migration V4, issue #7) — two fields the .NET entity does not have. */
 @Entity
 @Table(name = "table_sessions")
 public class TableSessionEntity {
@@ -53,6 +54,10 @@ public class TableSessionEntity {
 
 	@Column(name = "member_id")
 	private String memberId;
+
+	@Version
+	@Column(nullable = false)
+	private long version;
 
 	protected TableSessionEntity() {
 		// JPA

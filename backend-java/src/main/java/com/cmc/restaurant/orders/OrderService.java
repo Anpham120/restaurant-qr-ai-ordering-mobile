@@ -87,6 +87,17 @@ public class OrderService {
 				.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
 						"Table session has expired. Please scan QR again."));
 
+		// V16: touch the shared session row (mirrors .NET's comment verbatim) so an Order Round
+		// being created and a settlement starting concurrently cannot both commit — whichever
+		// writes second sees a stale @Version and fails here instead of silently corrupting state.
+		session.setUpdatedAt(now);
+		try {
+			tableSessionRepository.saveAndFlush(session);
+		} catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+			throw ApiException.conflict("TABLE_SESSION_CONFLICT",
+					"The table session changed while this order was being submitted. Reload and try again.");
+		}
+
 		String orderId = "ord_" + UUID.randomUUID().toString().replace("-", "");
 		String orderCode = "ORD-" + jdbcTemplate.queryForObject(
 				"select nextval('orders_order_code_seq')", Long.class);
