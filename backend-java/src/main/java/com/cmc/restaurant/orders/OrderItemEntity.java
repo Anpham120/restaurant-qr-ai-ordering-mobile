@@ -2,6 +2,8 @@ package com.cmc.restaurant.orders;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
@@ -29,8 +31,9 @@ public class OrderItemEntity {
 	@Column(nullable = false)
 	private int quantity;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private String status;
+	private OrderItemStatus status;
 
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
@@ -52,7 +55,7 @@ public class OrderItemEntity {
 		this.menuItemName = menuItemName;
 		this.unitPrice = unitPrice;
 		this.quantity = quantity;
-		this.status = OrderItemStatus.PENDING;
+		this.status = OrderItemStatus.Pending;
 		this.createdAt = now;
 		this.updatedAt = now;
 	}
@@ -85,11 +88,11 @@ public class OrderItemEntity {
 		return quantity;
 	}
 
-	public String getStatus() {
+	public OrderItemStatus getStatus() {
 		return status;
 	}
 
-	public void setStatus(String status) {
+	public void setStatus(OrderItemStatus status) {
 		this.status = status;
 	}
 

@@ -127,7 +127,7 @@ public class StompSubscriptionGuard implements ChannelInterceptor {
 		}
 		OffsetDateTime now = OffsetDateTime.now();
 		List<TableSessionEntity> openSessions = tableSessionRepository.findByTableCodeAndStatus(
-				normalized, TableSessionStatus.OPEN);
+				normalized, TableSessionStatus.Open);
 		return openSessions.stream()
 				.filter(session -> session.getClosedAt() == null)
 				.filter(session -> session.getExpiresAt().isAfter(now))

@@ -67,8 +67,15 @@ public class OrderController {
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) String tableCode,
 			@RequestParam(required = false) OffsetDateTime updatedSince) {
+		// A filter the client cannot express is better rejected than silently ignored: before this,
+		// ?status=Plced simply returned every order.
+		OrderStatus parsedStatus = null;
+		if (status != null && !status.isBlank()) {
+			parsedStatus = OrderStatus.parse(status).orElseThrow(
+					() -> ApiException.badRequest("ORDER_STATUS_INVALID", "Order status is invalid."));
+		}
 		String normalizedTableCode = tableCode == null ? null : tableCode.trim().toUpperCase(java.util.Locale.ROOT);
-		return orderService.listOrders(status, normalizedTableCode, updatedSince);
+		return orderService.listOrders(parsedStatus, normalizedTableCode, updatedSince);
 	}
 
 	@PatchMapping("/api/orders/{orderCode}/status")
@@ -77,13 +84,18 @@ public class OrderController {
 			@PathVariable String orderCode,
 			@RequestBody OrderDtos.UpdateOrderStatusRequest request,
 			Authentication authentication) {
+		// The edge is where a client string becomes a domain value; past this point the service and
+		// the state machine only ever see OrderStatus, so an invalid value cannot travel inwards.
+		OrderStatus status = OrderStatus.parse(request.status())
+				.orElseThrow(() -> ApiException.badRequest("ORDER_STATUS_INVALID", "Order status is invalid."));
+
 		boolean kitchenOnly = hasRole(authentication, "Kitchen") && !hasRole(authentication, "Staff")
 				&& !hasRole(authentication, "Admin");
-		if (kitchenOnly && !"Served".equals(request.status())) {
+		if (kitchenOnly && status != OrderStatus.Served) {
 			throw new ApiException(HttpStatus.FORBIDDEN, "KITCHEN_ORDER_STATUS_FORBIDDEN",
 					"Kitchen can only mark a Ready order as Served.");
 		}
-		return orderService.updateOrderStatus(orderCode, request.status(), ActorContext.fromAuthentication(authentication));
+		return orderService.updateOrderStatus(orderCode, status, ActorContext.fromAuthentication(authentication));
 	}
 
 	@PatchMapping("/api/orders/{orderCode}/items/{orderItemId}/status")
@@ -93,8 +105,11 @@ public class OrderController {
 			@PathVariable String orderItemId,
 			@RequestBody OrderDtos.UpdateOrderItemStatusRequest request,
 			Authentication authentication) {
+		OrderItemStatus status = OrderItemStatus.parse(request.status())
+				.orElseThrow(() -> ApiException.badRequest(
+						"ORDER_ITEM_STATUS_INVALID", "Order item status is invalid."));
 		return orderService.updateOrderItemStatus(
-				orderCode, orderItemId, request.status(), ActorContext.fromAuthentication(authentication));
+				orderCode, orderItemId, status, ActorContext.fromAuthentication(authentication));
 	}
 
 	/** Hạn chế #11 — customer self-cancel, gated by the per-order {@code X-Order-Token} capability

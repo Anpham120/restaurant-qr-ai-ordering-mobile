@@ -14,7 +14,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 
-	List<OrderEntity> findByTableSessionIdAndStatusNotIn(String tableSessionId, List<String> statuses);
+	List<OrderEntity> findByTableSessionIdAndStatusNotIn(String tableSessionId, List<OrderStatus> statuses);
 
 	// updatedSince uses coalesce instead of the ":param is null or ..." idiom used by the other two.
 	// With that idiom the parameter appears once on its own ("$5 is null"), giving PostgreSQL nothing
@@ -29,14 +29,14 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 			+ "(o.updatedAt >= coalesce(:updatedSince, o.updatedAt)) "
 			+ "order by o.updatedAt desc, o.createdAt desc")
 	List<OrderEntity> search(
-			@Param("status") String status,
+			@Param("status") OrderStatus status,
 			@Param("tableCode") String tableCode,
 			@Param("updatedSince") OffsetDateTime updatedSince,
 			Pageable pageable);
 
 	default List<OrderEntity> findOtherActiveOrders(String tableSessionId, String excludeOrderId) {
 		return findByTableSessionIdAndStatusNotIn(
-				tableSessionId, List.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED))
+				tableSessionId, List.of(OrderStatus.Completed, OrderStatus.Cancelled))
 				.stream()
 				.filter(order -> !order.getId().equals(excludeOrderId))
 				.toList();
