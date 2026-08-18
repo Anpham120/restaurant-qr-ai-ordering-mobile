@@ -55,6 +55,13 @@ public class GlobalExceptionHandler {
 
 	/** Cart rules: quantity bounds and the delta check are bad requests; the two invoice guards are
 	 * conflicts with the table.s current payment state, matching the .NET status codes. */
+	/** Promotion rules are all "this code cannot be used for this order" — a bad request. */
+	@ExceptionHandler(com.cmc.restaurant.promotions.domain.PromotionRuleViolation.class)
+	public ResponseEntity<Map<String, Object>> handlePromotionRuleViolation(
+			com.cmc.restaurant.promotions.domain.PromotionRuleViolation violation) {
+		return error(HttpStatus.BAD_REQUEST, violation.code(), violation.getMessage());
+	}
+
 	@ExceptionHandler(com.cmc.restaurant.cart.domain.CartRuleViolation.class)
 	public ResponseEntity<Map<String, Object>> handleCartRuleViolation(
 			com.cmc.restaurant.cart.domain.CartRuleViolation violation) {
