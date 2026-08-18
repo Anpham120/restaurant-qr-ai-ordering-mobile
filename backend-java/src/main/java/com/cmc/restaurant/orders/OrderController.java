@@ -1,5 +1,7 @@
 package com.cmc.restaurant.orders;
 
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
 import com.cmc.restaurant.shared.ApiException;
 import jakarta.servlet.http.HttpServletRequest;

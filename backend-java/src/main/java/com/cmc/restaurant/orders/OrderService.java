@@ -1,5 +1,10 @@
 package com.cmc.restaurant.orders;
 
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderPersistenceAdapter;
+import com.cmc.restaurant.orders.domain.Order;
+import com.cmc.restaurant.orders.domain.OrderItem;
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.payments.PaymentEntity;
@@ -51,14 +56,17 @@ public class OrderService {
 	private final JdbcTemplate jdbcTemplate;
 	private final OrderItemEstimationService estimationService;
 	private final OrderRealtimeNotifier realtimeNotifier;
+	private final OrderPersistenceAdapter persistence;
 
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
 			OrderStatusHistoryRepository orderStatusHistoryRepository, PaymentRepository paymentRepository,
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
 			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
-			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier) {
+			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
+			OrderPersistenceAdapter persistence) {
 		this.realtimeNotifier = realtimeNotifier;
+		this.persistence = persistence;
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
 		this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -156,6 +164,13 @@ public class OrderService {
 		return toCreateResponse(order);
 	}
 
+	/** Re-reads the entity view after the aggregate saved, so the response DTO keeps reporting the
+	 * columns the aggregate does not own (payment status, amounts, full history). */
+	private OrderEntity reload(String orderCode) {
+		return populateChildren(orderRepository.findByOrderCode(orderCode)
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+	}
+
 	/** Fills the {@code @Transient} items/statusHistory lists (see {@link OrderEntity}) — call
 	 * after any {@code orderRepository.findBy...} before reading those lists. */
 	private OrderEntity populateChildren(OrderEntity order) {
@@ -189,20 +204,14 @@ public class OrderService {
 
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderStatus(String orderCode, OrderStatus status, ActorContext actor) {
-		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+		Order order = persistence.loadByOrderCode(orderCode)
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
-		if (status == OrderStatus.Cancelled && isCancellationLocked(order)) {
-			throw ApiException.badRequest("ORDER_CANCEL_NOT_ALLOWED",
-					"Order cannot be cancelled after it or any item reaches Preparing.");
-		}
-
-		if (!canTransitionOrder(order.getStatus(), status)) {
-			throw ApiException.badRequest("ORDER_STATUS_TRANSITION_INVALID", "Order status transition is not allowed.");
-		}
-
+		// Payment settlement is not the aggregate's business — it belongs to another module, so the
+		// use case checks it and the domain stays free of that dependency.
 		if (status == OrderStatus.Completed) {
-			String paymentStatus = paymentRepository.findByOrderId(order.getId()).map(PaymentEntity::getStatus).orElse(null);
+			String paymentStatus = paymentRepository.findByOrderId(order.id())
+					.map(PaymentEntity::getStatus).orElse(null);
 			if (!"Confirmed".equals(paymentStatus) && !"Paid".equals(paymentStatus)) {
 				throw ApiException.badRequest("ORDER_COMPLETE_REQUIRES_PAYMENT",
 						"Order cannot be completed until its payment is confirmed.");
@@ -210,81 +219,35 @@ public class OrderService {
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
-		OrderStatus fromStatus = order.getStatus();
-		order.setStatus(status);
-		order.setUpdatedAt(now);
-		appendHistory(order, fromStatus, status, actor, null, now);
+		// Every rule about whether this move is legal, and every cascade it triggers, lives in the
+		// aggregate — this method no longer decides any of it.
+		order.transitionTo(status, actor.toDomain(), now);
+		persistence.save(order);
 
-		List<OrderItemEntity> items = itemsOf(order);
-		if (status == OrderStatus.Cancelled) {
-			for (OrderItemEntity item : items) {
-				if (item.getStatus() == OrderItemStatus.Pending) {
-					item.setStatus(OrderItemStatus.Cancelled);
-					item.setUpdatedAt(now);
-					orderItemRepository.save(item);
-				}
-			}
-		}
-		if (status == OrderStatus.Served) {
-			for (OrderItemEntity item : items) {
-				if (item.getStatus() != OrderItemStatus.Cancelled) {
-					item.setStatus(OrderItemStatus.Served);
-					item.setUpdatedAt(now);
-					orderItemRepository.save(item);
-				}
-			}
-		}
-		if (status == OrderStatus.Completed && order.getTableSessionId() != null) {
-			closeTableSessionIfLastActiveOrder(order, now);
+		if (status == OrderStatus.Completed && order.tableSessionId() != null) {
+			closeTableSessionIfLastActiveOrder(order.id(), order.tableSessionId(), now);
 		}
 
-		orderRepository.save(order);
 		realtimeNotifier.orderStatusChanged(
 				new RealtimeDtos.OrderStatusChangedEvent(
-						order.getId(), order.getOrderCode(), order.getStatus().name(), order.getUpdatedAt()),
-				order.getTableCode());
-		return toResponse(order);
+						order.id(), order.orderCode(), order.status().name(), order.updatedAt()),
+				order.tableCode());
+		return toResponse(reload(order.orderCode()));
 	}
 
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderItemStatus(
 			String orderCode, String orderItemId, OrderItemStatus status, ActorContext actor) {
-		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
-
-		List<OrderItemEntity> items = itemsOf(order);
-		OrderItemEntity item = items.stream().filter(i -> i.getId().equalsIgnoreCase(orderItemId)).findFirst()
-				.orElseThrow(() -> ApiException.notFound("ORDER_ITEM_NOT_FOUND", "Order item was not found."));
-
-		if (order.getStatus() == OrderStatus.Completed || order.getStatus() == OrderStatus.Cancelled) {
-			throw new ApiException(HttpStatus.CONFLICT, "ORDER_STATUS_TERMINAL",
-					"Completed or cancelled orders cannot be changed.");
-		}
-
-		if (!canTransitionItem(item.getStatus(), status)) {
-			throw ApiException.badRequest(
-					"ORDER_ITEM_STATUS_TRANSITION_INVALID", "Order item status transition is not allowed.");
-		}
+		Order order = persistence.loadByOrderCode(orderCode)
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
 		OffsetDateTime now = OffsetDateTime.now();
-		OrderStatus previousOrderStatus = order.getStatus();
-		item.setStatus(status);
-		item.setUpdatedAt(now);
-		if (status == OrderItemStatus.Ready && item.getReadyAt() == null) {
-			item.setReadyAt(now);
-		}
-		orderItemRepository.save(item);
-
-		OrderStatus aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
-		if (aggregateStatus != order.getStatus()) {
-			order.setStatus(aggregateStatus);
-			appendHistory(order, previousOrderStatus, aggregateStatus, actor, null, now);
-		}
-		order.setUpdatedAt(now);
-		orderRepository.save(order);
+		OrderStatus previousOrderStatus = order.status();
+		OrderItem item = order.updateItemStatus(orderItemId, status, actor.toDomain(), now);
+		persistence.save(order);
 
 		publishItemStatusChanged(order, item, previousOrderStatus);
-		return toResponse(order);
+		return toResponse(reload(order.orderCode()));
 	}
 
 	/** Hạn chế #11 — customer self-cancel. No .NET equivalent exists; ported straight into Java
@@ -296,139 +259,56 @@ public class OrderService {
 	@Transactional
 	public OrderDtos.OrderResponse cancelOrderItemAsCustomer(
 			String orderCode, String orderItemId, String suppliedAccessToken) {
-		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+		Order order = persistence.loadByOrderCode(orderCode)
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
-		if (!CustomerTokenGuard.hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
+		// Wrong token is reported as "not found", never "forbidden": the order codes are sequential,
+		// so confirming that ORD-1002 exists would already leak information.
+		if (!order.matchesCustomerToken(suppliedAccessToken)) {
 			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
 		}
 
-		List<OrderItemEntity> items = itemsOf(order);
-		OrderItemEntity item = items.stream().filter(i -> i.getId().equalsIgnoreCase(orderItemId)).findFirst()
-				.orElseThrow(() -> ApiException.notFound("ORDER_ITEM_NOT_FOUND", "Order item was not found."));
-
-		if (item.getStatus() != OrderItemStatus.Pending) {
-			throw ApiException.badRequest("ORDER_ITEM_CANCEL_NOT_ALLOWED",
-					"This item can no longer be cancelled once the kitchen has started preparing it.");
-		}
-
 		OffsetDateTime now = OffsetDateTime.now();
-		OrderStatus previousOrderStatus = order.getStatus();
-		item.setStatus(OrderItemStatus.Cancelled);
-		item.setUpdatedAt(now);
-		orderItemRepository.save(item);
-
-		OrderStatus aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
-		if (aggregateStatus != order.getStatus()) {
-			order.setStatus(aggregateStatus);
-			appendHistory(order, previousOrderStatus, aggregateStatus, ActorContext.CUSTOMER, null, now);
-		}
-		order.setUpdatedAt(now);
-		orderRepository.save(order);
+		OrderStatus previousOrderStatus = order.status();
+		OrderItem item = order.cancelItemAsCustomer(orderItemId, now);
+		persistence.save(order);
 
 		// A customer cancelling a dish must reach the kitchen board as fast as a staff change would
 		// — that is the whole point of hạn chế #11.
 		publishItemStatusChanged(order, item, previousOrderStatus);
-		return toResponse(order);
+		return toResponse(reload(order.orderCode()));
 	}
 
 	/** Emits the item event, plus an order event when the item change rolled the order's aggregate
 	 * status forward — matching {@code OrderEndpoints}, which fires both when {@code
 	 * OrderStatusChanged} is true. */
-	private void publishItemStatusChanged(OrderEntity order, OrderItemEntity item, OrderStatus previousOrderStatus) {
+	private void publishItemStatusChanged(Order order, OrderItem item, OrderStatus previousOrderStatus) {
 		realtimeNotifier.orderItemStatusChanged(
 				new RealtimeDtos.OrderItemStatusChangedEvent(
-						order.getId(), order.getOrderCode(), item.getId(), item.getMenuItemName(),
-						item.getStatus().name(), item.getUpdatedAt()),
-				order.getTableCode());
-		if (order.getStatus() != previousOrderStatus) {
+						order.id(), order.orderCode(), item.id(), item.menuItemName(),
+						item.status().name(), item.updatedAt()),
+				order.tableCode());
+		if (order.status() != previousOrderStatus) {
 			realtimeNotifier.orderStatusChanged(
 					new RealtimeDtos.OrderStatusChangedEvent(
-							order.getId(), order.getOrderCode(), order.getStatus().name(), order.getUpdatedAt()),
-					order.getTableCode());
+							order.id(), order.orderCode(), order.status().name(), order.updatedAt()),
+					order.tableCode());
 		}
 	}
 
 	// --- state machine ---------------------------------------------------------------------
 
-	static boolean canTransitionOrder(OrderStatus current, OrderStatus next) {
-		if (next == OrderStatus.Cancelled) {
-			return current == OrderStatus.Placed || current == OrderStatus.Confirmed;
-		}
-		return switch (current) {
-			case Placed -> next == OrderStatus.Confirmed || next == OrderStatus.Preparing;
-			case Confirmed -> next == OrderStatus.Preparing;
-			case Preparing -> next == OrderStatus.Ready;
-			case Ready -> next == OrderStatus.Served;
-			case Served -> next == OrderStatus.Completed;
-			default -> false;
-		};
-	}
+	// The state machine used to live here as static helpers operating on entities from the outside.
+	// It now lives in com.cmc.restaurant.orders.domain.Order, which is the only place that decides
+	// whether a move is legal — keeping a second copy here is how the two would drift apart.
 
-	// Items move forward only (skips like Pending -> Ready are allowed for fast kitchens). Backward
-	// moves, no-ops, and changes out of a terminal state are rejected.
-	static boolean canTransitionItem(OrderItemStatus current, OrderItemStatus next) {
-		if (next == OrderItemStatus.Cancelled) {
-			return current == OrderItemStatus.Pending || current == OrderItemStatus.Preparing;
-		}
-		return switch (current) {
-			case Pending -> next == OrderItemStatus.Preparing || next == OrderItemStatus.Ready
-					|| next == OrderItemStatus.Served;
-			case Preparing -> next == OrderItemStatus.Ready || next == OrderItemStatus.Served;
-			case Ready -> next == OrderItemStatus.Served;
-			default -> false;
-		};
-	}
-
-	private static final Set<OrderStatus> KITCHEN_IN_FLIGHT =
-			EnumSet.of(OrderStatus.Placed, OrderStatus.Confirmed, OrderStatus.Preparing);
-	private static final Set<OrderItemStatus> ITEM_DONE =
-			EnumSet.of(OrderItemStatus.Ready, OrderItemStatus.Served);
-	private static final Set<OrderItemStatus> ITEM_STARTED =
-			EnumSet.of(OrderItemStatus.Preparing, OrderItemStatus.Ready, OrderItemStatus.Served);
-
-	static OrderStatus deriveAggregateKitchenStatus(OrderStatus orderStatus, List<OrderItemEntity> items) {
-		List<OrderItemEntity> activeItems = items.stream()
-				.filter(i -> i.getStatus() != OrderItemStatus.Cancelled).toList();
-		if (activeItems.isEmpty()) {
-			return orderStatus;
-		}
-
-		if (KITCHEN_IN_FLIGHT.contains(orderStatus)
-				&& activeItems.stream().allMatch(i -> ITEM_DONE.contains(i.getStatus()))) {
-			return OrderStatus.Ready;
-		}
-
-		if (orderStatus == OrderStatus.Ready
-				&& activeItems.stream().allMatch(i -> i.getStatus() == OrderItemStatus.Served)) {
-			return OrderStatus.Served;
-		}
-
-		boolean notYetStarted = orderStatus == OrderStatus.Placed || orderStatus == OrderStatus.Confirmed;
-		if (notYetStarted && activeItems.stream().anyMatch(i -> ITEM_STARTED.contains(i.getStatus()))) {
-			return OrderStatus.Preparing;
-		}
-
-		return orderStatus;
-	}
-
-	private static final Set<OrderStatus> ORDER_CANCEL_LOCKED = EnumSet.of(
-			OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Served, OrderStatus.Completed);
-
-	private static boolean isCancellationLocked(OrderEntity order) {
-		if (ORDER_CANCEL_LOCKED.contains(order.getStatus())) {
-			return true;
-		}
-		return order.getItems().stream().anyMatch(i -> ITEM_STARTED.contains(i.getStatus()));
-	}
-
-	private void closeTableSessionIfLastActiveOrder(OrderEntity order, OffsetDateTime now) {
-		boolean hasOtherActive = !orderRepository.findOtherActiveOrders(order.getTableSessionId(), order.getId()).isEmpty();
+	private void closeTableSessionIfLastActiveOrder(String orderId, String tableSessionId, OffsetDateTime now) {
+		boolean hasOtherActive = !orderRepository.findOtherActiveOrders(tableSessionId, orderId).isEmpty();
 		if (hasOtherActive) {
 			return;
 		}
-		tableSessionRepository.findById(order.getTableSessionId())
-				.filter(s -> s.getStatus() == TableSessionStatus.Open)
+		tableSessionRepository.findById(tableSessionId)
+				.filter(session -> session.getStatus() == TableSessionStatus.Open)
 				.ifPresent(session -> {
 					session.setStatus(TableSessionStatus.Closed);
 					session.setClosedAt(now);
