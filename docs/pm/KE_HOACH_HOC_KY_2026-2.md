@@ -1,6 +1,6 @@
 # Kế hoạch học kỳ 2026-2 — Fork cá nhân CMC Restaurant
 
-**Chủ fork:** Phạm Duy An (BIT240002) · **Repo:** `Anpham120/restaurant-qr-ai-ordering-mobile` (private) · **Nguồn:** `Anpham120/restaurant-qr-ai-ordering` (INFO2005, đã v0.3.0)
+**Chủ fork:** Phạm Duy An (BIT240002) · **Repo:** `Anpham120/restaurant-qr-ai-ordering-mobile` (public) · **Nguồn:** `Anpham120/restaurant-qr-ai-ordering` (INFO2005, đã v0.3.0)
 **Ngày lập:** 2026-08-17
 
 > Tài liệu này là kế hoạch làm việc cho một fork cá nhân, phục vụ 4 môn học kỳ này. Nó không thay
@@ -18,6 +18,7 @@ thể, ghi lại để không trông giống scope creep âm thầm:
 | 1 | App mobile: từ "công cụ nhân viên" → "khách hàng thân thiết" full-parity 2 lớp 3 pha | Người chủ dự án muốn tập trung vào khách quay lại, không phải nhân viên |
 | 2 | Hạn chế #10 thêm phần hiển thị (không chỉ đo); hạn chế #3 (thanh toán tự động qua Casso) | Người chủ dự án chủ động yêu cầu, chấp nhận rủi ro đã nêu ở hạn chế #10 |
 | 3 | §7 — cải tiến UX ba luồng `ops-web`, gộp vào môn Lập trình nâng cao | Người chủ dự án nêu giao diện/thao tác chưa tốt; xác nhận rõ đây là vấn đề UX, không phải thiết kế lại giao diện |
+| 4 | Repo chuyển public; mời lại 4 thành viên nhóm INFO2005 cũ làm cộng tác viên quyền write; 34 issue đang mở gán lại theo đúng mảng mỗi người từng phụ trách ở dự án gốc | Người chủ dự án chủ động yêu cầu mở lại cộng tác — xem §4.1a về trách nhiệm cá nhân vẫn giữ nguyên với 4 môn |
 
 ---
 
@@ -36,6 +37,26 @@ Học kỳ này tôi có 4 môn, dùng **một fork duy nhất** làm nền cho 
 | Quản lý dự án CNTT | Chính fork này là đối tượng quản lý: WBS, mốc, rủi ro, log thay đổi phạm vi | §4 |
 | Triển khai phần mềm | Container hoá + CI song song cho bản Java, chỉ local, so sánh với pipeline .NET | §8 |
 | Lập trình ứng dụng di động | App Flutter cho khách hàng thân thiết — full parity với web + lớp độc quyền (thẻ thành viên, hồ sơ AI bền vững) | §9 |
+
+### 1.1 Phân công cộng tác viên (từ 2026-08-18)
+
+Repo đã chuyển **public**, mời lại 4 thành viên nhóm INFO2005 cũ làm cộng tác viên quyền **write**.
+34 issue đang mở gán theo đúng mảng mỗi người từng phụ trách ở dự án gốc
+([`docs/devops/GIT_AND_TEAM.md`](../devops/GIT_AND_TEAM.md) §"Phân Công Theo Khu Vực") — tái dùng
+domain ownership đã có, không phân lại từ đầu:
+
+| Người | Vai trò ở dự án gốc | Mảng phụ trách trong kế hoạch này | Số issue |
+|---|---|---|---|
+| **Phạm Duy An** (`Anpham120`, tôi) | Nhóm trưởng, thiết kế hệ thống, AI/RAG, DevOps | PM, kiểm chứng hành vi song song, đóng gói Docker, báo cáo, Chat AI proxy | 4 |
+| Bùi Đào Đức Anh (`buidaoducanh1210`) | Backend: xác thực, phiên bàn, thanh toán | Java: Auth, Tables, Payments (gồm hạn chế #3 — webhook Casso) | 6 |
+| Nguyễn Quang Hiếu (`quanghieu1605`) | Backend: CSDL, đơn hàng, realtime | Java: Menu, Orders (gồm hạn chế #10, #11), Realtime | 6 |
+| Đỗ Tuấn Anh (`Tanh2k8-123`) | Frontend: trải nghiệm khách hàng | Toàn bộ app mobile (§9) | 11 |
+| Lê Anh (`totototototoads`) | Frontend: giao diện vận hành | Toàn bộ cải tiến UX ops-web (§7) | 7 |
+
+> **Trách nhiệm cá nhân không đổi.** 4 môn học kỳ này nằm trên bảng điểm của riêng tôi (Phạm Duy
+> An) — các cộng tác viên trên đóng góp tự nguyện, đúng mảng họ đã quen từ INFO2005, không phải
+> đồng sở hữu điểm số. Tôi vẫn phải hiểu và giải trình được toàn bộ phần việc khi vấn đáp, kể cả
+> phần không tự tay viết. Xem rủi ro liên quan ở §4.4.
 
 ---
 
@@ -72,7 +93,7 @@ Trích nguyên văn từ báo cáo nhóm (Bảng 43, §5.3), giữ số thứ t�
 | 6 | Ảnh Docker AI 2,74 GB | Vận hành | Ngoài phạm vi (tham chiếu khi so sánh image Java ở §8) |
 | 7 | Nhãn dị nguyên mới phủ 44/91 món, chưa bếp xác nhận | Dữ liệu | Ngoài phạm vi — việc dữ liệu/AI |
 | 8 | Branch ruleset chỉ mới bật cuối kỳ | Quy trình | Đã áp dụng ngay từ đầu cho fork này — §4 |
-| 9 | Human peer review mới thiết lập cuối kỳ | Quy trình | Không áp dụng — làm một mình |
+| 9 | Human peer review mới thiết lập cuối kỳ | Quy trình | **Áp dụng lại** — từ khi repo có 5 cộng tác viên (§1.1), PR nên có ít nhất 1 approve trước merge, không lặp lại đúng hạn chế này lần hai |
 | 10 | Chưa ước lượng thời gian lên món cho khách | **Nghiệp vụ — backend** | **Nhận — §6, có kiểm soát rủi ro ước lượng sai** |
 | 11 | Khách chưa tự huỷ được món của mình | **Nghiệp vụ — backend** | **Nhận — §6** |
 
@@ -102,8 +123,9 @@ Trích nguyên văn từ báo cáo nhóm (Bảng 43, §5.3), giữ số thứ t�
 - **Ngoài phạm vi học kỳ này:** Loyalty/Promotions ở backend Java (ở lại .NET), Counter shift,
   Reports, AI/Chat (giữ Python), multi-tenant, thiết kế lại giao diện trực quan (đã xác nhận UI
   hiện tại ổn, chỉ tối ưu UX).
-- **Ràng buộc:** 1 người, chạy song song 4 môn, không có ngân sách hạ tầng ngoài máy cá nhân +
-  1 tài khoản ngân hàng cá nhân (cho webhook Casso). Không dùng VPS production của nhóm gốc.
+- **Ràng buộc:** 5 cộng tác viên (§1.1) nhưng **trách nhiệm 4 môn học kỳ này là cá nhân**, không có
+  ngân sách hạ tầng ngoài máy cá nhân + 1 tài khoản ngân hàng cá nhân (cho webhook Casso). Không
+  dùng VPS production của nhóm gốc.
 - **Tiêu chí xong (Definition of Done) cấp dự án:** `dotnet test` cũ và bộ test Java mới cùng xanh
   trên cùng một tập kịch bản nghiệp vụ; Docker Compose khởi động được bản Java thay cho bản .NET
   trong biến thể riêng; app Flutter chạy được tầng Lõi (M1) tối thiểu.
@@ -163,8 +185,9 @@ thời gian nằm trong §9.10, chạy song song theo lịch môn Lập trình d
 
 | Rủi ro | Khả năng | Ảnh hưởng | Giảm thiểu |
 |---|---|---|---|
-| Một người làm việc của 5 người trong 1 kỳ — hết thời gian trước khi xong | Cao | Cao | Giữ đúng scope §5.1 (7 module lõi); mọi hạng mục mới đều gắn "Lõi/Stretch/Để dành", ưu tiên demo-được-từng-phần |
-| Phạm vi đã mở rộng 3 lần kể từ bản đầu (xem log đầu tài liệu) | Đã xảy ra | Trung bình | Không mở rộng thêm nữa nếu không có lý do tương đương; mỗi lần mở rộng đều đối chiếu mã thật trước khi nhận |
+| Cộng tác viên đã hoàn thành môn INFO2005 của họ — không còn nghĩa vụ/động lực học kỳ này, có thể không làm đúng tiến độ | Cao | Cao | Mỗi mảng vẫn phải tự làm được nếu người phụ trách không kịp; giữ đúng người chịu trách nhiệm cuối là tôi (§1.1) |
+| Tôi (chủ fork) không giải trình được phần việc do người khác làm khi vấn đáp | Trung bình | Cao | Đọc và hiểu mọi PR trước khi merge, không chỉ approve theo thủ tục; ghi báo cáo kết quả theo đúng mẫu ở `GIT_AND_TEAM.md` |
+| Phạm vi đã mở rộng 4 lần kể từ bản đầu (xem log đầu tài liệu) | Đã xảy ra | Trung bình | Không mở rộng thêm nữa nếu không có lý do tương đương; mỗi lần mở rộng đều đối chiếu mã thật trước khi nhận |
 | SignalR → WebSocket lệch hành vi realtime, khó phát hiện | Trung bình | Trung bình | Giữ polling fallback y như bản .NET đã có sẵn (V53) |
 | Concurrency (`xmin`, serializable retry) khó tái tạo đúng bằng JPA | Trung bình | Cao | Ưu tiên port đúng 1 luồng có tranh chấp thật trước, dùng `@Version` + Spring Retry, viết test tái tạo race condition (B24, B35) |
 | Webhook Casso phụ thuộc dịch vụ ngoài + tài khoản ngân hàng cá nhân — giới hạn gói miễn phí, đổi API ngoài tầm kiểm soát | Trung bình | Trung bình | Giữ nguyên nút xác nhận thủ công của quầy làm phương án dự phòng vĩnh viễn, không xoá |
@@ -520,6 +543,8 @@ hết vào cuối kỳ.
 - [x] Đọc mã thật cho từng quyết định lớn: `LoyaltyService`/`VietQrProvider` (thanh toán),
       `ChatSessionFact`/`ChatSession` (hồ sơ AI), ba luồng `ops-web` qua agent khảo sát riêng (UX).
 - [x] Tra tài liệu kỹ thuật thật của Casso Webhook V2 trước khi thiết kế tích hợp thanh toán.
+- [x] Chuyển repo sang public; mời 4 thành viên nhóm INFO2005 cũ làm cộng tác viên quyền write;
+      gán lại 34 issue theo đúng mảng mỗi người từng phụ trách (§1.1).
 
 ## 11. Bước tiếp theo
 
@@ -527,6 +552,8 @@ hết vào cuối kỳ.
 - [x] Tạo 9 milestone (M1–M9) + nhãn `module:*`/`type:*`/`priority:*` + 35 issue trên
       `Anpham120/restaurant-qr-ai-ordering-mobile`, đúng theo WBS §4.2, §6, §7, §9.10.
 - [x] Bật branch ruleset cho `main` (chặn force-push và xoá nhánh).
+- [x] Bật `required_pull_request_reviews` (≥1 approve, dismiss stale reviews) trong branch
+      protection của `main` — hạn chế #9 (§2.1) giờ thật sự "áp dụng lại", không chỉ ghi trên giấy.
 - [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
       cho issue #12 — hạn chế #3).
 - [ ] Khởi tạo project Spring Boot (issue #2) khi sẵn sàng bắt đầu code.
