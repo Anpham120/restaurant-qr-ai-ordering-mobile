@@ -20,4 +20,8 @@ public interface TableSessionRepository extends JpaRepository<TableSessionEntity
 		List<TableSessionEntity> sessions = findActiveSessions(tableId, now);
 		return sessions.isEmpty() ? Optional.empty() : Optional.of(sessions.get(0));
 	}
+
+	/** By table CODE rather than id — the realtime subscription guard (issue #13) only knows the
+	 * code, because that is what the STOMP destination carries. */
+	List<TableSessionEntity> findByTableCodeAndStatus(String tableCode, String status);
 }

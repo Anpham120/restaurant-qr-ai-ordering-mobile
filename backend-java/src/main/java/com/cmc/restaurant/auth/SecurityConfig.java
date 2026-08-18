@@ -51,6 +51,9 @@ public class SecurityConfig {
 						// Casso authenticates with its own Secure-Token header, verified inside the
 						// handler before the payload is touched — not with a JWT.
 						.requestMatchers(HttpMethod.POST, "/api/payments/webhooks/casso").permitAll()
+						// The WebSocket handshake carries no JWT; authorization happens per-SUBSCRIBE
+						// in StompSubscriptionGuard, mirroring the .NET hub's Watch* guards.
+						.requestMatchers("/hub/orders/**").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

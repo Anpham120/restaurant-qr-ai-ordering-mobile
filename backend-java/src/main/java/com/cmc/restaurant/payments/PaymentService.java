@@ -5,6 +5,8 @@ import com.cmc.restaurant.orders.OrderEntity;
 import com.cmc.restaurant.orders.OrderRepository;
 import com.cmc.restaurant.orders.OrderService;
 import com.cmc.restaurant.orders.RequestIdempotency;
+import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
+import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.CustomerTokenGuard;
 import java.time.OffsetDateTime;
@@ -36,15 +38,18 @@ public class PaymentService {
 	private final OrderRepository orderRepository;
 	private final OrderService orderService;
 	private final VietQrProvider vietQrProvider;
+	private final OrderRealtimeNotifier realtimeNotifier;
 
 	public PaymentService(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
-			OrderRepository orderRepository, OrderService orderService, VietQrProvider vietQrProvider) {
+			OrderRepository orderRepository, OrderService orderService, VietQrProvider vietQrProvider,
+			OrderRealtimeNotifier realtimeNotifier) {
 		this.paymentRepository = paymentRepository;
 		this.transactionRepository = transactionRepository;
 		this.orderRepository = orderRepository;
 		this.orderService = orderService;
 		this.vietQrProvider = vietQrProvider;
+		this.realtimeNotifier = realtimeNotifier;
 	}
 
 	public PaymentDtos.PaymentResponse getPayment(String orderCode, String suppliedAccessToken, boolean isOperator) {
@@ -122,6 +127,11 @@ public class PaymentService {
 			throw ApiException.conflict(
 					"CONFLICT_STALE", "Payment was modified by another request. Reload and try again.");
 		}
+
+		// Tells the counter a table is waiting to pay without them refreshing the list.
+		realtimeNotifier.paymentRequested(new RealtimeDtos.PaymentRequestedEvent(
+				order.getId(), order.getOrderCode(), payment.getMethod(), payment.getStatus(),
+				payment.getAmount(), payment.getUpdatedAt(), order.getTableCode()));
 
 		return new PaymentDtos.PaymentRequestResponse(
 				toResponse(payment, order.getOrderCode()),
