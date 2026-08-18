@@ -44,12 +44,14 @@ public class OrderService {
 	private final RestaurantTableRepository tableRepository;
 	private final TableSessionRepository tableSessionRepository;
 	private final JdbcTemplate jdbcTemplate;
+	private final OrderItemEstimationService estimationService;
 
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
 			OrderStatusHistoryRepository orderStatusHistoryRepository, PaymentRepository paymentRepository,
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
-			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate) {
+			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
+			OrderItemEstimationService estimationService) {
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
 		this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -58,6 +60,7 @@ public class OrderService {
 		this.tableRepository = tableRepository;
 		this.tableSessionRepository = tableSessionRepository;
 		this.jdbcTemplate = jdbcTemplate;
+		this.estimationService = estimationService;
 	}
 
 	@Transactional
@@ -251,6 +254,9 @@ public class OrderService {
 		String previousOrderStatus = order.getStatus();
 		item.setStatus(status);
 		item.setUpdatedAt(now);
+		if (OrderItemStatus.READY.equals(status) && item.getReadyAt() == null) {
+			item.setReadyAt(now);
+		}
 		orderItemRepository.save(item);
 
 		String aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
@@ -493,10 +499,17 @@ public class OrderService {
 				base.events(), order.getCustomerAccessToken());
 	}
 
+	private static final Set<String> AWAITING_ESTIMATE_STATUS =
+			Set.of(OrderItemStatus.PENDING, OrderItemStatus.PREPARING);
+
 	private OrderDtos.OrderItemResponse toItemResponse(OrderItemEntity item) {
+		OrderItemEstimationService.Estimate estimate = AWAITING_ESTIMATE_STATUS.contains(item.getStatus())
+				? estimationService.estimate(item.getMenuItemId()).orElse(null)
+				: null;
 		return new OrderDtos.OrderItemResponse(
 				item.getId(), item.getMenuItemId(), item.getMenuItemName(), item.getUnitPrice(), item.getQuantity(),
-				item.getStatus(), item.lineTotal(), item.getUpdatedAt());
+				item.getStatus(), item.lineTotal(), item.getUpdatedAt(),
+				estimate == null ? null : estimate.lowMinutes(), estimate == null ? null : estimate.highMinutes());
 	}
 
 	private OrderDtos.OrderStatusEventResponse toEventResponse(OrderStatusHistoryEntity event) {

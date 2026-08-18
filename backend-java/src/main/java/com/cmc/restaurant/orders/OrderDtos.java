@@ -25,9 +25,12 @@ public final class OrderDtos {
 	public record UpdateOrderItemStatusRequest(String status) {
 	}
 
+	/** {@code estimatedReadyMinutesLow}/{@code High} are null when the item is no longer waiting
+	 * (Ready/Served/Cancelled) or the menu item doesn't have enough history yet — hạn chế #10. */
 	public record OrderItemResponse(
 			String orderItemId, String menuItemId, String name, BigDecimal unitPrice, int quantity,
-			String status, BigDecimal lineTotal, OffsetDateTime updatedAt) {
+			String status, BigDecimal lineTotal, OffsetDateTime updatedAt,
+			Integer estimatedReadyMinutesLow, Integer estimatedReadyMinutesHigh) {
 	}
 
 	public record OrderStatusEventResponse(
