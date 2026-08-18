@@ -29,6 +29,12 @@ payments:
     # failure mode — accepting unauthenticated payloads would mark orders paid for free.
     secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
 
+cors:
+  # Danh sách phân tách bằng dấu phẩy, khớp cách bản .NET nhận CORS_ALLOWED_ORIGINS.
+  # Mặc định "*" vì bản Java chỉ chạy cục bộ trong phạm vi môn học; điểm quan trọng là giờ
+  # deployment có thể siết lại mà không phải build lại image.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
 chat:
   ai:
     # Same env var names the .NET backend and docker-compose already use, so both backends can point

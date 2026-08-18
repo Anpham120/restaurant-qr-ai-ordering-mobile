@@ -1,0 +1,54 @@
+# CI cho backend Java (fork cá nhân).
+#
+# File MỚI, cố ý không đụng `ci.yml` gốc: workflow đó đang phục vụ điểm môn INFO2005 của 4 người
+# khác (§8.1). Mirror job `backend-test` của bản .NET nhưng cho toolchain Java.
+name: ci-java
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'backend-java/**'
+      - '.github/workflows/ci-java.yml'
+  pull_request:
+    paths:
+      - 'backend-java/**'
+      - '.github/workflows/ci-java.yml'
+
+jobs:
+  backend-java-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build
+        working-directory: backend-java
+        run: gradle --no-daemon build -x test
+
+      # Chạy tách khỏi `build` để log phân biệt được "biên dịch hỏng" với "test đỏ".
+      #
+      # Testcontainers KHÔNG chạy được trong sandbox phát triển của dự án này (docker-java xung đột
+      # với Docker Engine API 1.55 ở máy đó), nên toàn bộ kiểm chứng từ issue #2 tới #14 làm bằng
+      # cách chạy JAR thật trên Postgres thật qua Docker. Ở runner của GitHub thì Docker chuẩn, nên
+      # đây là nơi ĐẦU TIÊN bộ test Testcontainers thực sự chạy được — giữ `continue-on-error` cho
+      # lần đầu để một hạ tầng test chưa từng chạy không chặn merge, và sẽ bỏ cờ này khi đã thấy nó
+      # xanh ổn định.
+      - name: Test
+        working-directory: backend-java
+        run: gradle --no-daemon test
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-report
+          path: backend-java/build/reports/tests/test
+          if-no-files-found: ignore
