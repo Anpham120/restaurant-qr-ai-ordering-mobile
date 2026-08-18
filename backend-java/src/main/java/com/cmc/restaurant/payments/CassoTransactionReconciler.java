@@ -1,5 +1,6 @@
 package com.cmc.restaurant.payments;
 
+import com.cmc.restaurant.payments.domain.Payment;
 import com.cmc.restaurant.orders.ActorContext;
 import com.cmc.restaurant.orders.OrderEntity;
 import com.cmc.restaurant.orders.OrderRepository;
@@ -32,7 +33,6 @@ public class CassoTransactionReconciler {
 	 * wrap their own text around the description, so this searches rather than anchors. */
 	private static final Pattern ORDER_CODE = Pattern.compile("CMC\\s+(ORD-\\d+)", Pattern.CASE_INSENSITIVE);
 
-	private static final Set<String> ALREADY_SETTLED = Set.of("Confirmed", "Paid", "Refunded");
 	private static final ActorContext CASSO_ACTOR = new ActorContext(null, "System");
 
 	private final PaymentRepository paymentRepository;
@@ -94,33 +94,34 @@ public class CassoTransactionReconciler {
 			return result(transaction, "unmatched", orderCode, "Order has no payment record.");
 		}
 
-		if (ALREADY_SETTLED.contains(payment.getStatus())) {
-			// Usually the counter got there first via the manual fallback — expected, not an error.
-			return result(transaction, "already_settled", orderCode, "Payment is already " + payment.getStatus() + ".");
-		}
+		// Whether this transfer may settle the payment is the aggregate's decision, not a second
+		// copy of "is it already settled" and "does the amount match" living here. Those two checks
+		// used to be duplicated between this class and the manual counter path — the exact drift
+		// the domain split exists to prevent.
+		OffsetDateTime now = OffsetDateTime.now();
+		com.cmc.restaurant.payments.domain.Payment domainPayment = payment.toDomain();
+		Payment.ReconcileOutcome outcome = domainPayment.reconcileFromBank(reference, transaction.amount(), now);
 
-		// Whole-dong comparison: a VietQR transfer carries the truncated amount (see
-		// VietQrProvider), so an order of 110000.99 legitimately receives 110000.
-		BigDecimal expected = payment.getAmount().setScale(0, RoundingMode.DOWN);
-		BigDecimal received = transaction.amount() == null
-				? BigDecimal.valueOf(-1) : transaction.amount().setScale(0, RoundingMode.DOWN);
-		if (expected.compareTo(received) != 0) {
-			// Deliberately NOT confirmed: settling on a short transfer loses real money, and an
-			// over-transfer needs a human to decide on a refund.
+		if (outcome == Payment.ReconcileOutcome.AlreadySettled) {
+			// Usually the counter got there first via the manual fallback — expected, not an error.
+			return result(transaction, "already_settled", orderCode,
+					"Payment is already " + payment.getStatus() + ".");
+		}
+		if (outcome == Payment.ReconcileOutcome.AmountMismatch) {
+			BigDecimal expected = payment.getAmount().setScale(0, RoundingMode.DOWN);
+			BigDecimal received = transaction.amount() == null
+					? BigDecimal.valueOf(-1) : transaction.amount().setScale(0, RoundingMode.DOWN);
 			return result(transaction, "amount_mismatch", orderCode,
 					"Expected " + expected.toPlainString() + " but received " + received.toPlainString() + ".");
 		}
 
-		OffsetDateTime now = OffsetDateTime.now();
-		payment.setStatus("Confirmed");
-		payment.setProviderTransactionId(reference);
-		payment.setPaidAt(now);
-		payment.setUpdatedAt(now);
+		payment.applyFrom(domainPayment);
 
 		String note = "Auto-confirmed from Casso bank transaction " + reference + ".";
 		transactionRepository.save(new PaymentTransactionEntity(
-				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(), payment.getMethod(),
-				"Confirmed", payment.getAmount(), "Casso", reference, note, now, null, null));
+				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(),
+				payment.getMethod().name(), "Confirmed", payment.getAmount(), "Casso", reference, note,
+				now, null, null));
 		orderService.recordPaymentStatusEvent(orderCode, CASSO_ACTOR, note);
 
 		// Flushed here so an optimistic-lock clash or a duplicate-reference insert surfaces inside

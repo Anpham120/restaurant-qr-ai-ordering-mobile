@@ -210,9 +210,13 @@ public class OrderService {
 		// Payment settlement is not the aggregate's business — it belongs to another module, so the
 		// use case checks it and the domain stays free of that dependency.
 		if (status == OrderStatus.Completed) {
-			String paymentStatus = paymentRepository.findByOrderId(order.id())
-					.map(PaymentEntity::getStatus).orElse(null);
-			if (!"Confirmed".equals(paymentStatus) && !"Paid".equals(paymentStatus)) {
+			// "Has the money arrived?" is the Payment aggregate's question, not a string comparison
+			// repeated here — Paid and Confirmed both count, and only that class should decide so.
+			boolean settled = paymentRepository.findByOrderId(order.id())
+					.map(PaymentEntity::toDomain)
+					.map(com.cmc.restaurant.payments.domain.Payment::isSettled)
+					.orElse(false);
+			if (!settled) {
 				throw ApiException.badRequest("ORDER_COMPLETE_REQUIRES_PAYMENT",
 						"Order cannot be completed until its payment is confirmed.");
 			}
@@ -406,8 +410,8 @@ public class OrderService {
 		return new OrderDtos.OrderResponse(
 				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
 				order.getTableSessionId(), order.getStatus().name(),
-				payment == null ? "NotRequested" : payment.getStatus(),
-				payment == null ? "Unselected" : payment.getMethod(),
+				payment == null ? "NotRequested" : payment.getStatus().name(),
+				payment == null ? "Unselected" : payment.getMethod().name(),
 				order.getSubtotalAmount(), order.getDiscountAmount(), order.getTotalAmount(),
 				order.getCreatedAt(), order.getUpdatedAt(),
 				order.getItems().stream().map(this::toItemResponse).toList(),

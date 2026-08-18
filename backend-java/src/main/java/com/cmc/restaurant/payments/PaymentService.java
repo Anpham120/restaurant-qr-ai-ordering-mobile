@@ -5,6 +5,9 @@ import com.cmc.restaurant.orders.OrderEntity;
 import com.cmc.restaurant.orders.OrderRepository;
 import com.cmc.restaurant.orders.OrderService;
 import com.cmc.restaurant.orders.RequestIdempotency;
+import com.cmc.restaurant.payments.domain.Payment;
+import com.cmc.restaurant.payments.domain.PaymentMethod;
+import com.cmc.restaurant.payments.domain.PaymentStatus;
 import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
 import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ApiException;
@@ -30,9 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
 	private static final int MAX_NOTE_LENGTH = 500;
-	private static final Set<String> ALREADY_REQUESTED_STATUSES =
-			Set.of("Pending", "Confirmed", "Paid", "Refunded");
-
 	private final PaymentRepository paymentRepository;
 	private final PaymentTransactionRepository transactionRepository;
 	private final OrderRepository orderRepository;
@@ -89,9 +89,6 @@ public class PaymentService {
 			return replayOrConflict(existingRequest.get(), payment, order, requestFingerprint);
 		}
 
-		if (ALREADY_REQUESTED_STATUSES.contains(payment.getStatus())) {
-			throw ApiException.conflict("PAYMENT_ALREADY_REQUESTED", "Payment was already requested or completed.");
-		}
 
 		// Built before any mutation, exactly as in .NET: an unconfigured VietQR deployment must
 		// fail the request outright rather than leave the payment flipped to Pending with no QR.
@@ -105,9 +102,9 @@ public class PaymentService {
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
-		payment.setMethod(method);
-		payment.setStatus("Pending");
-		payment.setUpdatedAt(now);
+		com.cmc.restaurant.payments.domain.Payment domainPayment = payment.toDomain();
+		domainPayment.request(PaymentMethod.valueOf(method), payload == null ? null : payload.transferContent(), now);
+		payment.applyFrom(domainPayment);
 		PaymentTransactionEntity transaction = new PaymentTransactionEntity(
 				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(), method, "Pending",
 				payment.getAmount(), method, payload == null ? null : payload.transferContent(),
@@ -130,7 +127,7 @@ public class PaymentService {
 
 		// Tells the counter a table is waiting to pay without them refreshing the list.
 		realtimeNotifier.paymentRequested(new RealtimeDtos.PaymentRequestedEvent(
-				order.getId(), order.getOrderCode(), payment.getMethod(), payment.getStatus(),
+				order.getId(), order.getOrderCode(), payment.getMethod().name(), payment.getStatus().name(),
 				payment.getAmount(), payment.getUpdatedAt(), order.getTableCode()));
 
 		return new PaymentDtos.PaymentRequestResponse(
@@ -160,81 +157,53 @@ public class PaymentService {
 		return toReplayResponse(payment, existingRequest, order.getOrderCode());
 	}
 
+	/** The three manual counter actions share one shape: load, let the aggregate decide, record the
+	 * ledger entry and the order-side audit event, then save under optimistic locking. */
+	private PaymentDtos.PaymentResponse applyManualAction(
+			String orderCode, String requestedNote, String defaultNote, ActorContext actor,
+			java.util.function.BiConsumer<Payment, OffsetDateTime> action) {
+		Payment.validateNote(requestedNote);
+		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
+		PaymentEntity entity = paymentRepository.findByOrderId(order.getId())
+				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
+
+		OffsetDateTime now = OffsetDateTime.now();
+		Payment payment = entity.toDomain();
+		action.accept(payment, now);
+		entity.applyFrom(payment);
+
+		String note = isBlank(requestedNote) ? defaultNote : requestedNote.trim();
+		addTransaction(entity, payment.status(), note, now);
+		orderService.recordPaymentStatusEvent(orderCode, actor, note);
+
+		savePaymentOrConflict(entity);
+		return toResponse(entity, order.getOrderCode());
+	}
+
 	@Transactional
 	public PaymentDtos.PaymentResponse confirmPayment(
 			String orderCode, PaymentDtos.ConfirmPaymentRequest request, ActorContext actor) {
-		String requestedNote = request == null ? null : request.note();
-		validateNote(requestedNote);
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-
-		validateManualTransition(payment, "Confirmed");
-
-		OffsetDateTime now = OffsetDateTime.now();
-		String note = isBlank(requestedNote) ? "Manual staff confirmation." : requestedNote.trim();
-		String requestedProviderTransactionId = request == null ? null : request.providerTransactionId();
-		payment.setStatus("Confirmed");
-		if (!isBlank(requestedProviderTransactionId)) {
-			payment.setProviderTransactionId(requestedProviderTransactionId.trim());
-		}
-		payment.setPaidAt(now);
-		payment.setUpdatedAt(now);
-		addTransaction(payment, "Confirmed", note, now);
-		orderService.recordPaymentStatusEvent(orderCode, actor, note);
-
-		savePaymentOrConflict(payment);
-		return toResponse(payment, order.getOrderCode());
+		String providerTransactionId = request == null ? null : request.providerTransactionId();
+		return applyManualAction(
+				orderCode, request == null ? null : request.note(), "Manual staff confirmation.", actor,
+				(payment, now) -> payment.confirmManually(providerTransactionId, now));
 	}
 
 	@Transactional
 	public PaymentDtos.PaymentResponse failPayment(
 			String orderCode, PaymentDtos.FailPaymentRequest request, ActorContext actor) {
-		String requestedNote = request == null ? null : request.note();
-		validateNote(requestedNote);
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-
-		validateManualTransition(payment, "Failed");
-
-		OffsetDateTime now = OffsetDateTime.now();
-		String note = isBlank(requestedNote) ? "Manual payment failure." : requestedNote.trim();
-		payment.setStatus("Failed");
-		payment.setUpdatedAt(now);
-		addTransaction(payment, "Failed", note, now);
-		orderService.recordPaymentStatusEvent(orderCode, actor, note);
-
-		savePaymentOrConflict(payment);
-		return toResponse(payment, order.getOrderCode());
+		return applyManualAction(
+				orderCode, request == null ? null : request.note(), "Manual payment failure.", actor,
+				(payment, now) -> payment.failManually(now));
 	}
 
 	@Transactional
 	public PaymentDtos.PaymentResponse refundPayment(
 			String orderCode, PaymentDtos.RefundPaymentRequest request, ActorContext actor) {
-		String requestedNote = request == null ? null : request.note();
-		validateNote(requestedNote);
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId())
-				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-
-		if (!"Confirmed".equals(payment.getStatus()) && !"Paid".equals(payment.getStatus())) {
-			throw ApiException.badRequest(
-					"PAYMENT_NOT_REFUNDABLE", "Only a confirmed or paid payment can be refunded.");
-		}
-
-		OffsetDateTime now = OffsetDateTime.now();
-		String note = isBlank(requestedNote) ? "Manual payment refund." : requestedNote.trim();
-		payment.setStatus("Refunded");
-		payment.setUpdatedAt(now);
-		addTransaction(payment, "Refunded", note, now);
-		orderService.recordPaymentStatusEvent(orderCode, actor, note);
-
-		savePaymentOrConflict(payment);
-		return toResponse(payment, order.getOrderCode());
+		return applyManualAction(
+				orderCode, request == null ? null : request.note(), "Manual payment refund.", actor,
+				(payment, now) -> payment.refund(now));
 	}
 
 	// --- helpers -----------------------------------------------------------------------------
@@ -248,38 +217,16 @@ public class PaymentService {
 		}
 	}
 
-	private void addTransaction(PaymentEntity payment, String status, String note, OffsetDateTime now) {
+	private void addTransaction(PaymentEntity payment, PaymentStatus status, String note, OffsetDateTime now) {
 		transactionRepository.save(new PaymentTransactionEntity(
-				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(), payment.getMethod(), status,
-				payment.getAmount(), payment.getMethod(), payment.getProviderTransactionId(), note, now, null, null));
+				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(),
+				payment.getMethod().name(), status.name(), payment.getAmount(), payment.getMethod().name(),
+				payment.getProviderTransactionId(), note, now, null, null));
 	}
 
-	private void validateManualTransition(PaymentEntity payment, String nextStatus) {
-		if ("NotRequested".equals(payment.getStatus()) || "Unselected".equals(payment.getMethod())) {
-			throw ApiException.badRequest("PAYMENT_NOT_REQUESTED", "Customer has not requested payment yet.");
-		}
-		if ("Refunded".equals(payment.getStatus())) {
-			String action = "Confirmed".equals(nextStatus) ? "confirmed" : "failed";
-			throw ApiException.badRequest("PAYMENT_ALREADY_REFUNDED", "Refunded payment cannot be " + action + ".");
-		}
-		if ("Confirmed".equals(payment.getStatus()) || "Paid".equals(payment.getStatus())) {
-			String message = "Confirmed".equals(nextStatus)
-					? "Payment was already confirmed." : "Confirmed payment cannot be failed.";
-			throw ApiException.badRequest("PAYMENT_ALREADY_CONFIRMED", message);
-		}
-		if ("Failed".equals(payment.getStatus())) {
-			String message = "Confirmed".equals(nextStatus)
-					? "Failed payment cannot be confirmed." : "Payment was already failed.";
-			throw ApiException.badRequest("PAYMENT_ALREADY_FAILED", message);
-		}
-	}
-
-	private static void validateNote(String note) {
-		if (note != null && note.trim().length() > MAX_NOTE_LENGTH) {
-			throw ApiException.badRequest(
-					"PAYMENT_NOTE_TOO_LONG", "Payment note must be " + MAX_NOTE_LENGTH + " characters or fewer.");
-		}
-	}
+	// validateManualTransition / validateNote / ALREADY_REQUESTED_STATUSES used to live here.
+	// They are now on the Payment aggregate (issue #63) so the manual counter path and the Casso
+	// webhook path cannot drift apart — before, each had its own copy of "is this already settled".
 
 	private static boolean isBlank(String value) {
 		return value == null || value.isBlank();
@@ -291,7 +238,7 @@ public class PaymentService {
 						.map(this::toTransactionResponse)
 						.toList();
 		return new PaymentDtos.PaymentResponse(
-				payment.getId(), orderCode, payment.getMethod(), payment.getStatus(), payment.getAmount(),
+				payment.getId(), orderCode, payment.getMethod().name(), payment.getStatus().name(), payment.getAmount(),
 				payment.getProviderTransactionId(), payment.getCreatedAt(), payment.getPaidAt(),
 				payment.getUpdatedAt(), transactions);
 	}
