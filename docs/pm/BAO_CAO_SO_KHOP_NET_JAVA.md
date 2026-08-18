@@ -3,6 +3,18 @@
 > Issue #15 (M5). Đo ngày 2026-08-18, trên cùng một máy, hai stack chạy **song song** trên cùng một
 > mạng Docker, mỗi bên một PostgreSQL **riêng biệt**.
 
+## 0. Báo cáo này trả lời câu hỏi gì — và không trả lời câu hỏi gì
+
+**Bối cảnh:** việc chuyển backend sang Java Spring Boot là **yêu cầu của môn Lập trình nâng cao**
+(§4.2, §5). Đó là đề bài cho trước.
+
+**Báo cáo này trả lời:** *bản Java có hành xử đúng như bản .NET trên cùng một kịch bản không, và
+lệch ở đâu?* — đúng DoD của issue #15: "báo cáo đối chiếu, liệt kê sai khác đã biết".
+
+**Báo cáo này KHÔNG trả lời:** *có nên chuyển sang Java hay không.* Câu hỏi đó không được đặt ra
+trong phạm vi môn học, và cũng không phải thứ mà một bảng vài chỉ số vận hành có thể phán quyết.
+Số liệu ở §6 là để **biết bản Java cần gì khi chạy**, không phải để chấm điểm bên nào hơn.
+
 ## 1. Vì sao phải chạy song song thay vì đọc mã đối chiếu
 
 Đọc mã chỉ trả lời được "tôi *nghĩ* hai bên giống nhau". Chạy song song trả lời được "hai bên *thật
@@ -127,19 +139,31 @@ Windows chậm hơn hẳn đọc từ layer image.
 
 ### Đọc số liệu này thế nào cho đúng
 
-Java thua ở cả ba chỉ số, và đó là **đánh đổi đã biết trước khi chọn**, không phải kết quả bất ngờ:
+**Trước hết, phải nói rõ số liệu này KHÔNG dùng để làm gì.** Việc chuyển sang Java là **yêu cầu của
+môn Lập trình nâng cao** (§4.2, §5) — đề bài cho trước, không phải một lựa chọn kỹ thuật đang chờ
+được biện minh bằng benchmark. Vì vậy bảng trên **không** phải căn cứ để kết luận "nên hay không nên
+port": câu hỏi đó không được đặt ra, và một bảng ba chỉ số cũng không đủ để trả lời nó.
 
-- **RAM 4.8×**: JVM có heap và metaspace riêng, .NET runtime nhẹ hơn ở trạng thái rảnh. Với VPS
-  chung của nhóm (RAM giới hạn) thì đây là lý do **thật** để giữ bản .NET ở production.
-- **Cold start 2.8×**: JVM phải nạp và verify class. Ảnh hưởng tới thời gian rollback/redeploy, không
-  ảnh hưởng tới độ trễ khi đã chạy.
-- **Image +63%**: chủ yếu do base `eclipse-temurin:21-jre` (493 MB); lớp ứng dụng chỉ ~98 MB. Thu hẹp
-  được bằng `jlink` — chưa làm.
+Số liệu ở đây phục vụ đúng hai việc:
 
-**Kết luận không thiên vị:** bản Java **không** tốt hơn bản .NET ở vận hành. Giá trị của nó nằm ở
-chỗ khác — ba tính năng nghiệp vụ mà bản .NET chưa có (hạn chế #3, #10, #11) và bài học chuyển đổi
-ngôn ngữ. Nếu chỉ xét vận hành thuần tuý thì việc port này **không đáng**, và nói thẳng điều đó
-đúng hơn là nặn ra một chỉ số nào đó để Java thắng.
+1. **Biết bản Java cần gì để chạy**, phòng khi có ai đó thực sự dựng nó lên: cần bao nhiêu RAM, khởi
+   động mất bao lâu, image nặng bao nhiêu.
+2. **Giải thích được từng con số khi vấn đáp**, thay vì chỉ đọc lại.
+
+Ba chỉ số, và lý do kỹ thuật đằng sau:
+
+- **RAM 4.8×** — JVM có heap và metaspace riêng; .NET runtime nhẹ hơn ở trạng thái rảnh. Đây là lý
+  do kỹ thuật thật khiến bản .NET vẫn là bản chạy trên VPS chung của nhóm (RAM giới hạn, và VPS đó
+  đang phục vụ điểm môn INFO2005 của 4 người khác — §8.1).
+- **Cold start 2.8×** — JVM phải nạp và verify class. Ảnh hưởng tới thời gian redeploy, **không**
+  ảnh hưởng tới độ trễ khi đã chạy (khác biệt này quan trọng: nó nghĩa là khách dùng app không cảm
+  nhận được).
+- **Image +63%** — chủ yếu do base `eclipse-temurin:21-jre` (493 MB); lớp ứng dụng chỉ thêm ~98 MB.
+  Thu hẹp được bằng `jlink`, chưa làm.
+
+Cả ba đều là **đặc tính đã biết của JVM**, không phải hệ quả của cách port. Nếu bản Java tốn RAM gấp
+5 lần vì code sai thì mới là vấn đề cần sửa; tốn gấp 5 lần vì nó chạy trên JVM thì là điều kiện đầu
+vào của môn học.
 
 ## 7. Việc chưa làm
 
