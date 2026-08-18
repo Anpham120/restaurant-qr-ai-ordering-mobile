@@ -55,6 +55,18 @@ public class GlobalExceptionHandler {
 
 	/** Cart rules: quantity bounds and the delta check are bad requests; the two invoice guards are
 	 * conflicts with the table.s current payment state, matching the .NET status codes. */
+	/** Counter rules: an already-closed shift is a conflict with its current state; bad cash amounts
+	 * and a missing reason code are bad requests. */
+	@ExceptionHandler(com.cmc.restaurant.counter.domain.CounterRuleViolation.class)
+	public ResponseEntity<Map<String, Object>> handleCounterRuleViolation(
+			com.cmc.restaurant.counter.domain.CounterRuleViolation violation) {
+		HttpStatus status = switch (violation.code()) {
+			case "COUNTER_SHIFT_ALREADY_CLOSED", "COUNTER_SHIFT_CLOSED" -> HttpStatus.CONFLICT;
+			default -> HttpStatus.BAD_REQUEST;
+		};
+		return error(status, violation.code(), violation.getMessage());
+	}
+
 	/** Promotion rules are all "this code cannot be used for this order" — a bad request. */
 	@ExceptionHandler(com.cmc.restaurant.promotions.domain.PromotionRuleViolation.class)
 	public ResponseEntity<Map<String, Object>> handlePromotionRuleViolation(
