@@ -39,7 +39,9 @@ public class SecurityConfig {
 						.accessDeniedHandler(accessDeniedHandler))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/error").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/menu").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/tables/**").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
