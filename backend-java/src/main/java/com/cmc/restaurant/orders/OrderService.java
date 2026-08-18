@@ -2,14 +2,16 @@ package com.cmc.restaurant.orders;
 
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
+import com.cmc.restaurant.payments.PaymentEntity;
+import com.cmc.restaurant.payments.PaymentRepository;
 import com.cmc.restaurant.shared.ApiException;
+import com.cmc.restaurant.shared.CustomerTokenGuard;
 import com.cmc.restaurant.tables.RestaurantTableEntity;
 import com.cmc.restaurant.tables.RestaurantTableRepository;
 import com.cmc.restaurant.tables.TableSessionEntity;
 import com.cmc.restaurant.tables.TableSessionRepository;
 import com.cmc.restaurant.tables.TableSessionStatus;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
@@ -158,7 +160,7 @@ public class OrderService {
 		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
 
-		if (!isOperator && !hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
+		if (!isOperator && !CustomerTokenGuard.hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
 			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
 		}
 
@@ -282,7 +284,7 @@ public class OrderService {
 		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
 
-		if (!hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
+		if (!CustomerTokenGuard.hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
 			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
 		}
 
@@ -440,29 +442,31 @@ public class OrderService {
 	}
 
 	private void appendHistory(
-			OrderEntity order, String fromStatus, String toStatus, ActorContext actor, String note, OffsetDateTime now) {
+			OrderEntity order, String fromStatus, String toStatus, ActorContext actor, String note,
+			OffsetDateTime now) {
+		appendHistory(order, fromStatus, toStatus, "Status", actor, note, now);
+	}
+
+	private void appendHistory(
+			OrderEntity order, String fromStatus, String toStatus, String source, ActorContext actor, String note,
+			OffsetDateTime now) {
 		OrderStatusHistoryEntity event = new OrderStatusHistoryEntity(
-				"osh_" + UUID.randomUUID().toString().replace("-", ""), fromStatus, toStatus, "Status",
+				"osh_" + UUID.randomUUID().toString().replace("-", ""), fromStatus, toStatus, source,
 				actor.userId(), actor.role(), note, now);
 		event.setOrderId(order.getId());
 		order.getStatusHistory().add(event);
 		orderStatusHistoryRepository.save(event);
 	}
 
-	private static boolean hasCustomerToken(String accessToken, String provided) {
-		if (accessToken == null || accessToken.isEmpty() || provided == null || provided.isEmpty()) {
-			return false;
-		}
-		byte[] a = accessToken.getBytes(StandardCharsets.UTF_8);
-		byte[] b = provided.getBytes(StandardCharsets.UTF_8);
-		if (a.length != b.length) {
-			return false;
-		}
-		int diff = 0;
-		for (int i = 0; i < a.length; i++) {
-			diff |= a[i] ^ b[i];
-		}
-		return diff == 0;
+	/** Mirrors {@code OrderStore.RecordPaymentStatusEvent} (.NET) — called by
+	 * {@code PaymentService} (issue #10) after a payment status change, to audit-trail it on the
+	 * order's status-history alongside real order-status transitions. Doesn't change the order's
+	 * status itself (from == to == current status), matching the .NET original. */
+	@Transactional
+	public void recordPaymentStatusEvent(String orderCode, ActorContext actor, String note) {
+		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+		appendHistory(order, order.getStatus(), order.getStatus(), "Payment", actor, note, OffsetDateTime.now());
 	}
 
 	private static String generateAccessToken() {
