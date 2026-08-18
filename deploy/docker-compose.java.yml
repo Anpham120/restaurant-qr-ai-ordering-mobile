@@ -1,0 +1,122 @@
+# Biến thể Docker Compose chạy backend Java thay cho backend .NET (môn Triển khai phần mềm, §8).
+#
+# CHỈ CHẠY CỤC BỘ. File này không thay thế `docker-compose.yml` và không bao giờ được dùng để deploy
+# lên VPS chung của nhóm — VPS đó đang phục vụ điểm môn INFO2005 của 4 người khác (§8.1).
+#
+# Khác `docker-compose.yml` gốc ở ba chỗ, đều có lý do:
+#
+# 1. `network_mode: host` -> mạng bridge riêng. Bản gốc dùng host vì nó chạy trên VPS Linux một
+#    máy; ở đây mục tiêu là chạy được trên máy lập trình (kể cả Windows/macOS, nơi `host` không
+#    hoạt động như trên Linux). Bridge cũng cho phép chạy SONG SONG với stack .NET mà không tranh
+#    cổng — chính là thứ issue #15 cần để so khớp hành vi hai bản.
+#
+# 2. Tên biến môi trường theo convention Spring Boot (`PAYMENTS_VIETQR_BANKID`) thay vì hai gạch
+#    dưới của .NET (`Payments__VietQr__BankId`). Cùng một giá trị, đọc từ cùng một file `.env`.
+#
+# 3. `migrate` chạy `--migrate-only` bằng Flyway thay vì EF Core, nhưng giữ nguyên nguyên tắc V10:
+#    migration là một bước tách rời, API không tự migrate lúc khởi động.
+
+name: ${COMPOSE_PROJECT_NAME:-cmc-restaurant-java}
+
+x-api-environment: &api-environment
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-restaurant_qr}
+  SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-restaurant_user}
+  SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  BACKEND_JAVA_PORT: 8081
+  JWT_ISSUER: ${JWT_ISSUER:-RestaurantQrAiOrdering}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-RestaurantQrAiOrdering.Client}
+  JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+  JWT_ACCESS_TOKEN_MINUTES: ${JWT_ACCESS_TOKEN_MINUTES:-60}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+  PAYMENTS_VIETQR_BANKID: ${PAYMENTS_VIETQR_BANKID:-}
+  PAYMENTS_VIETQR_ACCOUNTNUMBER: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:-}
+  PAYMENTS_VIETQR_ACCOUNTNAME: ${PAYMENTS_VIETQR_ACCOUNTNAME:-}
+  PAYMENTS_VIETQR_TEMPLATE: ${PAYMENTS_VIETQR_TEMPLATE:-compact2}
+  # Để trống thì webhook từ chối mọi lời gọi — trạng thái an toàn, xem issue #12.
+  PAYMENTS_CASSO_SECURETOKEN: ${PAYMENTS_CASSO_SECURETOKEN:-}
+  AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8001}
+  AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
+  BACKEND_AI_TIMEOUT_SECONDS: ${BACKEND_AI_TIMEOUT_SECONDS:-12}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_qr}
+      POSTGRES_USER: ${POSTGRES_USER:-restaurant_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data-java:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # One-shot. Giữ đúng nguyên tắc V10 của bản .NET: schema được migrate bởi một bước riêng, không
+  # phải bởi API lúc boot — nhiều instance API cùng migrate một CSDL là đúng loại lỗi chỉ xảy ra khi
+  # deploy thật.
+  migrate:
+    image: ${BACKEND_JAVA_IMAGE:-cmc-restaurant-api-java:${DEPLOY_ENV:-local}}
+    build:
+      context: ..
+      dockerfile: backend-java/Dockerfile
+    restart: "no"
+    command: ["--migrate-only"]
+    environment:
+      <<: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ${BACKEND_JAVA_IMAGE:-cmc-restaurant-api-java:${DEPLOY_ENV:-local}}
+    build:
+      context: ..
+      dockerfile: backend-java/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *api-environment
+      # API không tự migrate: `migrate` ở trên đã làm việc đó và phải chạy xong trước.
+      SPRING_FLYWAY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      ai-service:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_JAVA_PORT:-8081}:8081"
+    healthcheck:
+      # Cùng endpoint `/api/health` với bản .NET, nên pattern healthcheck không đổi.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # JVM khởi động chậm hơn .NET đáng kể; đặt thấp thì container bị đánh dấu unhealthy trong
+      # lúc nó vẫn đang boot bình thường.
+      start_period: 60s
+
+  ai-service:
+    image: ${AI_SERVICE_IMAGE:-cmc-restaurant-ai:${DEPLOY_ENV:-local}}
+    build:
+      context: ..
+      dockerfile: ai/Dockerfile
+    restart: unless-stopped
+    environment:
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
+      AI_SERVICE_PORT: 8001
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=3); exit(0 if b'ready' in r.read() else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+volumes:
+  # Volume riêng, không dùng chung với stack .NET: hai bản chạy song song phải có CSDL độc lập thì
+  # so khớp hành vi ở issue #15 mới có nghĩa.
+  postgres-data-java:

@@ -1,5 +1,6 @@
 package com.cmc.restaurant.realtime;
 
+import com.cmc.restaurant.shared.CorsProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -16,17 +17,24 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	private final StompSubscriptionGuard subscriptionGuard;
 	private final StompErrorHandler errorHandler;
+	private final CorsProperties corsProperties;
 
-	public WebSocketConfig(StompSubscriptionGuard subscriptionGuard, StompErrorHandler errorHandler) {
+	public WebSocketConfig(
+			StompSubscriptionGuard subscriptionGuard, StompErrorHandler errorHandler,
+			CorsProperties corsProperties) {
 		this.subscriptionGuard = subscriptionGuard;
 		this.errorHandler = errorHandler;
+		this.corsProperties = corsProperties;
 	}
 
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		// Was hardcoded to "*" until issue #16 — see CorsProperties for why packaging is where that
+		// gets fixed.
+		String[] origins = corsProperties.allowedOrigins().toArray(String[]::new);
 		registry.setErrorHandler(errorHandler);
-		registry.addEndpoint("/hub/orders").setAllowedOriginPatterns("*").withSockJS();
-		registry.addEndpoint("/hub/orders").setAllowedOriginPatterns("*");
+		registry.addEndpoint("/hub/orders").setAllowedOriginPatterns(origins).withSockJS();
+		registry.addEndpoint("/hub/orders").setAllowedOriginPatterns(origins);
 	}
 
 	@Override
