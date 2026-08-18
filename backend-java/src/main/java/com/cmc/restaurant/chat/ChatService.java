@@ -45,7 +45,7 @@ public class ChatService {
 
 		OffsetDateTime now = OffsetDateTime.now();
 		TableSessionEntity tableSession = tableSessionRepository.findById(request.tableSessionId().trim())
-				.filter(s -> TableSessionStatus.OPEN.equals(s.getStatus()))
+				.filter(s -> s.getStatus() == TableSessionStatus.Open)
 				.filter(s -> s.getExpiresAt().isAfter(now))
 				.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
 						"Table session has expired. Please scan QR again."));

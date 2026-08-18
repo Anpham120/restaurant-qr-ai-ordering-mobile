@@ -2,6 +2,8 @@ package com.cmc.restaurant.orders;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
@@ -25,8 +27,9 @@ public class OrderEntity {
 	@Column(name = "order_type", nullable = false)
 	private String orderType;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private String status;
+	private OrderStatus status;
 
 	@Column(name = "restaurant_table_id")
 	private String restaurantTableId;
@@ -84,7 +87,7 @@ public class OrderEntity {
 		this.id = id;
 		this.orderCode = orderCode;
 		this.orderType = orderType;
-		this.status = OrderStatus.PLACED;
+		this.status = OrderStatus.Placed;
 		this.restaurantTableId = restaurantTableId;
 		this.tableCode = tableCode;
 		this.tableSessionId = tableSessionId;
@@ -110,11 +113,11 @@ public class OrderEntity {
 		return orderType;
 	}
 
-	public String getStatus() {
+	public OrderStatus getStatus() {
 		return status;
 	}
 
-	public void setStatus(String status) {
+	public void setStatus(OrderStatus status) {
 		this.status = status;
 	}
 

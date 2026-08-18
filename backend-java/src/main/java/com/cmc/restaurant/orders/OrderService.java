@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -91,7 +92,7 @@ public class OrderService {
 		OffsetDateTime now = OffsetDateTime.now();
 		TableSessionEntity session = tableSessionRepository.findById(request.tableSessionId().trim())
 				.filter(s -> s.getRestaurantTableId().equals(table.getId()))
-				.filter(s -> TableSessionStatus.OPEN.equals(s.getStatus()))
+				.filter(s -> s.getStatus() == TableSessionStatus.Open)
 				.filter(s -> s.getExpiresAt().isAfter(now))
 				.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
 						"Table session has expired. Please scan QR again."));
@@ -132,7 +133,7 @@ public class OrderService {
 		order.setTotalAmount(subtotal);
 
 		OrderStatusHistoryEntity initialEvent = new OrderStatusHistoryEntity(
-				"osh_" + UUID.randomUUID().toString().replace("-", ""), null, OrderStatus.PLACED, "Status",
+				"osh_" + UUID.randomUUID().toString().replace("-", ""), null, OrderStatus.Placed.name(), "Status",
 				actor.userId(), actor.role(), null, now);
 		initialEvent.setOrderId(orderId);
 		order.getStatusHistory().add(initialEvent);
@@ -150,7 +151,7 @@ public class OrderService {
 		// DoD của issue #13: bếp nhận order.created qua WebSocket.
 		realtimeNotifier.orderCreated(new RealtimeDtos.OrderCreatedEvent(
 				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
-				order.getStatus(), order.getCreatedAt()));
+				order.getStatus().name(), order.getCreatedAt()));
 
 		return toCreateResponse(order);
 	}
@@ -176,7 +177,7 @@ public class OrderService {
 		return toResponse(order);
 	}
 
-	public OrderDtos.OrderListResponse listOrders(String status, String tableCode, OffsetDateTime updatedSince) {
+	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(
 				status, tableCode, updatedSince, org.springframework.data.domain.PageRequest.of(0, 100));
 		List<OrderDtos.OrderResponse> response = orders.stream()
@@ -187,11 +188,11 @@ public class OrderService {
 	}
 
 	@Transactional
-	public OrderDtos.OrderResponse updateOrderStatus(String orderCode, String status, ActorContext actor) {
+	public OrderDtos.OrderResponse updateOrderStatus(String orderCode, OrderStatus status, ActorContext actor) {
 		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
 
-		if (OrderStatus.CANCELLED.equals(status) && isCancellationLocked(order)) {
+		if (status == OrderStatus.Cancelled && isCancellationLocked(order)) {
 			throw ApiException.badRequest("ORDER_CANCEL_NOT_ALLOWED",
 					"Order cannot be cancelled after it or any item reaches Preparing.");
 		}
@@ -200,7 +201,7 @@ public class OrderService {
 			throw ApiException.badRequest("ORDER_STATUS_TRANSITION_INVALID", "Order status transition is not allowed.");
 		}
 
-		if (OrderStatus.COMPLETED.equals(status)) {
+		if (status == OrderStatus.Completed) {
 			String paymentStatus = paymentRepository.findByOrderId(order.getId()).map(PaymentEntity::getStatus).orElse(null);
 			if (!"Confirmed".equals(paymentStatus) && !"Paid".equals(paymentStatus)) {
 				throw ApiException.badRequest("ORDER_COMPLETE_REQUIRES_PAYMENT",
@@ -209,45 +210,45 @@ public class OrderService {
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
-		String fromStatus = order.getStatus();
+		OrderStatus fromStatus = order.getStatus();
 		order.setStatus(status);
 		order.setUpdatedAt(now);
 		appendHistory(order, fromStatus, status, actor, null, now);
 
 		List<OrderItemEntity> items = itemsOf(order);
-		if (OrderStatus.CANCELLED.equals(status)) {
+		if (status == OrderStatus.Cancelled) {
 			for (OrderItemEntity item : items) {
-				if (OrderItemStatus.PENDING.equals(item.getStatus())) {
-					item.setStatus(OrderItemStatus.CANCELLED);
+				if (item.getStatus() == OrderItemStatus.Pending) {
+					item.setStatus(OrderItemStatus.Cancelled);
 					item.setUpdatedAt(now);
 					orderItemRepository.save(item);
 				}
 			}
 		}
-		if (OrderStatus.SERVED.equals(status)) {
+		if (status == OrderStatus.Served) {
 			for (OrderItemEntity item : items) {
-				if (!OrderItemStatus.CANCELLED.equals(item.getStatus())) {
-					item.setStatus(OrderItemStatus.SERVED);
+				if (item.getStatus() != OrderItemStatus.Cancelled) {
+					item.setStatus(OrderItemStatus.Served);
 					item.setUpdatedAt(now);
 					orderItemRepository.save(item);
 				}
 			}
 		}
-		if (OrderStatus.COMPLETED.equals(status) && order.getTableSessionId() != null) {
+		if (status == OrderStatus.Completed && order.getTableSessionId() != null) {
 			closeTableSessionIfLastActiveOrder(order, now);
 		}
 
 		orderRepository.save(order);
 		realtimeNotifier.orderStatusChanged(
 				new RealtimeDtos.OrderStatusChangedEvent(
-						order.getId(), order.getOrderCode(), order.getStatus(), order.getUpdatedAt()),
+						order.getId(), order.getOrderCode(), order.getStatus().name(), order.getUpdatedAt()),
 				order.getTableCode());
 		return toResponse(order);
 	}
 
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderItemStatus(
-			String orderCode, String orderItemId, String status, ActorContext actor) {
+			String orderCode, String orderItemId, OrderItemStatus status, ActorContext actor) {
 		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
 
@@ -255,7 +256,7 @@ public class OrderService {
 		OrderItemEntity item = items.stream().filter(i -> i.getId().equalsIgnoreCase(orderItemId)).findFirst()
 				.orElseThrow(() -> ApiException.notFound("ORDER_ITEM_NOT_FOUND", "Order item was not found."));
 
-		if (OrderStatus.COMPLETED.equals(order.getStatus()) || OrderStatus.CANCELLED.equals(order.getStatus())) {
+		if (order.getStatus() == OrderStatus.Completed || order.getStatus() == OrderStatus.Cancelled) {
 			throw new ApiException(HttpStatus.CONFLICT, "ORDER_STATUS_TERMINAL",
 					"Completed or cancelled orders cannot be changed.");
 		}
@@ -266,16 +267,16 @@ public class OrderService {
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
-		String previousOrderStatus = order.getStatus();
+		OrderStatus previousOrderStatus = order.getStatus();
 		item.setStatus(status);
 		item.setUpdatedAt(now);
-		if (OrderItemStatus.READY.equals(status) && item.getReadyAt() == null) {
+		if (status == OrderItemStatus.Ready && item.getReadyAt() == null) {
 			item.setReadyAt(now);
 		}
 		orderItemRepository.save(item);
 
-		String aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
-		if (!aggregateStatus.equals(order.getStatus())) {
+		OrderStatus aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
+		if (aggregateStatus != order.getStatus()) {
 			order.setStatus(aggregateStatus);
 			appendHistory(order, previousOrderStatus, aggregateStatus, actor, null, now);
 		}
@@ -306,19 +307,19 @@ public class OrderService {
 		OrderItemEntity item = items.stream().filter(i -> i.getId().equalsIgnoreCase(orderItemId)).findFirst()
 				.orElseThrow(() -> ApiException.notFound("ORDER_ITEM_NOT_FOUND", "Order item was not found."));
 
-		if (!OrderItemStatus.PENDING.equals(item.getStatus())) {
+		if (item.getStatus() != OrderItemStatus.Pending) {
 			throw ApiException.badRequest("ORDER_ITEM_CANCEL_NOT_ALLOWED",
 					"This item can no longer be cancelled once the kitchen has started preparing it.");
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
-		String previousOrderStatus = order.getStatus();
-		item.setStatus(OrderItemStatus.CANCELLED);
+		OrderStatus previousOrderStatus = order.getStatus();
+		item.setStatus(OrderItemStatus.Cancelled);
 		item.setUpdatedAt(now);
 		orderItemRepository.save(item);
 
-		String aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
-		if (!aggregateStatus.equals(order.getStatus())) {
+		OrderStatus aggregateStatus = deriveAggregateKitchenStatus(order.getStatus(), items);
+		if (aggregateStatus != order.getStatus()) {
 			order.setStatus(aggregateStatus);
 			appendHistory(order, previousOrderStatus, aggregateStatus, ActorContext.CUSTOMER, null, now);
 		}
@@ -334,87 +335,91 @@ public class OrderService {
 	/** Emits the item event, plus an order event when the item change rolled the order's aggregate
 	 * status forward — matching {@code OrderEndpoints}, which fires both when {@code
 	 * OrderStatusChanged} is true. */
-	private void publishItemStatusChanged(OrderEntity order, OrderItemEntity item, String previousOrderStatus) {
+	private void publishItemStatusChanged(OrderEntity order, OrderItemEntity item, OrderStatus previousOrderStatus) {
 		realtimeNotifier.orderItemStatusChanged(
 				new RealtimeDtos.OrderItemStatusChangedEvent(
 						order.getId(), order.getOrderCode(), item.getId(), item.getMenuItemName(),
-						item.getStatus(), item.getUpdatedAt()),
+						item.getStatus().name(), item.getUpdatedAt()),
 				order.getTableCode());
-		if (!order.getStatus().equals(previousOrderStatus)) {
+		if (order.getStatus() != previousOrderStatus) {
 			realtimeNotifier.orderStatusChanged(
 					new RealtimeDtos.OrderStatusChangedEvent(
-							order.getId(), order.getOrderCode(), order.getStatus(), order.getUpdatedAt()),
+							order.getId(), order.getOrderCode(), order.getStatus().name(), order.getUpdatedAt()),
 					order.getTableCode());
 		}
 	}
 
 	// --- state machine ---------------------------------------------------------------------
 
-	static boolean canTransitionOrder(String current, String next) {
-		if (OrderStatus.CANCELLED.equals(next)) {
-			return current.equals(OrderStatus.PLACED) || current.equals(OrderStatus.CONFIRMED);
+	static boolean canTransitionOrder(OrderStatus current, OrderStatus next) {
+		if (next == OrderStatus.Cancelled) {
+			return current == OrderStatus.Placed || current == OrderStatus.Confirmed;
 		}
 		return switch (current) {
-			case "Placed" -> next.equals(OrderStatus.CONFIRMED) || next.equals(OrderStatus.PREPARING);
-			case "Confirmed" -> next.equals(OrderStatus.PREPARING);
-			case "Preparing" -> next.equals(OrderStatus.READY);
-			case "Ready" -> next.equals(OrderStatus.SERVED);
-			case "Served" -> next.equals(OrderStatus.COMPLETED);
+			case Placed -> next == OrderStatus.Confirmed || next == OrderStatus.Preparing;
+			case Confirmed -> next == OrderStatus.Preparing;
+			case Preparing -> next == OrderStatus.Ready;
+			case Ready -> next == OrderStatus.Served;
+			case Served -> next == OrderStatus.Completed;
 			default -> false;
 		};
 	}
 
-	static boolean canTransitionItem(String current, String next) {
-		if (OrderItemStatus.CANCELLED.equals(next)) {
-			return current.equals(OrderItemStatus.PENDING) || current.equals(OrderItemStatus.PREPARING);
+	// Items move forward only (skips like Pending -> Ready are allowed for fast kitchens). Backward
+	// moves, no-ops, and changes out of a terminal state are rejected.
+	static boolean canTransitionItem(OrderItemStatus current, OrderItemStatus next) {
+		if (next == OrderItemStatus.Cancelled) {
+			return current == OrderItemStatus.Pending || current == OrderItemStatus.Preparing;
 		}
 		return switch (current) {
-			case "Pending" -> next.equals(OrderItemStatus.PREPARING) || next.equals(OrderItemStatus.READY)
-					|| next.equals(OrderItemStatus.SERVED);
-			case "Preparing" -> next.equals(OrderItemStatus.READY) || next.equals(OrderItemStatus.SERVED);
-			case "Ready" -> next.equals(OrderItemStatus.SERVED);
+			case Pending -> next == OrderItemStatus.Preparing || next == OrderItemStatus.Ready
+					|| next == OrderItemStatus.Served;
+			case Preparing -> next == OrderItemStatus.Ready || next == OrderItemStatus.Served;
+			case Ready -> next == OrderItemStatus.Served;
 			default -> false;
 		};
 	}
 
-	private static final Set<String> IN_PROGRESS_ITEM = Set.of(OrderItemStatus.PREPARING, OrderItemStatus.READY);
+	private static final Set<OrderStatus> KITCHEN_IN_FLIGHT =
+			EnumSet.of(OrderStatus.Placed, OrderStatus.Confirmed, OrderStatus.Preparing);
+	private static final Set<OrderItemStatus> ITEM_DONE =
+			EnumSet.of(OrderItemStatus.Ready, OrderItemStatus.Served);
+	private static final Set<OrderItemStatus> ITEM_STARTED =
+			EnumSet.of(OrderItemStatus.Preparing, OrderItemStatus.Ready, OrderItemStatus.Served);
 
-	static String deriveAggregateKitchenStatus(String orderStatus, List<OrderItemEntity> items) {
+	static OrderStatus deriveAggregateKitchenStatus(OrderStatus orderStatus, List<OrderItemEntity> items) {
 		List<OrderItemEntity> activeItems = items.stream()
-				.filter(i -> !OrderItemStatus.CANCELLED.equals(i.getStatus())).toList();
+				.filter(i -> i.getStatus() != OrderItemStatus.Cancelled).toList();
 		if (activeItems.isEmpty()) {
 			return orderStatus;
 		}
 
-		boolean placedOrConfirmedOrPreparing =
-				orderStatus.equals("Placed") || orderStatus.equals("Confirmed") || orderStatus.equals("Preparing");
-		if (placedOrConfirmedOrPreparing && activeItems.stream()
-				.allMatch(i -> i.getStatus().equals(OrderItemStatus.READY) || i.getStatus().equals(OrderItemStatus.SERVED))) {
-			return OrderStatus.READY;
+		if (KITCHEN_IN_FLIGHT.contains(orderStatus)
+				&& activeItems.stream().allMatch(i -> ITEM_DONE.contains(i.getStatus()))) {
+			return OrderStatus.Ready;
 		}
 
-		if (orderStatus.equals("Ready") && activeItems.stream().allMatch(i -> i.getStatus().equals(OrderItemStatus.SERVED))) {
-			return OrderStatus.SERVED;
+		if (orderStatus == OrderStatus.Ready
+				&& activeItems.stream().allMatch(i -> i.getStatus() == OrderItemStatus.Served)) {
+			return OrderStatus.Served;
 		}
 
-		boolean placedOrConfirmed = orderStatus.equals("Placed") || orderStatus.equals("Confirmed");
-		if (placedOrConfirmed && activeItems.stream().anyMatch(i ->
-				IN_PROGRESS_ITEM.contains(i.getStatus()) || i.getStatus().equals(OrderItemStatus.SERVED))) {
-			return OrderStatus.PREPARING;
+		boolean notYetStarted = orderStatus == OrderStatus.Placed || orderStatus == OrderStatus.Confirmed;
+		if (notYetStarted && activeItems.stream().anyMatch(i -> ITEM_STARTED.contains(i.getStatus()))) {
+			return OrderStatus.Preparing;
 		}
 
 		return orderStatus;
 	}
 
+	private static final Set<OrderStatus> ORDER_CANCEL_LOCKED = EnumSet.of(
+			OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Served, OrderStatus.Completed);
+
 	private static boolean isCancellationLocked(OrderEntity order) {
-		Set<String> lockedOrderStatuses =
-				Set.of(OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.SERVED, OrderStatus.COMPLETED);
-		if (lockedOrderStatuses.contains(order.getStatus())) {
+		if (ORDER_CANCEL_LOCKED.contains(order.getStatus())) {
 			return true;
 		}
-		Set<String> lockedItemStatuses =
-				Set.of(OrderItemStatus.PREPARING, OrderItemStatus.READY, OrderItemStatus.SERVED);
-		return order.getItems().stream().anyMatch(i -> lockedItemStatuses.contains(i.getStatus()));
+		return order.getItems().stream().anyMatch(i -> ITEM_STARTED.contains(i.getStatus()));
 	}
 
 	private void closeTableSessionIfLastActiveOrder(OrderEntity order, OffsetDateTime now) {
@@ -423,9 +428,9 @@ public class OrderService {
 			return;
 		}
 		tableSessionRepository.findById(order.getTableSessionId())
-				.filter(s -> TableSessionStatus.OPEN.equals(s.getStatus()))
+				.filter(s -> s.getStatus() == TableSessionStatus.Open)
 				.ifPresent(session -> {
-					session.setStatus(TableSessionStatus.CLOSED);
+					session.setStatus(TableSessionStatus.Closed);
 					session.setClosedAt(now);
 					session.setUpdatedAt(now);
 					tableSessionRepository.save(session);
@@ -476,16 +481,17 @@ public class OrderService {
 	}
 
 	private void appendHistory(
-			OrderEntity order, String fromStatus, String toStatus, ActorContext actor, String note,
+			OrderEntity order, OrderStatus fromStatus, OrderStatus toStatus, ActorContext actor, String note,
 			OffsetDateTime now) {
 		appendHistory(order, fromStatus, toStatus, "Status", actor, note, now);
 	}
 
 	private void appendHistory(
-			OrderEntity order, String fromStatus, String toStatus, String source, ActorContext actor, String note,
+			OrderEntity order, OrderStatus fromStatus, OrderStatus toStatus, String source, ActorContext actor, String note,
 			OffsetDateTime now) {
 		OrderStatusHistoryEntity event = new OrderStatusHistoryEntity(
-				"osh_" + UUID.randomUUID().toString().replace("-", ""), fromStatus, toStatus, source,
+				"osh_" + UUID.randomUUID().toString().replace("-", ""),
+				fromStatus == null ? null : fromStatus.name(), toStatus.name(), source,
 				actor.userId(), actor.role(), note, now);
 		event.setOrderId(order.getId());
 		order.getStatusHistory().add(event);
@@ -519,7 +525,7 @@ public class OrderService {
 		PaymentEntity payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
 		return new OrderDtos.OrderResponse(
 				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
-				order.getTableSessionId(), order.getStatus(),
+				order.getTableSessionId(), order.getStatus().name(),
 				payment == null ? "NotRequested" : payment.getStatus(),
 				payment == null ? "Unselected" : payment.getMethod(),
 				order.getSubtotalAmount(), order.getDiscountAmount(), order.getTotalAmount(),
@@ -537,8 +543,8 @@ public class OrderService {
 				base.events(), order.getCustomerAccessToken());
 	}
 
-	private static final Set<String> AWAITING_ESTIMATE_STATUS =
-			Set.of(OrderItemStatus.PENDING, OrderItemStatus.PREPARING);
+	private static final Set<OrderItemStatus> AWAITING_ESTIMATE_STATUS =
+			EnumSet.of(OrderItemStatus.Pending, OrderItemStatus.Preparing);
 
 	private OrderDtos.OrderItemResponse toItemResponse(OrderItemEntity item) {
 		OrderItemEstimationService.Estimate estimate = AWAITING_ESTIMATE_STATUS.contains(item.getStatus())
@@ -546,7 +552,7 @@ public class OrderService {
 				: null;
 		return new OrderDtos.OrderItemResponse(
 				item.getId(), item.getMenuItemId(), item.getMenuItemName(), item.getUnitPrice(), item.getQuantity(),
-				item.getStatus(), item.lineTotal(), item.getUpdatedAt(),
+				item.getStatus().name(), item.lineTotal(), item.getUpdatedAt(),
 				estimate == null ? null : estimate.lowMinutes(), estimate == null ? null : estimate.highMinutes());
 	}
 

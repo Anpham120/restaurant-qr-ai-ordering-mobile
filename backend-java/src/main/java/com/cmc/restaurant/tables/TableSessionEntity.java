@@ -2,6 +2,8 @@ package com.cmc.restaurant.tables;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -34,8 +36,9 @@ public class TableSessionEntity {
 	@Column(name = "order_type", nullable = false)
 	private String orderType;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private String status;
+	private TableSessionStatus status;
 
 	@Column(name = "opened_at", nullable = false)
 	private OffsetDateTime openedAt;
@@ -70,7 +73,7 @@ public class TableSessionEntity {
 		this.tableCode = tableCode;
 		this.qrToken = qrToken;
 		this.orderType = "DineIn";
-		this.status = TableSessionStatus.OPEN;
+		this.status = TableSessionStatus.Open;
 		this.openedAt = openedAt;
 		this.expiresAt = expiresAt;
 		this.createdAt = openedAt;
@@ -78,23 +81,23 @@ public class TableSessionEntity {
 	}
 
 	public boolean isActiveAt(OffsetDateTime now) {
-		return TableSessionStatus.OPEN.equals(status) && closedAt == null && expiresAt.isAfter(now);
+		return status == TableSessionStatus.Open && closedAt == null && expiresAt.isAfter(now);
 	}
 
 	/** Returns true (and mutates state to Expired) only if it actually transitioned. */
 	public boolean expireIfPast(OffsetDateTime now) {
-		if (!TableSessionStatus.OPEN.equals(status) || closedAt != null || expiresAt.isAfter(now)) {
+		if (status != TableSessionStatus.Open || closedAt != null || expiresAt.isAfter(now)) {
 			return false;
 		}
-		this.status = TableSessionStatus.EXPIRED;
+		this.status = TableSessionStatus.Expired;
 		this.closedAt = now;
 		this.updatedAt = now;
 		return true;
 	}
 
 	public boolean isExpired(OffsetDateTime now) {
-		return TableSessionStatus.EXPIRED.equals(status)
-				|| (TableSessionStatus.OPEN.equals(status) && !expiresAt.isAfter(now));
+		return status == TableSessionStatus.Expired
+				|| (status == TableSessionStatus.Open && !expiresAt.isAfter(now));
 	}
 
 	public String getId() {
@@ -117,7 +120,7 @@ public class TableSessionEntity {
 		return orderType;
 	}
 
-	public String getStatus() {
+	public TableSessionStatus getStatus() {
 		return status;
 	}
 
@@ -133,7 +136,7 @@ public class TableSessionEntity {
 		return closedAt;
 	}
 
-	public void setStatus(String status) {
+	public void setStatus(TableSessionStatus status) {
 		this.status = status;
 	}
 

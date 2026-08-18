@@ -110,7 +110,7 @@ public class TableSessionService {
 
 	private void expireStaleSessions(String tableId, OffsetDateTime now) {
 		List<TableSessionEntity> openSessions =
-				sessionRepository.findByRestaurantTableIdAndStatus(tableId, TableSessionStatus.OPEN);
+				sessionRepository.findByRestaurantTableIdAndStatus(tableId, TableSessionStatus.Open);
 		for (TableSessionEntity session : openSessions) {
 			if (session.expireIfPast(now)) {
 				sessionRepository.save(session);
@@ -159,8 +159,8 @@ public class TableSessionService {
 				.orElseThrow(() -> ApiException.notFound("TABLE_SESSION_NOT_FOUND", "Table session was not found."));
 
 		OffsetDateTime now = OffsetDateTime.now();
-		if (!TableSessionStatus.CLOSED.equals(session.getStatus())) {
-			session.setStatus(TableSessionStatus.CLOSED);
+		if (session.getStatus() != TableSessionStatus.Closed) {
+			session.setStatus(TableSessionStatus.Closed);
 			session.setClosedAt(now);
 			session.setUpdatedAt(now);
 			sessionRepository.save(session);
@@ -176,7 +176,7 @@ public class TableSessionService {
 			TableSessionEntity session, RestaurantTableEntity table, OffsetDateTime now,
 			TableSessionResumeState resumeState) {
 		return new OpenTableSessionResponse(
-				session.getId(), session.getOrderType(), session.getStatus(), session.getTableCode(),
+				session.getId(), session.getOrderType(), session.getStatus().name(), session.getTableCode(),
 				table.getDisplayName(), session.getOpenedAt(), session.getExpiresAt(), session.getClosedAt(),
 				session.isExpired(now), capability.createToken(session, jwtProperties.signingKey()),
 				resumeState.name());
@@ -185,7 +185,7 @@ public class TableSessionService {
 	TableDtos.TableSessionResponse toSessionResponse(
 			TableSessionEntity session, RestaurantTableEntity table, OffsetDateTime now) {
 		return new TableDtos.TableSessionResponse(
-				session.getId(), session.getOrderType(), session.getStatus(), session.getTableCode(),
+				session.getId(), session.getOrderType(), session.getStatus().name(), session.getTableCode(),
 				table == null ? null : table.getDisplayName(), session.getOpenedAt(), session.getExpiresAt(),
 				session.getClosedAt(), session.isExpired(now));
 	}

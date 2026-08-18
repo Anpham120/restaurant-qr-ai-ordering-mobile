@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface TableSessionRepository extends JpaRepository<TableSessionEntity, String> {
 
-	List<TableSessionEntity> findByRestaurantTableIdAndStatus(String restaurantTableId, String status);
+	List<TableSessionEntity> findByRestaurantTableIdAndStatus(String restaurantTableId, TableSessionStatus status);
 
 	@Query("select s from TableSessionEntity s where s.restaurantTableId = :tableId "
 			+ "and s.status = 'Open' and s.closedAt is null and s.expiresAt > :now "
@@ -23,5 +23,5 @@ public interface TableSessionRepository extends JpaRepository<TableSessionEntity
 
 	/** By table CODE rather than id — the realtime subscription guard (issue #13) only knows the
 	 * code, because that is what the STOMP destination carries. */
-	List<TableSessionEntity> findByTableCodeAndStatus(String tableCode, String status);
+	List<TableSessionEntity> findByTableCodeAndStatus(String tableCode, TableSessionStatus status);
 }
