@@ -38,6 +38,9 @@ public class OrderItemEntity {
 	@Column(name = "updated_at", nullable = false)
 	private OffsetDateTime updatedAt;
 
+	@Column(name = "ready_at")
+	private OffsetDateTime readyAt;
+
 	protected OrderItemEntity() {
 		// JPA
 	}
@@ -96,6 +99,14 @@ public class OrderItemEntity {
 
 	public void setUpdatedAt(OffsetDateTime updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	public OffsetDateTime getReadyAt() {
+		return readyAt;
+	}
+
+	public void setReadyAt(OffsetDateTime readyAt) {
+		this.readyAt = readyAt;
 	}
 
 	public BigDecimal lineTotal() {
