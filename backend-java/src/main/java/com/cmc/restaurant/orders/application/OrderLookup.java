@@ -3,6 +3,7 @@ package com.cmc.restaurant.orders.application;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -57,4 +58,12 @@ public interface OrderLookup {
 
 	/** Đếm đơn tạo trong khoảng nửa mở {@code [from, to)}. */
 	long countCreatedBetween(OffsetDateTime fromInclusive, OffsetDateTime toExclusive);
+
+	/**
+	 * Số đơn CÒN HOẠT ĐỘNG của từng phiên bàn — bỏ đơn {@code Completed} và {@code Cancelled} (#91).
+	 *
+	 * <p>Trả về map thay vì hỏi từng phiên một: màn quản trị liệt kê hàng chục phiên cùng lúc, hỏi
+	 * lẻ là N+1. Phiên không có đơn nào thì KHÔNG xuất hiện trong map — nơi gọi hiểu là 0.
+	 */
+	Map<String, Integer> countActiveOrdersByTableSession();
 }

@@ -57,6 +57,25 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 	@Query(value = "select nextval('orders_order_code_seq')", nativeQuery = true)
 	long nextOrderCodeNumber();
 
+	/** Projection cho {@link #countActiveByTableSession()} — tránh trả về {@code Object[]} phải ép kiểu. */
+	interface TableSessionOrderCount {
+		String getTableSessionId();
+
+		int getActiveCount();
+	}
+
+	/**
+	 * Đếm đơn còn hoạt động theo từng phiên bàn, một truy vấn cho tất cả (#91).
+	 *
+	 * <p>Bỏ phiên null: đơn mang về (không gắn bàn) không thuộc phiên nào.
+	 */
+	@Query("select o.tableSessionId as tableSessionId, count(o) as activeCount from OrderEntity o "
+			+ "where o.tableSessionId is not null "
+			+ "and o.status <> com.cmc.restaurant.orders.domain.OrderStatus.Completed "
+			+ "and o.status <> com.cmc.restaurant.orders.domain.OrderStatus.Cancelled "
+			+ "group by o.tableSessionId")
+	List<TableSessionOrderCount> countActiveByTableSession();
+
 	default List<OrderEntity> findOtherActiveOrders(String tableSessionId, String excludeOrderId) {
 		return findByTableSessionIdAndStatusNotIn(
 				tableSessionId, List.of(OrderStatus.Completed, OrderStatus.Cancelled))
