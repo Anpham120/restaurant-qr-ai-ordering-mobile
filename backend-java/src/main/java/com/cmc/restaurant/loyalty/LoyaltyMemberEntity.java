@@ -56,6 +56,28 @@ public class LoyaltyMemberEntity {
 		this.updatedAt = member.updatedAt();
 	}
 
+	/**
+	 * Quản trị viên sửa hồ sơ thành viên (#94).
+	 *
+	 * <p>CỐ Ý không đụng {@code lifetimeSpend}: đó là tổng tiền khách đã tiêu, do luồng thanh toán
+	 * cộng dồn, không phải thứ quản trị viên nhập tay. Bản .NET cũng chỉ gán ba trường này ở
+	 * endpoint sửa. Điểm thưởng thì sửa được — dùng để bù trừ khi có khiếu nại.
+	 */
+	void applyAdminEdit(String phoneNumber, String fullName, int points, OffsetDateTime now) {
+		this.phoneNumber = phoneNumber;
+		this.fullName = fullName;
+		this.points = points;
+		this.updatedAt = now;
+	}
+
+	void setFullName(String fullName) {
+		this.fullName = fullName;
+	}
+
+	void setPoints(int points) {
+		this.points = points;
+	}
+
 	public String getId() {
 		return id;
 	}
