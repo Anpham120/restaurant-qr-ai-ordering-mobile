@@ -221,6 +221,28 @@ public class OrderService {
 		return new OrderDtos.OrderListResponse(orders.stream().map(this::toResponse).toList(), orders.size());
 	}
 
+	/**
+	 * Hoàn tất mọi đơn chưa xong của một phiên bàn khi hoá đơn được tất toán (#96).
+	 *
+	 * <p>Luật "bỏ qua máy trạng thái" nằm trong {@link Order#completeOnSettlement}, không ở đây —
+	 * lý do ghi tại chỗ định nghĩa. Hàm này chỉ nạp, gọi, lưu, và trả về những đơn THẬT SỰ đổi
+	 * trạng thái, để nơi gọi bắn realtime đúng số lần thay vì bắn cho cả đơn đã xong từ trước.
+	 */
+	@Transactional
+	public List<OrderDtos.OrderResponse> completeOrdersForTableSession(
+			String tableSessionId, ActorContext actor) {
+		OffsetDateTime now = OffsetDateTime.now();
+		List<OrderDtos.OrderResponse> changed = new java.util.ArrayList<>();
+		for (OrderEntity entity : orderRepository.findByTableSessionIdOrderByCreatedAtDesc(tableSessionId)) {
+			Order order = persistence.toDomain(entity);
+			if (order.completeOnSettlement(actor.toDomain(), now)) {
+				persistence.save(order);
+				changed.add(toResponse(orderRepository.findById(entity.getId()).orElseThrow()));
+			}
+		}
+		return changed;
+	}
+
 	@Transactional(readOnly = true)
 	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(

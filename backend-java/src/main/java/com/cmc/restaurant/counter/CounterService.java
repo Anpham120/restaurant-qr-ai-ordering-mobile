@@ -75,6 +75,34 @@ public class CounterService {
 		return toSummary(entity);
 	}
 
+	/**
+	 * Ghi một khoản tiền mặt từ hoá đơn bàn vào ca quầy đang mở (#96).
+	 *
+	 * <p>KHÔNG ném khi không có ca nào mở — bản .NET cũng vậy ({@code if (shift is null) return;}).
+	 * Lý do: khách đã trả tiền rồi. Chặn việc tất toán chỉ vì quầy quên mở ca sẽ biến một sai sót
+	 * hành chính thành lỗi chặn khách ra về. Sổ quỹ lệch thì đối soát cuối ca xử lý được; khách
+	 * đứng chờ thì không.
+	 */
+	@Transactional
+	public void recordTableInvoiceCash(
+			BigDecimal amount, String tableSessionId, String invoiceCode, String userId) {
+		Optional<CounterShiftEntity> open = shifts.findFirstByStatusOrderByOpenedAtDesc(CounterShiftStatus.Open);
+		if (open.isEmpty()) {
+			return;
+		}
+		CounterShiftEntity entity = open.get();
+		OffsetDateTime now = OffsetDateTime.now();
+
+		CounterShift shift = entity.toDomain();
+		shift.recordCashPayment(amount, now);
+		entity.applyFrom(shift);
+		shifts.save(entity);
+
+		transactions.save(new CounterShiftTransactionEntity(
+				"cst_" + UUID.randomUUID().toString().replace("-", ""), entity.getId(), amount,
+				"Table invoice " + invoiceCode, userId, now, tableSessionId, invoiceCode));
+	}
+
 	private CounterShiftEntity requireShift(String shiftId) {
 		return shifts.findById(shiftId.trim())
 				.orElseThrow(() -> ApiException.notFound("COUNTER_SHIFT_NOT_FOUND", "Counter shift was not found."));
