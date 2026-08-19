@@ -16,7 +16,7 @@
 
 ## Module và bề mặt API — SINH TỪ MÃ
 
-**13 module**, **58 endpoint**, **7 migration** cơ sở dữ liệu.
+**13 module**, **63 endpoint**, **7 migration** cơ sở dữ liệu.
 
 > Bảng này chỉ nói **cái gì tồn tại**. Ý nghĩa nghiệp vụ của từng module là phần người
 > viết ở các mục dưới.
@@ -31,7 +31,7 @@
 | `menu` | 14 | 13 |
 | `orders` | 6 | 13 |
 | `payments` | 6 | 19 |
-| `promotions` | 1 | 9 |
+| `promotions` | 6 | 12 |
 | `realtime` | 0 | 6 |
 | `reports` | 1 | 6 |
 | `shared` | 1 | 8 |

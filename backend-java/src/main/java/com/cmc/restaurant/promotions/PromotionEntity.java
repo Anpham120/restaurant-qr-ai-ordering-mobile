@@ -62,6 +62,41 @@ public class PromotionEntity {
 	protected PromotionEntity() {
 	}
 
+	/** Khuyến mãi do quản trị viên tạo (#93). */
+	PromotionEntity(String id, OffsetDateTime now) {
+		this.id = id;
+		this.createdAt = now;
+		this.updatedAt = now;
+	}
+
+	/**
+	 * Ghi toàn bộ phần quản trị viên nhập được.
+	 *
+	 * <p>Một hàm cho cả 11 trường thay vì 11 setter rời: tạo và sửa dùng chung đúng tập trường
+	 * này, nên tách lẻ sẽ mở ra khả năng một đường ghi thiếu trường mà không có gì báo. Bản .NET
+	 * cũng gán liền một mạch ở cả hai endpoint.
+	 *
+	 * <p>Package-private: chỉ {@code AdminPromotionService} — nơi đã gọi
+	 * {@code Promotion.validateDefinition} — được phép ghi.
+	 */
+	void applyDefinition(
+			String code, String name, String description, PromotionType type, BigDecimal discountValue,
+			BigDecimal minOrderAmount, BigDecimal maxDiscountAmount, boolean flashSale,
+			OffsetDateTime startsAt, OffsetDateTime endsAt, boolean active, OffsetDateTime now) {
+		this.code = code;
+		this.name = name;
+		this.description = description;
+		this.type = type;
+		this.discountValue = discountValue;
+		this.minOrderAmount = minOrderAmount;
+		this.maxDiscountAmount = maxDiscountAmount;
+		this.flashSale = flashSale;
+		this.startsAt = startsAt;
+		this.endsAt = endsAt;
+		this.active = active;
+		this.updatedAt = now;
+	}
+
 	public Promotion toDomain() {
 		return new Promotion(id, code, name, type, discountValue, minOrderAmount, maxDiscountAmount,
 				startsAt, endsAt, active);
@@ -81,5 +116,47 @@ public class PromotionEntity {
 
 	public boolean isFlashSale() {
 		return flashSale;
+	}
+
+	// --- đọc cho màn quản trị (#93) --------------------------------------------------------------
+
+	public String getId() {
+		return id;
+	}
+
+	public PromotionType getType() {
+		return type;
+	}
+
+	public BigDecimal getDiscountValue() {
+		return discountValue;
+	}
+
+	public BigDecimal getMinOrderAmount() {
+		return minOrderAmount;
+	}
+
+	public BigDecimal getMaxDiscountAmount() {
+		return maxDiscountAmount;
+	}
+
+	public OffsetDateTime getStartsAt() {
+		return startsAt;
+	}
+
+	public OffsetDateTime getEndsAt() {
+		return endsAt;
+	}
+
+	public boolean isActive() {
+		return active;
+	}
+
+	public OffsetDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public OffsetDateTime getUpdatedAt() {
+		return updatedAt;
 	}
 }
