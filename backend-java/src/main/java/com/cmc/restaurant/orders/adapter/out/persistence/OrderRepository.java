@@ -15,6 +15,9 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 
+	/** Mọi đơn của một phiên bàn, mới nhất trước (#96). */
+	List<OrderEntity> findByTableSessionIdOrderByCreatedAtDesc(String tableSessionId);
+
 	/** Đếm đơn tạo trong một khoảng nửa mở [from, to) — cho báo cáo doanh thu. */
 	long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(OffsetDateTime from, OffsetDateTime to);
 

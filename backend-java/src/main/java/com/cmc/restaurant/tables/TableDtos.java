@@ -15,6 +15,13 @@ public final class TableDtos {
 	public record OpenTableSessionRequest(String qrToken, String tableCode) {
 	}
 
+	/** Ghi chú khách nhập khi bấm gọi nhân viên — để trống thì dùng câu mặc định (#96). */
+	public record TableAssistanceRequest(String note) {
+	}
+
+	public record TableAssistanceResponse(boolean requested, String tableCode) {
+	}
+
 	public record TableSessionResponse(
 			String sessionId, String orderType, String status, String tableCode, String tableDisplayName,
 			OffsetDateTime openedAt, OffsetDateTime expiresAt, OffsetDateTime closedAt, boolean isExpired) {

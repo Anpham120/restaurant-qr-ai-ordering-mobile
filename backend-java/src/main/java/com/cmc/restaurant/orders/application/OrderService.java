@@ -3,7 +3,6 @@ package com.cmc.restaurant.orders.application;
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.shared.ActorContext;
-import com.cmc.restaurant.orders.adapter.in.web.OrderDtos;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemEntity;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemRepository;
@@ -207,6 +206,19 @@ public class OrderService {
 		}
 
 		return toResponse(order);
+	}
+
+	/**
+	 * Mọi đơn của một phiên bàn, mới nhất trước (#96).
+	 *
+	 * <p>Đặt ở đây chứ không để module Tables tự truy vấn: {@code orders.application} là bề mặt duy
+	 * nhất module khác được phép chạm tới, và luật ArchUnit từ #80 sẽ đỏ nếu Tables đọc thẳng
+	 * repository của Orders.
+	 */
+	@Transactional(readOnly = true)
+	public OrderDtos.OrderListResponse listOrdersForTableSession(String tableSessionId) {
+		List<OrderEntity> orders = orderRepository.findByTableSessionIdOrderByCreatedAtDesc(tableSessionId);
+		return new OrderDtos.OrderListResponse(orders.stream().map(this::toResponse).toList(), orders.size());
 	}
 
 	@Transactional(readOnly = true)

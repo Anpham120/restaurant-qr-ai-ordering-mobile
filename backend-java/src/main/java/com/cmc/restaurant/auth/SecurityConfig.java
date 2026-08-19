@@ -43,6 +43,10 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*/invoice").permitAll()
+						// #96 — hai đường của khách trong phiên bàn. Xác thực bằng token năng lực bên trong
+						// service (khách quét QR không có tài khoản), giống hệt đường /invoice ở trên.
+						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*/orders").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/table-sessions/*/assistance").permitAll()
 						// Cart is part of the anonymous QR flow; the capability token gates it.
 						.requestMatchers("/api/table-sessions/*/cart", "/api/table-sessions/*/cart/items").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/promotions/validate").permitAll()

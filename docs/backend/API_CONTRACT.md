@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**63 endpoint** trong **12 module**, đọc trực tiếp từ
+**65 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -128,7 +128,7 @@
 |---|---|---|
 | `GET` | `/api/health` | `shared/HealthController.java` |
 
-### tables (10)
+### tables (12)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -139,8 +139,10 @@
 | `POST` | `/api/admin/tables/{tableCode}/qr/rotate` | `tables/AdminTableController.java` |
 | `POST` | `/api/table-sessions` | `tables/TableController.java` |
 | `GET` | `/api/table-sessions/{sessionId}` | `tables/TableController.java` |
+| `POST` | `/api/table-sessions/{sessionId}/assistance` | `tables/TableController.java` |
 | `POST` | `/api/table-sessions/{sessionId}/close` | `tables/TableController.java` |
 | `GET` | `/api/table-sessions/{sessionId}/invoice` | `tables/TableController.java` |
+| `GET` | `/api/table-sessions/{sessionId}/orders` | `tables/TableController.java` |
 | `GET` | `/api/tables/{tableCode}` | `tables/TableController.java` |
 
 <!-- HET:api-inventory -->

@@ -1,4 +1,4 @@
-package com.cmc.restaurant.orders.adapter.in.web;
+package com.cmc.restaurant.orders.application;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
