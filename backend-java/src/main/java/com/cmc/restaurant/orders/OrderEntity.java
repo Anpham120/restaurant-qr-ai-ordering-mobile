@@ -51,6 +51,15 @@ public class OrderEntity {
 	@Column(name = "discount_amount", nullable = false)
 	private BigDecimal discountAmount = BigDecimal.ZERO;
 
+	// Both the code and the id are stored: the code is what the customer typed and what appears on
+	// their receipt, the id is what a later report joins on. Keeping only the code would break if a
+	// promotion is renamed; keeping only the id would lose what the customer was actually told.
+	@Column(name = "promotion_code")
+	private String promotionCode;
+
+	@Column(name = "promotion_id")
+	private String promotionId;
+
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
@@ -153,6 +162,19 @@ public class OrderEntity {
 
 	public BigDecimal getDiscountAmount() {
 		return discountAmount;
+	}
+
+	public void setDiscountAmount(BigDecimal discountAmount) {
+		this.discountAmount = discountAmount;
+	}
+
+	public String getPromotionCode() {
+		return promotionCode;
+	}
+
+	public void applyPromotion(String promotionCode, String promotionId) {
+		this.promotionCode = promotionCode;
+		this.promotionId = promotionId;
 	}
 
 	public OffsetDateTime getCreatedAt() {
