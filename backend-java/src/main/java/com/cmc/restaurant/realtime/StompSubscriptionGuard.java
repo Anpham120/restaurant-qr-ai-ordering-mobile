@@ -71,6 +71,12 @@ public class StompSubscriptionGuard implements ChannelInterceptor {
 
 		boolean isOperator = isOperator(first(accessor, "Authorization"));
 
+		if (RealtimeDestinations.MENU.equals(destination)) {
+			// Công khai có chủ đích — xem lý do ở RealtimeDestinations.MENU. Tương đương
+			// `Clients.All` của bản .NET, và nội dung sự kiện đã công khai qua GET /api/menu.
+			return message;
+		}
+
 		if (RealtimeDestinations.OPERATIONS.equals(destination)) {
 			// Mirrors OnConnectedAsync: only staff roles ever joined the operations group.
 			require(isOperator, "OPERATIONS_ACCESS_DENIED");

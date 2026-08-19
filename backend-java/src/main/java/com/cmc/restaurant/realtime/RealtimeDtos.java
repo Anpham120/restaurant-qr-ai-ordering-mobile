@@ -19,6 +19,7 @@ public final class RealtimeDtos {
 		public static final String ORDER_STATUS_CHANGED = "order.statusChanged";
 		public static final String ORDER_ITEM_STATUS_CHANGED = "order.itemStatusChanged";
 		public static final String PAYMENT_REQUESTED = "payment.requested";
+		public static final String MENU_AVAILABILITY_CHANGED = "menu.availabilityChanged";
 
 		private EventNames() {
 		}
@@ -41,5 +42,10 @@ public final class RealtimeDtos {
 	public record PaymentRequestedEvent(
 			String orderId, String orderCode, String method, String status, BigDecimal amount,
 			OffsetDateTime updatedAt, String tableCode) {
+	}
+
+	/** Mirrors {@code MenuAvailabilityChangedEvent} (.NET) — bếp bật/tắt một món (#92). */
+	public record MenuAvailabilityChangedEvent(
+			String menuItemId, String name, boolean isAvailable, OffsetDateTime updatedAt) {
 	}
 }
