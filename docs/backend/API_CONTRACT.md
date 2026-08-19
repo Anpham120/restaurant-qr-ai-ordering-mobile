@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**58 endpoint** trong **12 module**, đọc trực tiếp từ
+**63 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -105,10 +105,15 @@
 | `POST` | `/api/orders/{orderCode}/payment/request` | `payments/PaymentController.java` |
 | `POST` | `/api/payments/webhooks/casso` | `payments/CassoWebhookController.java` |
 
-### promotions (1)
+### promotions (6)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
+| `GET` | `/api/admin/promotions` | `promotions/AdminPromotionController.java` |
+| `POST` | `/api/admin/promotions` | `promotions/AdminPromotionController.java` |
+| `DELETE` | `/api/admin/promotions/{promotionId}` | `promotions/AdminPromotionController.java` |
+| `GET` | `/api/admin/promotions/{promotionId}` | `promotions/AdminPromotionController.java` |
+| `PUT` | `/api/admin/promotions/{promotionId}` | `promotions/AdminPromotionController.java` |
 | `POST` | `/api/promotions/validate` | `promotions/PromotionController.java` |
 
 ### reports (1)

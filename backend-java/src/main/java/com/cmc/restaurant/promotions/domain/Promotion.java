@@ -112,4 +112,39 @@ public class Promotion {
 	public BigDecimal discountValue() {
 		return discountValue;
 	}
+
+	/**
+	 * Luật về một ĐỊNH NGHĨA khuyến mãi hợp lệ — quản trị viên tạo hoặc sửa mã (#93).
+	 *
+	 * <p>Khác hẳn {@link #applyTo}: hàm kia hỏi "mã này dùng được cho đơn này không", hàm này hỏi
+	 * "bản thân định nghĩa có hợp lệ không". Hai câu hỏi khác nhau nên tách riêng, nhưng cùng nằm ở
+	 * domain vì cùng là luật về khuyến mãi — để ở controller thì đường tạo mã thứ hai sau này sẽ bỏ
+	 * qua được chúng.
+	 *
+	 * <p>Mã lỗi giữ nguyên chuỗi của bản .NET; {@code GlobalExceptionHandler} dịch
+	 * {@link PromotionRuleViolation} thành HTTP 400, đúng như {@code ApiResults.BadRequest}.
+	 */
+	public static void validateDefinition(
+			String code, String name, PromotionType type, BigDecimal discountValue,
+			OffsetDateTime startsAt, OffsetDateTime endsAt) {
+		if (code == null || code.isBlank()) {
+			throw new PromotionRuleViolation("PROMOTION_CODE_REQUIRED", "Promotion code is required.");
+		}
+		if (name == null || name.isBlank()) {
+			throw new PromotionRuleViolation("PROMOTION_NAME_REQUIRED", "Promotion name is required.");
+		}
+		if (type == null) {
+			throw new PromotionRuleViolation("PROMOTION_TYPE_INVALID", "Promotion type is invalid.");
+		}
+		if (discountValue == null || discountValue.signum() <= 0) {
+			throw new PromotionRuleViolation("PROMOTION_DISCOUNT_INVALID",
+					"Discount value must be greater than zero.");
+		}
+		// Chỉ so khi CẢ HAI mốc cùng có. Khuyến mãi để trống một đầu là hợp lệ: "từ ngày X trở đi"
+		// và "tới hết ngày Y" đều là cách dùng thật.
+		if (startsAt != null && endsAt != null && startsAt.isAfter(endsAt)) {
+			throw new PromotionRuleViolation("PROMOTION_DATE_RANGE_INVALID",
+					"Promotion start date must be before end date.");
+		}
+	}
 }
