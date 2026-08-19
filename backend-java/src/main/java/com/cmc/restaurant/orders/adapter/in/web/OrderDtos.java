@@ -1,7 +1,5 @@
 package com.cmc.restaurant.orders.adapter.in.web;
 
-import com.cmc.restaurant.orders.domain.OrderItemStatus;
-import com.cmc.restaurant.orders.domain.OrderStatus;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
