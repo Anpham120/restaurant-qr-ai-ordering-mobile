@@ -1,7 +1,7 @@
 package com.cmc.restaurant.payments;
 
-import com.cmc.restaurant.orders.ActorContext;
-import com.cmc.restaurant.orders.RequestIdempotency;
+import com.cmc.restaurant.shared.ActorContext;
+import com.cmc.restaurant.shared.RequestIdempotency;
 import com.cmc.restaurant.shared.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;

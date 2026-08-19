@@ -1,4 +1,4 @@
-package com.cmc.restaurant.orders;
+package com.cmc.restaurant.shared;
 
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
 import com.cmc.restaurant.auth.UserRole;

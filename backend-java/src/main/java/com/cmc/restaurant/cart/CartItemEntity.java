@@ -1,5 +1,6 @@
 package com.cmc.restaurant.cart;
 
+import com.cmc.restaurant.orders.application.OrderService;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

@@ -1,10 +1,10 @@
 package com.cmc.restaurant.payments;
 
-import com.cmc.restaurant.orders.ActorContext;
-import com.cmc.restaurant.orders.OrderEntity;
-import com.cmc.restaurant.orders.OrderRepository;
-import com.cmc.restaurant.orders.OrderService;
-import com.cmc.restaurant.orders.RequestIdempotency;
+import com.cmc.restaurant.shared.ActorContext;
+import com.cmc.restaurant.shared.RequestIdempotency;
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.application.OrderService;
 import com.cmc.restaurant.payments.domain.Payment;
 import com.cmc.restaurant.payments.domain.PaymentMethod;
 import com.cmc.restaurant.payments.domain.PaymentStatus;
