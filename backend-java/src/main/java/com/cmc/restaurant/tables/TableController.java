@@ -9,8 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Mirrors the public + session-lifecycle subset of {@code TableEndpoints.cs} (.NET). Admin table
@@ -21,13 +21,15 @@ public class TableController {
 	private final RestaurantTableRepository tableRepository;
 	private final TableSessionService sessionService;
 	private final TableInvoiceService invoiceService;
+	private final TableSessionActivityService activityService;
 
 	public TableController(
 			RestaurantTableRepository tableRepository, TableSessionService sessionService,
-			TableInvoiceService invoiceService) {
+			TableInvoiceService invoiceService, TableSessionActivityService activityService) {
 		this.tableRepository = tableRepository;
 		this.sessionService = sessionService;
 		this.invoiceService = invoiceService;
+		this.activityService = activityService;
 	}
 
 	@GetMapping("/api/tables/{tableCode}")
@@ -68,5 +70,20 @@ public class TableController {
 	public TableInvoiceDtos.InvoiceResponse getInvoice(
 			@PathVariable String sessionId, HttpServletRequest request) {
 		return invoiceService.getInvoice(sessionId, request.getHeader("X-Table-Session-Token"));
+	}
+
+	@GetMapping("/api/table-sessions/{sessionId}/orders")
+	public com.cmc.restaurant.orders.application.OrderDtos.OrderListResponse listSessionOrders(
+			@PathVariable String sessionId, HttpServletRequest request) {
+		return activityService.listOrders(sessionId, request.getHeader("X-Table-Session-Token"));
+	}
+
+	@PostMapping("/api/table-sessions/{sessionId}/assistance")
+	public TableDtos.TableAssistanceResponse requestAssistance(
+			@PathVariable String sessionId,
+			@RequestBody(required = false) TableDtos.TableAssistanceRequest body,
+			HttpServletRequest request) {
+		return activityService.requestAssistance(
+				sessionId, body, request.getHeader("X-Table-Session-Token"));
 	}
 }

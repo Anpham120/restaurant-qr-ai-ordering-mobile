@@ -51,6 +51,21 @@ public class OrderRealtimeNotifier {
 		send(RealtimeDestinations.MENU, payload, headers);
 	}
 
+	/**
+	 * Khách bấm gọi nhân viên (#96).
+	 *
+	 * <p>Không đi qua {@link #fanOut}: sự kiện này không thuộc đơn nào. Bản .NET gửi tới nhóm
+	 * operations rồi tới nhóm của BÀN — không gửi {@code Clients.All} như sự kiện thực đơn, vì nội
+	 * dung có ghi chú khách nhập.
+	 */
+	public void assistanceRequested(RealtimeDtos.AssistanceRequestedEvent payload) {
+		Map<String, Object> headers = Map.of("event", RealtimeDtos.EventNames.ASSISTANCE_REQUESTED);
+		send(RealtimeDestinations.OPERATIONS, payload, headers);
+		if (payload.tableCode() != null && !payload.tableCode().isBlank()) {
+			send(RealtimeDestinations.table(payload.tableCode()), payload, headers);
+		}
+	}
+
 	/** Mirrors {@code SendToOrderAndOperationsAsync}. The event name travels in an {@code event}
 	 * header because STOMP has no equivalent of SignalR's named method invocation. */
 	private void fanOut(String eventName, Object payload, String orderCode, String tableCode) {
