@@ -26,15 +26,18 @@ public class ChatService {
 	private final ChatSessionCapability capability;
 	private final JwtProperties jwtProperties;
 	private final AiChatClient aiChatClient;
+	private final ChatMessageRepository chatMessageRepository;
 
 	public ChatService(
 			ChatSessionRepository chatSessionRepository, TableSessionRepository tableSessionRepository,
-			ChatSessionCapability capability, JwtProperties jwtProperties, AiChatClient aiChatClient) {
+			ChatSessionCapability capability, JwtProperties jwtProperties, AiChatClient aiChatClient,
+			ChatMessageRepository chatMessageRepository) {
 		this.chatSessionRepository = chatSessionRepository;
 		this.tableSessionRepository = tableSessionRepository;
 		this.capability = capability;
 		this.jwtProperties = jwtProperties;
 		this.aiChatClient = aiChatClient;
+		this.chatMessageRepository = chatMessageRepository;
 	}
 
 	@Transactional
@@ -64,6 +67,28 @@ public class ChatService {
 				capability.createToken(session, jwtProperties.signingKey()));
 	}
 
+	/**
+	 * Lịch sử hội thoại của một phiên chat (#95).
+	 *
+	 * <p>Trước PR này bảng {@code chat_messages} có sẵn trong migration nhưng bản Java không ghi
+	 * vào, nên endpoint này không có gì để đọc — khách tải lại trang là mất sạch hội thoại.
+	 */
+	@Transactional(readOnly = true)
+	public ChatDtos.ChatMessageListResponse listMessages(String chatSessionId, String suppliedToken) {
+		ChatSessionEntity session = chatSessionRepository.findById(chatSessionId.trim())
+				.orElseThrow(() -> ApiException.notFound("CHAT_SESSION_NOT_FOUND", "Chat session was not found."));
+		if (suppliedToken == null || !capability.isValid(session, suppliedToken, jwtProperties.signingKey())) {
+			throw new ApiException(HttpStatus.UNAUTHORIZED,
+					"CHAT_SESSION_TOKEN_INVALID", "A valid chat session token is required.");
+		}
+		return new ChatDtos.ChatMessageListResponse(
+				chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(session.getId()).stream()
+						.map(m -> new ChatDtos.ChatMessageResponse(
+								m.getId(), m.getRole(), m.getContent(), m.getCreatedAt(),
+								m.getSuggestedCartActions() == null ? List.of() : m.getSuggestedCartActions()))
+						.toList());
+	}
+
 	@Transactional
 	public ChatDtos.SendChatMessageResponse sendMessage(
 			String chatSessionId, ChatDtos.SendChatMessageRequest request, String suppliedToken) {
@@ -89,11 +114,18 @@ public class ChatService {
 					"Message must be " + MAX_QUESTION_LENGTH + " characters or fewer.");
 		}
 
+		// Lưu câu hỏi TRƯỚC khi gọi dịch vụ AI (#95). Gọi xong mới lưu thì một lần AI chết sẽ làm
+		// mất luôn câu khách vừa gõ, và họ phải nhớ mình đã hỏi gì để gõ lại.
+		saveMessage(session.getId(), "user", question, List.of());
+
 		Optional<ChatDtos.AiChatResponse> answer = aiChatClient.ask(question, session.getSessionState());
 		if (answer.isEmpty()) {
-			return AiChatClient.fallback();
+			ChatDtos.SendChatMessageResponse fallback = AiChatClient.fallback();
+			saveMessage(session.getId(), "assistant", fallback.content(), List.of());
+			return fallback;
 		}
 		ChatDtos.AiChatResponse ai = answer.get();
+		saveMessage(session.getId(), "assistant", ai.content(), toCartActions(ai.suggestedCartActions()));
 
 		// Backend owns storing the memory (per the schema: "Backend sở hữu việc lưu và XÓA — dịch vụ
 		// AI chỉ đọc và ghi"). Only overwrite when the service actually returned new state, so a
@@ -113,11 +145,19 @@ public class ChatService {
 				!Boolean.FALSE.equals(ai.providerAvailable()));
 	}
 
+	private void saveMessage(
+			String chatSessionId, String role, String content,
+			List<ChatDtos.SuggestedCartActionResponse> actions) {
+		chatMessageRepository.save(new ChatMessageEntity(
+				"msg_" + java.util.UUID.randomUUID().toString().replace("-", ""), chatSessionId, role,
+				content == null ? "" : content, actions, OffsetDateTime.now()));
+	}
+
 	/** Drops any action the service marked as not requiring confirmation. The schema declares
 	 * {@code requires_customer_confirmation} as {@code const true} precisely because "AI không tự
 	 * đặt món" is a boundary, so anything arriving otherwise is treated as untrustworthy rather
 	 * than passed to the customer as a one-tap add. */
-	private static List<ChatDtos.SuggestedCartActionResponse> toCartActions(
+	static List<ChatDtos.SuggestedCartActionResponse> toCartActions(
 			List<ChatDtos.AiSuggestedCartAction> actions) {
 		if (actions == null) {
 			return List.of();
