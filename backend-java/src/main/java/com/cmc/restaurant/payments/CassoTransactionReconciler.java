@@ -1,8 +1,7 @@
 package com.cmc.restaurant.payments;
 
 import com.cmc.restaurant.shared.ActorContext;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.application.OrderLookup;
 import com.cmc.restaurant.orders.application.OrderService;
 import com.cmc.restaurant.payments.domain.Payment;
 import java.math.BigDecimal;
@@ -36,15 +35,15 @@ public class CassoTransactionReconciler {
 
 	private final PaymentRepository paymentRepository;
 	private final PaymentTransactionRepository transactionRepository;
-	private final OrderRepository orderRepository;
+	private final OrderLookup orderLookup;
 	private final OrderService orderService;
 
 	public CassoTransactionReconciler(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
-			OrderRepository orderRepository, OrderService orderService) {
+			OrderLookup orderLookup, OrderService orderService) {
 		this.paymentRepository = paymentRepository;
 		this.transactionRepository = transactionRepository;
-		this.orderRepository = orderRepository;
+		this.orderLookup = orderLookup;
 		this.orderService = orderService;
 	}
 
@@ -83,12 +82,12 @@ public class CassoTransactionReconciler {
 					"Description does not contain a 'CMC ORD-xxxx' transfer content.");
 		}
 
-		Optional<OrderEntity> order = orderRepository.findByOrderCode(orderCode);
+		Optional<OrderLookup.OrderSummary> order = orderLookup.findByOrderCode(orderCode);
 		if (order.isEmpty()) {
 			return result(transaction, "unmatched", orderCode, "No order exists with this code.");
 		}
 
-		PaymentEntity payment = paymentRepository.findByOrderId(order.get().getId()).orElse(null);
+		PaymentEntity payment = paymentRepository.findByOrderId(order.get().id()).orElse(null);
 		if (payment == null) {
 			return result(transaction, "unmatched", orderCode, "Order has no payment record.");
 		}
