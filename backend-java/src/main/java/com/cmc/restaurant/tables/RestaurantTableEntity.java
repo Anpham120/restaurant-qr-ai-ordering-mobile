@@ -35,6 +35,39 @@ public class RestaurantTableEntity {
 		// JPA
 	}
 
+	/** Bàn mới do quản trị viên tạo (#91). Mã QR do {@link TableQrTokenRotator} cấp ngay lúc tạo. */
+	RestaurantTableEntity(String id, String tableCode, String displayName, OffsetDateTime now) {
+		this.id = id;
+		this.tableCode = tableCode;
+		this.displayName = displayName;
+		this.active = true;
+		this.createdAt = now;
+		this.updatedAt = now;
+	}
+
+	void rename(String displayName) {
+		this.displayName = displayName;
+	}
+
+	void setActive(boolean active) {
+		this.active = active;
+	}
+
+	/**
+	 * Đổi mã QR — package-private nên chỉ module Tables gọi được, và trên thực tế chỉ
+	 * {@link TableQrTokenRotator} gọi.
+	 *
+	 * <p>Token này là thứ duy nhất chứng minh khách đang ngồi tại bàn. Để lộ một setter công khai
+	 * nghĩa là bất kỳ chỗ nào cũng ghi đè được, và một lần ghi đè nhầm sẽ vô hiệu mọi mã QR đã in.
+	 */
+	void replaceQrToken(String qrToken) {
+		this.qrToken = qrToken;
+	}
+
+	void touch(OffsetDateTime now) {
+		this.updatedAt = now;
+	}
+
 	public String getId() {
 		return id;
 	}

@@ -5,7 +5,9 @@ import com.cmc.restaurant.orders.domain.OrderItemStatus;
 import com.cmc.restaurant.orders.domain.OrderStatus;
 import com.cmc.restaurant.shared.CustomerTokenGuard;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,5 +80,14 @@ public class OrderLookupAdapter implements OrderLookup {
 	@Override
 	public long countCreatedBetween(OffsetDateTime fromInclusive, OffsetDateTime toExclusive) {
 		return orderRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(fromInclusive, toExclusive);
+	}
+
+	@Override
+	public Map<String, Integer> countActiveOrdersByTableSession() {
+		Map<String, Integer> counts = new HashMap<>();
+		for (OrderRepository.TableSessionOrderCount row : orderRepository.countActiveByTableSession()) {
+			counts.put(row.getTableSessionId(), row.getActiveCount());
+		}
+		return counts;
 	}
 }
