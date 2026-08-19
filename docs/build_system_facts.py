@@ -31,11 +31,13 @@ from pathlib import Path
 
 DOCS = Path(__file__).resolve().parent
 REPO = DOCS.parent
-SRC = REPO / "backend" / "src" / "RestaurantQrAiOrdering.Api"
+# Issue #58 — nguồn đổi từ .NET sang Java. Phải đổi CÙNG LÚC với `build_api_inventory.py`: hàm
+# `module_backend()` dưới đây dùng lại `quet()` của bộ kiểm kê để đếm endpoint, nhưng tự liệt kê
+# module từ `SRC`. Đổi một bên thì tên module hai bên lệch nhau (`Auth` với `auth`) và bảng sinh ra
+# ghi mọi module có 0 endpoint — sai mà vẫn hợp lệ về cú pháp.
+SRC = REPO / "backend-java" / "src" / "main" / "java" / "com" / "cmc" / "restaurant"
+MIGRATIONS = REPO / "backend-java" / "src" / "main" / "resources" / "db" / "migration"
 WF = REPO / ".github" / "workflows"
-
-NHOM_RE = re.compile(r'var\s+(\w+)\s*=\s*app\.MapGroup\(\s*"([^"]+)"')
-MAP_RE = re.compile(r'(?:(\w+)\.)?Map(Get|Post|Put|Patch|Delete)\(\s*"([^"]*)"')
 
 
 def _moc(ten: str) -> tuple[str, str]:
@@ -70,25 +72,28 @@ def module_backend() -> str:
     theo_mod = _m.quet()
 
     dem = {k: len(set(v)) for k, v in theo_mod.items()}
-    # BỎ QUA thư mục build (`obj/`, `bin/`) — chúng chứa `.cs` do trình biên dịch sinh ra.
+    # BỎ QUA thư mục build (`build/`, `out/`) — Gradle sinh ra.
     #
-    # Máy nhà phát triển có sẵn hai thư mục này sau lần `dotnet build` đầu tiên, còn CI thì checkout
-    # sạch nên không có. Hệ quả: bảng module sinh trên máy nhà có thêm một dòng `obj` giả, và cổng
-    # `--check` trên CI đỏ với thông báo "tệp đã commit khác kết quả sinh lại" — một lỗi chỉ xuất
-    # hiện ở CI, không tái lập được ở máy nhà.
-    BUILD = {"obj", "bin"}
+    # Máy nhà phát triển có sẵn chúng sau lần build đầu tiên, còn CI thì checkout sạch nên không
+    # có. Hệ quả: bảng module sinh trên máy nhà có thêm một dòng giả, và cổng `--check` trên CI đỏ
+    # với thông báo "tệp đã commit khác kết quả sinh lại" — một lỗi chỉ xuất hiện ở CI, không tái
+    # lập được ở máy nhà.
+    BUILD = {"build", "out"}
     tep: dict[str, set[str]] = {}
-    for p in sorted(SRC.rglob("*.cs")):
+    for p in sorted(SRC.rglob("*.java")):
         if BUILD & set(p.parts):
             continue
-        mod = p.relative_to(SRC).parts[0]
-        tep.setdefault(mod, set()).add(p.name)
+        rel = p.relative_to(SRC).parts
+        # Tệp ngay ở gốc gói (`RestaurantApplication.java`) không thuộc module nào.
+        if len(rel) < 2:
+            continue
+        tep.setdefault(rel[0], set()).add(p.name)
     for k in dem:
         tep.setdefault(k, set())
-    mig = len([p for p in (SRC / "Data" / "Migrations").glob("*.cs")
-               if "Designer" not in p.name and "Snapshot" not in p.name])
+    # Flyway thay EF Core: một tệp `.sql` là một migration, không có tệp Designer/Snapshot đi kèm.
+    mig = len(list(MIGRATIONS.glob("V*.sql")))
     d = ["## Module và bề mặt API — SINH TỪ MÃ", "",
-         f"**{len([k for k in tep if not k.endswith(chr(46)+chr(99)+chr(115))])} module**, "
+         f"**{len([k for k in tep if not k.endswith(chr(46) + 'java')])} module**, "
          f"**{sum(dem.values())} endpoint**, "
          f"**{mig} migration** cơ sở dữ liệu.", "",
          "> Bảng này chỉ nói **cái gì tồn tại**. Ý nghĩa nghiệp vụ của từng module là phần người",

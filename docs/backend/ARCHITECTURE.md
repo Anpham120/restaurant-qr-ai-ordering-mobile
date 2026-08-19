@@ -16,31 +16,26 @@
 
 ## Module và bề mặt API — SINH TỪ MÃ
 
-**17 module**, **84 endpoint**, **21 migration** cơ sở dữ liệu.
+**13 module**, **46 endpoint**, **7 migration** cơ sở dữ liệu.
 
 > Bảng này chỉ nói **cái gì tồn tại**. Ý nghĩa nghiệp vụ của từng module là phần người
 > viết ở các mục dưới.
 
 | Module | Endpoint | Số tệp |
 |---|---:|---:|
-| `Auth` | 5 | 9 |
-| `Cart` | 3 | 3 |
-| `Categories` | 5 | 2 |
-| `Chat` | 8 | 12 |
-| `Counter` | 4 | 2 |
-| `Data` | 0 | 43 |
-| `Errors` | 0 | 2 |
-| `Logging` | 0 | 1 |
-| `Loyalty` | 10 | 3 |
-| `Menu` | 9 | 3 |
-| `Orders` | 5 | 8 |
-| `Payments` | 5 | 5 |
-| `Program.cs` | 1 | 1 |
-| `Promotions` | 6 | 3 |
-| `Realtime` | 0 | 5 |
-| `Reports` | 1 | 1 |
-| `Tables` | 17 | 6 |
-| `Users` | 5 | 9 |
+| `auth` | 4 | 15 |
+| `cart` | 3 | 9 |
+| `chat` | 2 | 9 |
+| `counter` | 4 | 11 |
+| `loyalty` | 1 | 10 |
+| `menu` | 12 | 12 |
+| `orders` | 6 | 13 |
+| `payments` | 6 | 19 |
+| `promotions` | 1 | 9 |
+| `realtime` | 0 | 6 |
+| `reports` | 1 | 6 |
+| `shared` | 1 | 8 |
+| `tables` | 5 | 19 |
 
 <!-- HET:backend-modules -->
 ---
