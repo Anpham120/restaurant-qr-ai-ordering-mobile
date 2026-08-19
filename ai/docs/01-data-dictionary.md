@@ -4,7 +4,7 @@ Bản cũ **không có** tài liệu này, và đó là nguyên nhân trực ti�
 này trả lời: mỗi trường trong thực đơn nghĩa là gì, mỗi nhãn nghĩa là gì, và — quan
 trọng nhất — **khi một nhãn không có mặt thì kết luận được điều gì**.
 
-Nguồn máy đọc: `backend/data/menu-tags.json`, sinh bởi `ai/scripts/build_tag_dictionary.py`.
+Nguồn máy đọc: `data/menu-tags.json`, sinh bởi `ai/scripts/build_tag_dictionary.py`.
 
 ## 1. Hai nguồn thực đơn từng lệch nhau — đã hợp nhất
 

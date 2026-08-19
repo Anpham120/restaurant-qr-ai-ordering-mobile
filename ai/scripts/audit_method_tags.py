@@ -48,8 +48,8 @@ import unicodedata
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
-TAGS_PATH = REPO_ROOT / "backend" / "data" / "menu-tags.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
+TAGS_PATH = REPO_ROOT / "data" / "menu-tags.json"
 
 # Từ trong TÊN món -> giá trị nhãn `method` mong đợi.
 #

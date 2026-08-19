@@ -52,7 +52,7 @@ def _tag_labels() -> dict[str, str]:
     """
     try:
         d = json.loads(
-            (REPO_ROOT / "backend" / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
+            (REPO_ROOT / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
         )
         return {t: m["label_vi"] for t, m in d["tags"].items()}
     except (OSError, KeyError, ValueError):

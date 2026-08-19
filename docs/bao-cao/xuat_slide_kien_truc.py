@@ -94,9 +94,9 @@ def _doc_so() -> dict:
     from generate import BRANCHES_ALLOWED
     from test_understand import collision_census
 
-    menu = json.loads((GOC / "backend" / "data" / "menu-dataset.json")
+    menu = json.loads((GOC / "data" / "menu-dataset.json")
                       .read_text(encoding="utf-8-sig"))
-    tags = json.loads((GOC / "backend" / "data" / "menu-tags.json")
+    tags = json.loads((GOC / "data" / "menu-tags.json")
                       .read_text(encoding="utf-8-sig"))
     items = menu["items"]
 

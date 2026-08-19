@@ -53,7 +53,7 @@ import results  # noqa: E402
 from llm_understand import load_env  # noqa: E402
 from understand import understand  # noqa: E402
 
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 
 def load_menu() -> tuple[list[dict], dict[str, str]]:

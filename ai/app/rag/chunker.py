@@ -8,7 +8,7 @@ Kho tri thức là MỘT kho (`ai/knowledge/`) với HAI chế độ trả lời
     verbatim    trả NGUYÊN VĂN cho khách. Mô hình không chạm vào chữ.
     synthesize  là ĐẦU VÀO cho mô hình viết câu trả lời.
 
-Trước đây đây là hai KHO riêng: `backend/data/restaurant-facts.json` tra khóa, và
+Trước đây đây là hai KHO riêng: `data/restaurant-facts.json` tra khóa, và
 `ai/knowledge/*.md` truy hồi. Lý do tôi từng viết cho việc tách — "tra khóa vs truy hồi xếp
 hạng" — hóa ra SAI: cả 60 tài liệu markdown đều có đúng một `topic_keys` nên chúng cũng tra
 khóa được. Ranh giới thật luôn là chế độ trả lời, và nó không cần hai kho.

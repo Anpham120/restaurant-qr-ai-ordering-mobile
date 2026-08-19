@@ -41,7 +41,7 @@ from pathlib import Path
 from understand import Request
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DICT_PATH = REPO_ROOT / "backend" / "data" / "menu-tags.json"
+DICT_PATH = REPO_ROOT / "data" / "menu-tags.json"
 CACHE_PATH = Path(__file__).resolve().parent / "llm_cache.json"
 
 # Nhóm nhãn mô hình được phép dùng làm ràng buộc CỨNG. Chỉ các nhóm phủ 91/91 món, hoặc

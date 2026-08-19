@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Dùng đúng định nghĩa "món ăn" của hệ thống, không tự liệt kê lại — xem chú thích trong `main()`.
 sys.path.insert(0, str(REPO_ROOT / "ai" / "app"))

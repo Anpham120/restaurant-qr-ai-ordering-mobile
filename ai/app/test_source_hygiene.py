@@ -252,7 +252,7 @@ class CoCheAnToANPhaiCoBANGCHUNGLaNoCHAY(unittest.TestCase):
 
         self.understand = understand
         self.items = json.loads(
-            (APP_DIR.parents[1] / "backend" / "data" / "menu-dataset.json").read_text(
+            (APP_DIR.parents[1] / "data" / "menu-dataset.json").read_text(
                 encoding="utf-8-sig"
             )
         )["items"]

@@ -119,7 +119,7 @@ curl --fail --show-error --silent --retry 2 --retry-delay 2 --retry-all-errors \
   --data '{"message":"Xin chào"}' \
   "$ai_chat_url" >/dev/null
 
-menu_dataset="/opt/cmc-restaurant/${DEPLOY_ENV}/repo/backend/data/menu-dataset.json"
+menu_dataset="/opt/cmc-restaurant/${DEPLOY_ENV}/repo/data/menu-dataset.json"
 run_semantic_probe() {
   local probe_name="$1"
   local probe_message="$2"

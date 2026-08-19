@@ -17,7 +17,7 @@ export function formatVnd(price: number) {
 
 /** Nhãn hiển thị tiếng Việt cho nhãn thực đơn.
  *
- * Sinh từ backend/data/menu-tags.json — nguồn sự thật duy nhất, dùng chung với
+ * Sinh từ data/menu-tags.json — nguồn sự thật duy nhất, dùng chung với
  * dịch vụ AI. Trước đây từ điển này chỉ tồn tại ở tệp này, nên giao diện hiển thị
  * đúng "Tối" trong khi AI đoán nhãn `toi` là "tỏi" và trả 36 món ăn buổi tối cho
  * câu hỏi về tỏi.

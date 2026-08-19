@@ -133,7 +133,7 @@ export const MENU_ITEM_EN: Record<string, MenuTranslation> = {
 
 /** Nhãn thực đơn tiếng Anh.
  *
- * Sinh từ backend/data/menu-tags.json. Bản viết tay trước đây chỉ có 54/80 nhãn,
+ * Sinh từ data/menu-tags.json. Bản viết tay trước đây chỉ có 54/80 nhãn,
  * nên khách xem bằng tiếng Anh thấy khóa thô ("toi", "trua", "khong cay") ở 30
  * nhãn, và 4 mục trỏ vào nhãn đã bỏ. Sinh từ từ điển thì thiếu sót không lặp lại.
  *

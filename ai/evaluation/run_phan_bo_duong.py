@@ -33,7 +33,7 @@ sys.path.insert(0, str(GOC / "ai" / "app"))
 from answer import respond          # noqa: E402
 from understand import understand   # noqa: E402
 
-MENU = json.loads((GOC / "backend" / "data" / "menu-dataset.json")
+MENU = json.loads((GOC / "data" / "menu-dataset.json")
                   .read_text(encoding="utf-8-sig"))
 ITEMS = MENU["items"]
 

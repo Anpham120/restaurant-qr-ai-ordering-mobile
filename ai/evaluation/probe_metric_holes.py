@@ -28,7 +28,7 @@ from answer_metric import Answer, score
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 DATA = json.loads((HERE / "cases.json").read_text(encoding="utf-8-sig"))
 CASES = DATA["cases"]

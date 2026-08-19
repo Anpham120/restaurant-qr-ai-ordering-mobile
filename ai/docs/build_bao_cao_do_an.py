@@ -103,8 +103,8 @@ class Bang:
         import results
         from rag.chunker import all_chunks, doan_toan_kho, load_all, retrievable_chunks
 
-        self.menu = doc_json(REPO_ROOT / "backend/data/menu-dataset.json")
-        self.tags = doc_json(REPO_ROOT / "backend/data/menu-tags.json")["tags"]
+        self.menu = doc_json(REPO_ROOT / "data/menu-dataset.json")
+        self.tags = doc_json(REPO_ROOT / "data/menu-tags.json")["tags"]
         self.items = self.menu["items"]
 
         kho = AI / "knowledge"

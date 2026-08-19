@@ -38,7 +38,7 @@ from rag.chunker import KnowledgeError, verbatim_answers
 from understand import DRINK_CATEGORIES, FOOD_CATEGORIES, Request
 
 # Kho tri thức nằm TRONG `ai/`, nên nó luôn có mặt trong ảnh Docker. Trước đây nó là
-# `backend/data/restaurant-facts.json`, ngoài phạm vi `COPY` của `ai/Dockerfile` — nên trong
+# `data/restaurant-facts.json`, ngoài phạm vi `COPY` của `ai/Dockerfile` — nên trong
 # container mọi chủ đề chính sách trả "chưa có dữ liệu", im lặng. Xem `test_packaging.py`.
 KNOWLEDGE_PATH = Path(__file__).resolve().parents[1] / "knowledge"
 
@@ -621,7 +621,7 @@ def _tu_thuoc_mien(items: list[dict]) -> frozenset[str]:
         import json as _json
 
         nhan = _json.loads(
-            (Path(__file__).resolve().parents[2] / "backend" / "data" / "menu-tags.json")
+            (Path(__file__).resolve().parents[2] / "data" / "menu-tags.json")
             .read_text(encoding="utf-8-sig")
         )["tags"]
         for meta in nhan.values():

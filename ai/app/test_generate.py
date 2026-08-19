@@ -26,7 +26,7 @@ from understand import understand  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ITEMS = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 BY_NAME = {i["name"]: i for i in ITEMS}
 PHO = BY_NAME["Phở bò tái nạm"]          # 75.000đ, không ghi nhận dị nguyên

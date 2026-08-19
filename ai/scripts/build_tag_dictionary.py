@@ -47,8 +47,8 @@ from collections import Counter
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
-DICT_PATH = REPO_ROOT / "backend" / "data" / "menu-tags.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
+DICT_PATH = REPO_ROOT / "data" / "menu-tags.json"
 SEED_PATH = (
     REPO_ROOT
     / "backend"

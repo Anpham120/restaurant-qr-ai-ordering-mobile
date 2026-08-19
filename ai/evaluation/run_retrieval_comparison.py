@@ -74,7 +74,7 @@ from rag.hybrid import HybridRetriever  # noqa: E402
 
 CASES_PATH = HERE / "retrieval_cases.json"
 SPLIT_PATH = HERE / "retrieval_split.json"
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 KNOWLEDGE_PATH = REPO_ROOT / "ai" / "knowledge"
 
 # SỐ ĐOẠN hệ thống thật sự trích cho một câu trả lời tri thức.

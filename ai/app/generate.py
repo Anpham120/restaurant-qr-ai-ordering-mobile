@@ -237,7 +237,7 @@ def _nhan_tieng_viet() -> dict[str, str]:
     global _NHAN_VI
     if _NHAN_VI is None:
         try:
-            duong = Path(__file__).resolve().parents[2] / "backend" / "data" / "menu-tags.json"
+            duong = Path(__file__).resolve().parents[2] / "data" / "menu-tags.json"
             data = json.loads(duong.read_text(encoding="utf-8-sig"))
             _NHAN_VI = {
                 k: v["label_vi"]

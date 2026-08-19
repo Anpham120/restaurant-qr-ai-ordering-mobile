@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 MIGRATIONS = (
     REPO_ROOT
     / "backend"
@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
 
     menu = json.loads(MENU_PATH.read_text(encoding="utf-8-sig"))
     dictionary = json.loads(
-        (REPO_ROOT / "backend" / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
+        (REPO_ROOT / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
     )
     # Từ vựng để kiểm nhãn cũ phải theo ĐÚNG NGUỒN đang đọc.
     #

@@ -27,7 +27,7 @@ from understand import understand  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 ITEMS = MENU["items"]
 BY_ID = {i["id"]: i for i in ITEMS}
