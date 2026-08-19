@@ -1,40 +1,50 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.cart.CartItemRepository;
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads {@code table_session_cart_items}, {@code orders}, {@code table_invoices} directly by SQL
- * instead of through JPA repositories, because those tables belong to modules not ported yet
- * (Orders: issues #6-9; Table Invoice: issue #7). This is a deliberate, narrow bridge — once
- * those modules exist, their own repositories are the better source and this class can shrink to
- * just the cart-item count (which genuinely belongs here, in Tables).
+ * Dựng lại trạng thái "khách quay lại phiên bàn" từ ba nguồn: giỏ hàng, các đơn đã đặt, và hoá đơn
+ * bàn.
+ *
+ * <p>Trước issue #78 cả ba đọc bằng SQL thô, với lý do ghi ngay trong file: "những bảng đó thuộc
+ * module chưa được port (Orders: #6-9; Table Invoice: #7)". Lý do đó nay không còn đúng — cả hai
+ * module đều đã port. Mỗi câu truy vấn giờ nằm ở repository của module SỞ HỮU bảng, nên tên bảng
+ * và tên cột chỉ được viết ra đúng một nơi.
+ *
+ * <p>Việc lớp này vẫn gọi thẳng repository của Cart và Orders là phần còn lại, và có issue riêng:
+ * #80 sẽ bọc chúng sau một cổng (port) ở tầng application thay vì để mỗi module tự với sang
+ * persistence của module khác.
  */
 @Service
 public class ResumeStateQueryService {
 
-	private final JdbcTemplate jdbcTemplate;
+	private final CartItemRepository cartItemRepository;
+	private final OrderRepository orderRepository;
+	private final TableInvoiceRepository invoiceRepository;
 
-	public ResumeStateQueryService(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = jdbcTemplate;
+	public ResumeStateQueryService(
+			CartItemRepository cartItemRepository, OrderRepository orderRepository,
+			TableInvoiceRepository invoiceRepository) {
+		this.cartItemRepository = cartItemRepository;
+		this.orderRepository = orderRepository;
+		this.invoiceRepository = invoiceRepository;
 	}
 
 	public TableSessionResumeState resolve(String tableSessionId) {
-		Long cartItemCount = jdbcTemplate.queryForObject(
-				"select count(*) from table_session_cart_items where table_session_id = ? and quantity > 0",
-				Long.class, tableSessionId);
+		long cartItemCount =
+				cartItemRepository.countByTableSessionIdAndQuantityGreaterThan(tableSessionId, 0);
 
-		List<String> orderStatuses = jdbcTemplate.queryForList(
-				"select status from orders where table_session_id = ?", String.class, tableSessionId);
+		List<String> orderStatuses = orderRepository.findStatusesByTableSessionId(tableSessionId)
+				.stream().map(OrderStatus::name).toList();
 
-		List<String> invoiceStatuses = jdbcTemplate.queryForList(
-				"select status from table_invoices where table_session_id = ? limit 1",
-				String.class, tableSessionId);
-		String invoiceStatus = invoiceStatuses.isEmpty() ? null : invoiceStatuses.get(0);
+		String invoiceStatus = invoiceRepository.findByTableSessionId(tableSessionId)
+				.map(TableInvoiceEntity::getStatus).orElse(null);
 
-		return TableSessionResumeStateResolver.resolve(
-				cartItemCount == null ? 0 : cartItemCount, orderStatuses, invoiceStatus);
+		return TableSessionResumeStateResolver.resolve(cartItemCount, orderStatuses, invoiceStatus);
 	}
 }

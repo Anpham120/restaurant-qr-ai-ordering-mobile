@@ -1,9 +1,11 @@
 package com.cmc.restaurant.orders.application;
 
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemEntity;
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemRepository;
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.jdbc.core.JdbcTemplate;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,6 +22,10 @@ import org.springframework.stereotype.Service;
  *   <li>Adjusted for the kitchen's current queue depth, not just the item's own historical
  *       average — the range is shifted by {@code queueDepth * global median item time}.</li>
  * </ol>
+ *
+ * <p>Issue #78: ba câu SQL trước đây nằm thẳng ở đây đã chuyển vào {@link OrderItemRepository}.
+ * Hai câu vẫn là SQL thuần vì JPQL không lấy được số giây của một khoảng thời gian — lý do ghi tại
+ * chỗ định nghĩa. Cái khác là chúng nằm ở tầng persistence, không phải ở tầng use case này.
  */
 @Service
 public class OrderItemEstimationService {
@@ -28,20 +34,22 @@ public class OrderItemEstimationService {
 	private static final int MAX_ITEM_SAMPLES = 200;
 	private static final int MAX_GLOBAL_SAMPLES = 500;
 
-	private final JdbcTemplate jdbcTemplate;
+	/** Món đã nhận nhưng bếp chưa trả xong — chính là chiều dài hàng chờ. */
+	private static final Set<OrderItemStatus> IN_KITCHEN_QUEUE =
+			Set.of(OrderItemStatus.Pending, OrderItemStatus.Preparing);
 
-	public OrderItemEstimationService(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = jdbcTemplate;
+	private final OrderItemRepository orderItemRepository;
+
+	public OrderItemEstimationService(OrderItemRepository orderItemRepository) {
+		this.orderItemRepository = orderItemRepository;
 	}
 
 	public record Estimate(int lowMinutes, int highMinutes) {
 	}
 
 	public Optional<Estimate> estimate(String menuItemId) {
-		List<Double> itemSamples = jdbcTemplate.queryForList(
-				"select extract(epoch from (ready_at - created_at)) from order_items "
-						+ "where menu_item_id = ? and ready_at is not null order by ready_at desc limit ?",
-				Double.class, menuItemId, MAX_ITEM_SAMPLES);
+		List<Double> itemSamples =
+				orderItemRepository.findRecentPrepSeconds(menuItemId, MAX_ITEM_SAMPLES);
 
 		if (itemSamples.size() < MIN_SAMPLES) {
 			return Optional.empty();
@@ -51,15 +59,12 @@ public class OrderItemEstimationService {
 		double p25Seconds = percentile(sortedItemSamples, 0.25);
 		double p75Seconds = percentile(sortedItemSamples, 0.75);
 
-		long queueDepth = jdbcTemplate.queryForObject(
-				"select count(*) from order_items where status in ('Pending', 'Preparing')", Long.class);
+		long queueDepth = orderItemRepository.countByStatusIn(IN_KITCHEN_QUEUE);
 
 		// Guaranteed non-empty: itemSamples (>= MIN_SAMPLES rows with ready_at not null) is a subset
 		// of this query's result set.
-		List<Double> globalSamples = jdbcTemplate.queryForList(
-				"select extract(epoch from (ready_at - created_at)) from order_items "
-						+ "where ready_at is not null order by ready_at desc limit ?",
-				Double.class, MAX_GLOBAL_SAMPLES);
+		List<Double> globalSamples =
+				orderItemRepository.findRecentPrepSecondsAcrossMenu(MAX_GLOBAL_SAMPLES);
 		double medianSeconds = percentile(globalSamples.stream().sorted().toList(), 0.5);
 		double queueDelaySeconds = queueDepth * medianSeconds;
 

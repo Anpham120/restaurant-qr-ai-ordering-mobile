@@ -1,22 +1,27 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemRepository;
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.OrderStatus;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.tables.TableInvoiceDtos.InvoiceResponse;
 import com.cmc.restaurant.tables.TableInvoiceDtos.LineResponse;
 import com.cmc.restaurant.tables.TableInvoiceDtos.OrderRoundResponse;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
  * Mirrors {@code GetTableSessionInvoice} in {@code TableInvoiceEndpoints.cs} (.NET) — V14 (many
  * Order Rounds aggregate into one Table Invoice) and V19 (item sales aggregate all non-cancelled
- * Order Rounds). Reads Orders via JdbcTemplate, same reasoning as {@code ResumeStateQueryService}
- * (issue #5): Orders is a different module's table, avoid a duplicate/conflicting entity mapping.
+ * Order Rounds).
+ *
+ * <p>Issue #78: hai câu SQL thô đọc bảng của Orders đã thay bằng repository của chính module
+ * Orders, nên tên bảng và tên cột chỉ tồn tại ở một nơi. Việc module Tables còn gọi thẳng
+ * repository của Orders là phần còn lại — #80 sẽ bọc sau một cổng ở tầng application.
  */
 @Service
 public class TableInvoiceService {
@@ -26,18 +31,21 @@ public class TableInvoiceService {
 	private final TableInvoiceRepository invoiceRepository;
 	private final TableSessionCapability capability;
 	private final com.cmc.restaurant.auth.JwtProperties jwtProperties;
-	private final JdbcTemplate jdbcTemplate;
+	private final OrderRepository orderRepository;
+	private final OrderItemRepository orderItemRepository;
 
 	public TableInvoiceService(
 			TableSessionRepository sessionRepository, RestaurantTableRepository tableRepository,
 			TableInvoiceRepository invoiceRepository, TableSessionCapability capability,
-			com.cmc.restaurant.auth.JwtProperties jwtProperties, JdbcTemplate jdbcTemplate) {
+			com.cmc.restaurant.auth.JwtProperties jwtProperties, OrderRepository orderRepository,
+			OrderItemRepository orderItemRepository) {
 		this.sessionRepository = sessionRepository;
 		this.tableRepository = tableRepository;
 		this.invoiceRepository = invoiceRepository;
 		this.capability = capability;
 		this.jwtProperties = jwtProperties;
-		this.jdbcTemplate = jdbcTemplate;
+		this.orderRepository = orderRepository;
+		this.orderItemRepository = orderItemRepository;
 	}
 
 	public InvoiceResponse getInvoice(String sessionId, String suppliedToken) {
@@ -49,24 +57,21 @@ public class TableInvoiceService {
 					"TABLE_SESSION_TOKEN_INVALID", "A valid table session token is required.");
 		}
 
-		List<OrderRoundResponse> orderRounds = jdbcTemplate.query(
-				"select order_code, status, subtotal_amount, created_at from orders "
-						+ "where table_session_id = ? and status <> 'Cancelled' order by created_at",
-				(rs, rowNum) -> new OrderRoundResponse(
-						rs.getString("order_code"), rs.getString("status"), rs.getBigDecimal("subtotal_amount"),
-						rs.getObject("created_at", OffsetDateTime.class)),
-				sessionId);
+		List<OrderRoundResponse> orderRounds = orderRepository
+				.findByTableSessionIdAndStatusNotOrderByCreatedAtAsc(sessionId, OrderStatus.Cancelled)
+				.stream()
+				.map(o -> new OrderRoundResponse(
+						o.getOrderCode(), o.getStatus().name(), o.getSubtotalAmount(), o.getCreatedAt()))
+				.toList();
 
 		record ItemRow(String menuItemId, String name, BigDecimal unitPrice, int quantity) {
 		}
-		List<ItemRow> itemRows = jdbcTemplate.query(
-				"select oi.menu_item_id, oi.menu_item_name, oi.unit_price, oi.quantity "
-						+ "from order_items oi join orders o on o.id = oi.order_id "
-						+ "where o.table_session_id = ? and o.status <> 'Cancelled' and oi.status <> 'Cancelled'",
-				(rs, rowNum) -> new ItemRow(
-						rs.getString("menu_item_id"), rs.getString("menu_item_name"), rs.getBigDecimal("unit_price"),
-						rs.getInt("quantity")),
-				sessionId);
+		List<ItemRow> itemRows = orderItemRepository
+				.findBillableByTableSession(sessionId, OrderStatus.Cancelled, OrderItemStatus.Cancelled)
+				.stream()
+				.map(i -> new ItemRow(
+						i.getMenuItemId(), i.getMenuItemName(), i.getUnitPrice(), i.getQuantity()))
+				.toList();
 
 		Map<String, LineResponse> grouped = new LinkedHashMap<>();
 		for (ItemRow row : itemRows) {

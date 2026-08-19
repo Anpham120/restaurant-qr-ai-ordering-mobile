@@ -15,6 +15,9 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 
+	/** Đếm đơn tạo trong một khoảng nửa mở [from, to) — cho báo cáo doanh thu. */
+	long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(OffsetDateTime from, OffsetDateTime to);
+
 	List<OrderEntity> findByTableSessionIdAndStatusNotIn(String tableSessionId, List<OrderStatus> statuses);
 
 	// updatedSince uses coalesce instead of the ":param is null or ..." idiom used by the other two.
@@ -34,6 +37,25 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 			@Param("tableCode") String tableCode,
 			@Param("updatedSince") OffsetDateTime updatedSince,
 			Pageable pageable);
+
+	/** Chỉ lấy cột trạng thái — nơi gọi (`ResumeStateQueryService`) chỉ cần bấy nhiêu. */
+	@Query("select o.status from OrderEntity o where o.tableSessionId = :sessionId")
+	List<OrderStatus> findStatusesByTableSessionId(@Param("sessionId") String tableSessionId);
+
+	/** Các lượt gọi món của một phiên bàn, bỏ đơn đã huỷ (V14). */
+	List<OrderEntity> findByTableSessionIdAndStatusNotOrderByCreatedAtAsc(
+			String tableSessionId, OrderStatus status);
+
+	/**
+	 * Số thứ tự kế tiếp cho mã đơn.
+	 *
+	 * <p>SQL thuần vì JPQL không gọi được sequence của PostgreSQL. Không dùng @GeneratedValue được:
+	 * mã đơn là chuỗi "ORD-" ghép với số, không phải khoá chính. Điểm đáng nói là câu này giờ nằm
+	 * trong tầng persistence — trước đó nó nằm thẳng trong OrderService, tức tầng use case biết tên
+	 * một sequence trong CSDL.
+	 */
+	@Query(value = "select nextval('orders_order_code_seq')", nativeQuery = true)
+	long nextOrderCodeNumber();
 
 	default List<OrderEntity> findOtherActiveOrders(String tableSessionId, String excludeOrderId) {
 		return findByTableSessionIdAndStatusNotIn(
