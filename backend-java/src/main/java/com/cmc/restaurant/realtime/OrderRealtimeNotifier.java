@@ -38,6 +38,19 @@ public class OrderRealtimeNotifier {
 		fanOut(RealtimeDtos.EventNames.PAYMENT_REQUESTED, payload, payload.orderCode(), payload.tableCode());
 	}
 
+	/**
+	 * Bếp bật/tắt một món (#92).
+	 *
+	 * <p>Không dùng {@link #fanOut} được: sự kiện này không thuộc một đơn hay một bàn nào. Bản .NET
+	 * gửi tới nhóm operations rồi gửi tiếp {@code Clients.All}; tương đương ở đây là topic
+	 * operations cộng với {@link RealtimeDestinations#MENU} công khai.
+	 */
+	public void menuAvailabilityChanged(RealtimeDtos.MenuAvailabilityChangedEvent payload) {
+		Map<String, Object> headers = Map.of("event", RealtimeDtos.EventNames.MENU_AVAILABILITY_CHANGED);
+		send(RealtimeDestinations.OPERATIONS, payload, headers);
+		send(RealtimeDestinations.MENU, payload, headers);
+	}
+
 	/** Mirrors {@code SendToOrderAndOperationsAsync}. The event name travels in an {@code event}
 	 * header because STOMP has no equivalent of SignalR's named method invocation. */
 	private void fanOut(String eventName, Object payload, String orderCode, String tableCode) {
