@@ -1,7 +1,5 @@
 package com.cmc.restaurant.realtime;
 
-import com.cmc.restaurant.orders.domain.OrderItemStatus;
-import com.cmc.restaurant.orders.domain.OrderStatus;
 import java.util.Map;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;

@@ -1,6 +1,11 @@
-.gradle/
-build/
-out/
+# Build output. The leading slash matters: these anchor to backend-java/ only.
+# Without it, "out/" also matches src/main/java/.../orders/adapter/out/ — the hexagonal
+# outbound-adapter package from plan §5.3 — and git silently refuses to track anything
+# inside it. That is exactly what happened to OrderPersistenceAdapter.java: it was
+# created in #61, never committed, and ci-java failed to compile for 22 consecutive runs.
+/.gradle/
+/build/
+/out/
 !gradle/wrapper/gradle-wrapper.jar
 .idea/
 *.iml

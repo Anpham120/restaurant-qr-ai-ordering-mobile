@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'checkstyle'
 	id 'org.springframework.boot' version '3.3.4'
 	id 'io.spring.dependency-management' version '1.1.6'
 }
@@ -38,8 +39,35 @@ dependencies {
 	testImplementation 'org.testcontainers:junit-jupiter:1.20.2'
 	testImplementation 'org.testcontainers:postgresql:1.20.2'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	// Giữ ranh giới tầng của §5.3 bằng test, thay vì bằng quy ước.
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+	// Gradle 9 không còn tự thêm launcher vào test runtime classpath. Thiếu dòng này thì task
+	// `test` chết ngay lúc khởi động với "Failed to load JUnit Platform" — đã xảy ra thật khi
+	// runner GitHub nhảy từ Gradle 8 lên 9.7.0.
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// javac không cảnh báo import thừa, nên import chết tích tụ suốt hơn 20 PR mà không gì báo —
+// trong đó có hai import kéo cả JPA entity vào orders/domain/Order.java, đúng thứ mà javadoc
+// của chính lớp đó tuyên bố là không có. Checkstyle chạy trong `check`, tức `build` cũng chạy.
+checkstyle {
+	toolVersion = '10.18.2'
+	maxWarnings = 0
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// Phần cần Docker tách sang `integrationTest`. Đây là lý do CI có thể chặn merge dựa trên
+	// `test`: khi hai loại còn chung một task, cờ `continue-on-error` đặt cho bộ Testcontainers
+	// (chưa từng chạy được ở sandbox) vô hiệu hoá luôn 82 test domain vốn không cần Docker.
+	filter { excludeTestsMatching 'com.cmc.restaurant.RestaurantApplicationTests' }
+}
+
+tasks.register('integrationTest', Test) {
+	description = 'Test cần Docker thật (Testcontainers).'
+	group = 'verification'
+	useJUnitPlatform()
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	filter { includeTestsMatching 'com.cmc.restaurant.RestaurantApplicationTests' }
 }

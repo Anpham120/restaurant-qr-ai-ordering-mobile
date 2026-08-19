@@ -1,7 +1,5 @@
 package com.cmc.restaurant.orders.domain;
 
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
-import com.cmc.restaurant.orders.application.OrderService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;

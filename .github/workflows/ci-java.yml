@@ -10,16 +10,33 @@ on:
     paths:
       - 'backend-java/**'
       - '.github/workflows/ci-java.yml'
+  # KHÔNG lọc `paths` ở đây, dù PR sửa tài liệu cũng chạy. Lý do không phải là thừa:
+  # `backend-java-build` được đặt làm required status check cho `develop`. Check bắt buộc
+  # mà không chạy thì GitHub coi là PENDING mãi mãi, chứ không coi là bỏ qua — nên một PR
+  # chỉ sửa tài liệu (như #84) sẽ không bao giờ merge được. Đổi ~2 phút runner lấy việc
+  # cổng chặn hoạt động đúng là đáng.
   pull_request:
-    paths:
-      - 'backend-java/**'
-      - '.github/workflows/ci-java.yml'
 
 jobs:
   backend-java-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # `backend-java/.gitignore` từng có dòng `out/` không neo, nên nó khớp luôn
+      # `src/main/java/.../orders/adapter/out/` — thư mục outbound adapter của §5.3. Hệ quả:
+      # OrderPersistenceAdapter.java tạo ở #61 không bao giờ vào được repo, `git status` vẫn sạch,
+      # và ci-java hỏng biên dịch suốt 22 lần chạy liên tiếp. Bước này làm lỗi đó lộ ra ngay tên
+      # file, thay vì lộ ra dưới dạng "cannot find symbol" ở tít cuối log Gradle.
+      - name: Không file nguồn nào được phép bị .gitignore loại bỏ
+        run: |
+          ignored=$(git ls-files --others --ignored --exclude-standard | grep '/src/' || true)
+          if [ -n "$ignored" ]; then
+            echo "::error::Các file nguồn sau nằm trên đĩa nhưng bị .gitignore loại khỏi repo:"
+            echo "$ignored"
+            exit 1
+          fi
+          echo "OK — không có file nguồn nào bị loại."
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -28,21 +45,29 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Build
+      # Chạy tách khỏi test để log phân biệt được "biên dịch hỏng" với "test đỏ".
+      # `build` kéo theo `check`, nên Checkstyle (import thừa) chạy ở đây.
+      - name: Build + Checkstyle
         working-directory: backend-java
-        run: gradle --no-daemon build -x test
+        run: ./gradlew --no-daemon build -x test
 
-      # Chạy tách khỏi `build` để log phân biệt được "biên dịch hỏng" với "test đỏ".
-      #
-      # Testcontainers KHÔNG chạy được trong sandbox phát triển của dự án này (docker-java xung đột
-      # với Docker Engine API 1.55 ở máy đó), nên toàn bộ kiểm chứng từ issue #2 tới #14 làm bằng
-      # cách chạy JAR thật trên Postgres thật qua Docker. Ở runner của GitHub thì Docker chuẩn, nên
-      # đây là nơi ĐẦU TIÊN bộ test Testcontainers thực sự chạy được — giữ `continue-on-error` cho
-      # lần đầu để một hạ tầng test chưa từng chạy không chặn merge, và sẽ bỏ cờ này khi đã thấy nó
-      # xanh ổn định.
-      - name: Test
+      # CHẶN merge. Gồm 82 test domain và test kiến trúc — không cái nào cần Docker.
+      - name: Test domain + kiến trúc
         working-directory: backend-java
-        run: gradle --no-daemon test
+        run: ./gradlew --no-daemon test
+
+      # KHÔNG chặn merge, và đây là lần đầu bộ này thực sự chạy được.
+      #
+      # Testcontainers KHÔNG chạy được trong sandbox phát triển của dự án (docker-java xung đột với
+      # Docker Engine API 1.55 ở máy đó), nên kiểm chứng từ #2 tới #14 làm bằng cách chạy JAR thật
+      # trên Postgres thật qua Docker. Runner GitHub có Docker chuẩn nên ở đây nó chạy được — giữ
+      # `continue-on-error` cho tới khi thấy nó xanh ổn định, rồi bỏ cờ.
+      #
+      # Trước đây cờ này đặt trên `test`, tức nó vô hiệu hoá luôn 82 test domain ở trên. Tách task
+      # trong build.gradle chính là để cờ chỉ còn phủ đúng phần cần Docker.
+      - name: Integration test (Testcontainers)
+        working-directory: backend-java
+        run: ./gradlew --no-daemon integrationTest
         continue-on-error: true
 
       - name: Upload test report
@@ -50,5 +75,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: java-test-report
-          path: backend-java/build/reports/tests/test
+          path: backend-java/build/reports/tests
           if-no-files-found: ignore

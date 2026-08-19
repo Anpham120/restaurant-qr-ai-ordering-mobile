@@ -1,6 +1,5 @@
 package com.cmc.restaurant.cart;
 
-import com.cmc.restaurant.orders.application.OrderService;
 import com.cmc.restaurant.auth.JwtProperties;
 import com.cmc.restaurant.cart.domain.Cart;
 import com.cmc.restaurant.cart.domain.CartLine;
