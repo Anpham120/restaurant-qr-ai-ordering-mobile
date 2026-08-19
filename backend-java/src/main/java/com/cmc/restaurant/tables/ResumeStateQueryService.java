@@ -1,8 +1,7 @@
 package com.cmc.restaurant.tables;
 
 import com.cmc.restaurant.cart.CartItemRepository;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
-import com.cmc.restaurant.orders.domain.OrderStatus;
+import com.cmc.restaurant.orders.application.OrderLookup;
 import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -24,14 +23,14 @@ import org.springframework.stereotype.Service;
 public class ResumeStateQueryService {
 
 	private final CartItemRepository cartItemRepository;
-	private final OrderRepository orderRepository;
+	private final OrderLookup orderLookup;
 	private final TableInvoiceRepository invoiceRepository;
 
 	public ResumeStateQueryService(
-			CartItemRepository cartItemRepository, OrderRepository orderRepository,
+			CartItemRepository cartItemRepository, OrderLookup orderLookup,
 			TableInvoiceRepository invoiceRepository) {
 		this.cartItemRepository = cartItemRepository;
-		this.orderRepository = orderRepository;
+		this.orderLookup = orderLookup;
 		this.invoiceRepository = invoiceRepository;
 	}
 
@@ -39,8 +38,7 @@ public class ResumeStateQueryService {
 		long cartItemCount =
 				cartItemRepository.countByTableSessionIdAndQuantityGreaterThan(tableSessionId, 0);
 
-		List<String> orderStatuses = orderRepository.findStatusesByTableSessionId(tableSessionId)
-				.stream().map(OrderStatus::name).toList();
+		List<String> orderStatuses = orderLookup.findStatusesForTableSession(tableSessionId);
 
 		String invoiceStatus = invoiceRepository.findByTableSessionId(tableSessionId)
 				.map(TableInvoiceEntity::getStatus).orElse(null);

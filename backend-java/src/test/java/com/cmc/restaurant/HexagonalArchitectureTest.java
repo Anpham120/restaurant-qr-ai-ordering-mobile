@@ -43,4 +43,20 @@ class HexagonalArchitectureTest {
 							"org.springframework..", "jakarta..", "javax..", "org.hibernate..")
 					.because("toàn bộ máy trạng thái phải test được bằng `new Order(...)` mà không cần "
 							+ "Spring context lẫn PostgreSQL — đúng điều javadoc của Order tự tuyên bố");
+
+	/**
+	 * DoD của #80. Trước đó Payments, Realtime, Tables và Reports import thẳng
+	 * {@code orders.adapter.out.persistence.OrderEntity} / {@code OrderRepository} — tức biết Orders
+	 * lưu trữ bằng gì. Giờ chúng chỉ biết {@code orders.application.OrderLookup}.
+	 *
+	 * <p>Luật này đọc bytecode nên không thể lách bằng cách bỏ dòng {@code import} rồi viết tên đầy
+	 * đủ; phụ thuộc thật vẫn bị bắt.
+	 */
+	@ArchTest
+	static final ArchRule module_khac_khong_duoc_doc_adapter_cua_orders =
+			noClasses()
+					.that().resideOutsideOfPackage("com.cmc.restaurant.orders..")
+					.should().dependOnClassesThat().resideInAPackage("com.cmc.restaurant.orders.adapter..")
+					.because("module khác chỉ được biết Orders TRẢ LỜI ĐƯỢC CÂU HỎI GÌ (cổng ở tầng "
+							+ "application), không được biết Orders LƯU TRỮ RA SAO");
 }

@@ -2,8 +2,7 @@ package com.cmc.restaurant.payments;
 
 import com.cmc.restaurant.shared.ActorContext;
 import com.cmc.restaurant.shared.RequestIdempotency;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.application.OrderLookup;
 import com.cmc.restaurant.orders.application.OrderService;
 import com.cmc.restaurant.payments.domain.Payment;
 import com.cmc.restaurant.payments.domain.PaymentMethod;
@@ -11,7 +10,6 @@ import com.cmc.restaurant.payments.domain.PaymentStatus;
 import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
 import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ApiException;
-import com.cmc.restaurant.shared.CustomerTokenGuard;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +31,7 @@ public class PaymentService {
 	private static final int MAX_NOTE_LENGTH = 500;
 	private final PaymentRepository paymentRepository;
 	private final PaymentTransactionRepository transactionRepository;
-	private final OrderRepository orderRepository;
+	private final OrderLookup orderLookup;
 	private final OrderService orderService;
 	private final VietQrProvider vietQrProvider;
 	private final OrderRealtimeNotifier realtimeNotifier;
@@ -41,39 +39,37 @@ public class PaymentService {
 
 	public PaymentService(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
-			OrderRepository orderRepository, OrderService orderService, VietQrProvider vietQrProvider,
+			OrderLookup orderLookup, OrderService orderService, VietQrProvider vietQrProvider,
 			OrderRealtimeNotifier realtimeNotifier,
 			com.cmc.restaurant.loyalty.LoyaltyService loyaltyService) {
 		this.loyaltyService = loyaltyService;
 		this.paymentRepository = paymentRepository;
 		this.transactionRepository = transactionRepository;
-		this.orderRepository = orderRepository;
+		this.orderLookup = orderLookup;
 		this.orderService = orderService;
 		this.vietQrProvider = vietQrProvider;
 		this.realtimeNotifier = realtimeNotifier;
 	}
 
 	public PaymentDtos.PaymentResponse getPayment(String orderCode, String suppliedAccessToken, boolean isOperator) {
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim()).orElse(null);
-		if (order == null || (!isOperator && !CustomerTokenGuard.hasCustomerToken(
-				order.getCustomerAccessToken(), suppliedAccessToken))) {
+		OrderLookup.OrderSummary order = orderLookup.findByOrderCode(orderCode).orElse(null);
+		if (order == null || (!isOperator && !orderLookup.matchesCustomerToken(orderCode, suppliedAccessToken))) {
 			throw ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found.");
 		}
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId())
+		PaymentEntity payment = paymentRepository.findByOrderId(order.id())
 				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-		return toResponse(payment, order.getOrderCode());
+		return toResponse(payment, order.orderCode());
 	}
 
 	@Transactional
 	public PaymentDtos.PaymentRequestResponse requestPayment(
 			String orderCode, PaymentDtos.PaymentRequestRequest request, String idempotencyKey,
 			String suppliedAccessToken) {
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim()).orElse(null);
-		if (order == null
-				|| !CustomerTokenGuard.hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
+		OrderLookup.OrderSummary order = orderLookup.findByOrderCode(orderCode).orElse(null);
+		if (order == null || !orderLookup.matchesCustomerToken(orderCode, suppliedAccessToken)) {
 			throw ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found.");
 		}
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId())
+		PaymentEntity payment = paymentRepository.findByOrderId(order.id())
 				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
 
 		if (request == null) {
@@ -96,7 +92,7 @@ public class PaymentService {
 		VietQrProvider.VietQrPayload payload = null;
 		if ("VietQR".equals(method)) {
 			try {
-				payload = vietQrProvider.createPayload(order.getOrderCode(), payment.getAmount());
+				payload = vietQrProvider.createPayload(order.orderCode(), payment.getAmount());
 			} catch (IllegalStateException e) {
 				throw ApiException.badRequest("VIETQR_CONFIG_MISSING", "VietQR bank configuration is missing.");
 			}
@@ -128,12 +124,12 @@ public class PaymentService {
 
 		// Tells the counter a table is waiting to pay without them refreshing the list.
 		realtimeNotifier.paymentRequested(new RealtimeDtos.PaymentRequestedEvent(
-				order.getId(), order.getOrderCode(), payment.getMethod().name(), payment.getStatus().name(),
-				payment.getAmount(), payment.getUpdatedAt(), order.getTableCode()));
+				order.id(), order.orderCode(), payment.getMethod().name(), payment.getStatus().name(),
+				payment.getAmount(), payment.getUpdatedAt(), order.tableCode()));
 
 		return new PaymentDtos.PaymentRequestResponse(
-				toResponse(payment, order.getOrderCode()),
-				toVietQrResponse(payload, order.getOrderCode(), "Pending"));
+				toResponse(payment, order.orderCode()),
+				toVietQrResponse(payload, order.orderCode(), "Pending"));
 	}
 
 	private static PaymentDtos.VietQrResponse toVietQrResponse(
@@ -148,14 +144,14 @@ public class PaymentService {
 	}
 
 	private PaymentDtos.PaymentRequestResponse replayOrConflict(
-			PaymentTransactionEntity existingRequest, PaymentEntity payment, OrderEntity order,
+			PaymentTransactionEntity existingRequest, PaymentEntity payment, OrderLookup.OrderSummary order,
 			String requestFingerprint) {
 		if (!existingRequest.getPaymentId().equals(payment.getId())
 				|| !requestFingerprint.equals(existingRequest.getRequestFingerprint())) {
 			throw ApiException.conflict(
 					"IDEMPOTENCY_KEY_REUSED", "Idempotency key was already used with a different request.");
 		}
-		return toReplayResponse(payment, existingRequest, order.getOrderCode());
+		return toReplayResponse(payment, existingRequest, order.orderCode());
 	}
 
 	/** The three manual counter actions share one shape: load, let the aggregate decide, record the
@@ -164,9 +160,9 @@ public class PaymentService {
 			String orderCode, String requestedNote, String defaultNote, ActorContext actor,
 			java.util.function.BiConsumer<Payment, OffsetDateTime> action) {
 		Payment.validateNote(requestedNote);
-		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
+		OrderLookup.OrderSummary order = orderLookup.findByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
-		PaymentEntity entity = paymentRepository.findByOrderId(order.getId())
+		PaymentEntity entity = paymentRepository.findByOrderId(order.id())
 				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
 
 		OffsetDateTime now = OffsetDateTime.now();
@@ -179,7 +175,7 @@ public class PaymentService {
 		orderService.recordPaymentStatusEvent(orderCode, actor, note);
 
 		savePaymentOrConflict(entity);
-		return toResponse(entity, order.getOrderCode());
+		return toResponse(entity, order.orderCode());
 	}
 
 	@Transactional
@@ -216,8 +212,8 @@ public class PaymentService {
 	 */
 	private void accrueLoyalty(String orderCode, java.math.BigDecimal amount) {
 		try {
-			orderRepository.findByOrderCode(orderCode.trim())
-					.map(OrderEntity::getCustomerPhoneNumber)
+			orderLookup.findByOrderCode(orderCode)
+					.map(OrderLookup.OrderSummary::customerPhoneNumber)
 					.ifPresent(phone -> loyaltyService.accrue(phone, amount, OffsetDateTime.now()));
 		} catch (RuntimeException e) {
 			org.slf4j.LoggerFactory.getLogger(PaymentService.class)

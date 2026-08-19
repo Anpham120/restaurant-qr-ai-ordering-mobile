@@ -1,6 +1,6 @@
 package com.cmc.restaurant.reports;
 
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
+import com.cmc.restaurant.orders.application.OrderLookup;
 import com.cmc.restaurant.reports.domain.ReportRange;
 import com.cmc.restaurant.reports.domain.RevenueLedger;
 import java.time.OffsetDateTime;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
  * cột mà báo cáo cộng.
  *
  * <p>Issue #78: câu thứ năm — đếm số đơn trong khoảng — KHÔNG thuộc diện đó. Nó không join, không
- * tổng hợp, nên lý do trên không áp dụng, và nó đã chuyển sang {@code OrderRepository}. Giữ lại sẽ
+ * tổng hợp, nên lý do trên không áp dụng, và nó đã chuyển sang cổng {@code OrderLookup}. Giữ lại sẽ
  * là áp tiêu chuẩn không đều: đòi mọi nơi khác bỏ SQL thô rồi tự miễn cho chính mình.
  *
  * <p>Which rows count at all is decided by {@link RevenueLedger}, not here.
@@ -32,11 +32,11 @@ public class ReportService {
 	private static final int TOP_ITEM_LIMIT = 10;
 
 	private final JdbcTemplate jdbcTemplate;
-	private final OrderRepository orderRepository;
+	private final OrderLookup orderLookup;
 
-	public ReportService(JdbcTemplate jdbcTemplate, OrderRepository orderRepository) {
+	public ReportService(JdbcTemplate jdbcTemplate, OrderLookup orderLookup) {
 		this.jdbcTemplate = jdbcTemplate;
-		this.orderRepository = orderRepository;
+		this.orderLookup = orderLookup;
 	}
 
 	public ReportDtos.SummaryResponse summary(OffsetDateTime from, OffsetDateTime to) {
@@ -100,7 +100,7 @@ public class ReportService {
 				range.from(), range.to(), range.from(), range.to());
 
 		// Không phải truy vấn tổng hợp như bốn câu trên, nên không có lý do nào để nó là SQL thô.
-		long totalOrders = orderRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+		long totalOrders = orderLookup.countCreatedBetween(
 				range.from(), range.to());
 
 		List<ReportDtos.TopItemResponse> topItems = RevenueLedger.topItems(soldItems, TOP_ITEM_LIMIT).stream()

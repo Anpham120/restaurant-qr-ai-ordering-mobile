@@ -3,9 +3,7 @@ package com.cmc.restaurant.realtime;
 import com.cmc.restaurant.auth.JwtProperties;
 import com.cmc.restaurant.auth.JwtService;
 import com.cmc.restaurant.auth.UserRole;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
-import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
-import com.cmc.restaurant.shared.CustomerTokenGuard;
+import com.cmc.restaurant.orders.application.OrderLookup;
 import com.cmc.restaurant.tables.TableSessionCapability;
 import com.cmc.restaurant.tables.TableSessionEntity;
 import com.cmc.restaurant.tables.TableSessionRepository;
@@ -45,16 +43,16 @@ public class StompSubscriptionGuard implements ChannelInterceptor {
 
 	private final JwtService jwtService;
 	private final JwtProperties jwtProperties;
-	private final OrderRepository orderRepository;
+	private final OrderLookup orderLookup;
 	private final TableSessionRepository tableSessionRepository;
 	private final TableSessionCapability capability;
 
 	public StompSubscriptionGuard(
-			JwtService jwtService, JwtProperties jwtProperties, OrderRepository orderRepository,
+			JwtService jwtService, JwtProperties jwtProperties, OrderLookup orderLookup,
 			TableSessionRepository tableSessionRepository, TableSessionCapability capability) {
 		this.jwtService = jwtService;
 		this.jwtProperties = jwtProperties;
-		this.orderRepository = orderRepository;
+		this.orderLookup = orderLookup;
 		this.tableSessionRepository = tableSessionRepository;
 		this.capability = capability;
 	}
@@ -104,12 +102,11 @@ public class StompSubscriptionGuard implements ChannelInterceptor {
 	 * per-order token issued at creation. */
 	private boolean canWatchOrder(String orderCode, String orderToken, boolean isOperator) {
 		if (isOperator) {
-			return orderRepository.findByOrderCode(orderCode.trim()).isPresent();
+			return orderLookup.findByOrderCode(orderCode).isPresent();
 		}
-		return orderRepository.findByOrderCode(orderCode.trim())
-				.map(OrderEntity::getCustomerAccessToken)
-				.map(stored -> CustomerTokenGuard.hasCustomerToken(stored, orderToken))
-				.orElse(false);
+		// Token không rời khỏi module Orders: cổng tự so sánh (thời gian hằng) và chỉ trả về
+		// đúng/sai. Trước #80 chỗ này đọc thẳng customerAccessToken ra rồi tự so.
+		return orderLookup.matchesCustomerToken(orderCode, orderToken);
 	}
 
 	/**
