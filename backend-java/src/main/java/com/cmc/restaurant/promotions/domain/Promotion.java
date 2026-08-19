@@ -43,7 +43,7 @@ public class Promotion {
 	}
 
 	/** Result of applying a code: what comes off, and what is left to pay. */
-	public record Discount(BigDecimal discountAmount, BigDecimal totalAmount) {
+	public record Discount(String promotionId, BigDecimal discountAmount, BigDecimal totalAmount) {
 	}
 
 	/**
@@ -82,7 +82,7 @@ public class Promotion {
 		// Final cap: a discount can never exceed the bill.
 		discount = discount.min(subtotal);
 
-		return new Discount(discount, subtotal.subtract(discount).max(BigDecimal.ZERO));
+		return new Discount(id, discount, subtotal.subtract(discount).max(BigDecimal.ZERO));
 	}
 
 	/** Codes are matched case-insensitively; stored and compared upper-case. */

@@ -36,9 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Mirrors {@code OrderStore}/{@code OrderEndpoints.CreateOrder} (.NET) — dine-in order creation
- * and the Order/OrderItem state machine. Promotion/discount application, Table Invoice payment-
- * pending guards, and realtime notification are out of scope here (Promotions stays on .NET;
- * Table Invoice is issue #7; Realtime is issue #13) — see PR description.
+ * and the Order/OrderItem state machine. Promotion application was wired in at issue #70;
+ * realtime notification at issue #13. Table Invoice payment-pending guards remain out of scope.
  */
 @Service
 public class OrderService {
@@ -58,6 +57,7 @@ public class OrderService {
 	private final OrderRealtimeNotifier realtimeNotifier;
 	private final OrderPersistenceAdapter persistence;
 	private final com.cmc.restaurant.cart.CartService cartService;
+	private final com.cmc.restaurant.promotions.PromotionService promotionService;
 
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
@@ -65,8 +65,10 @@ public class OrderService {
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
 			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
-			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService) {
+			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService,
+			com.cmc.restaurant.promotions.PromotionService promotionService) {
 		this.cartService = cartService;
+		this.promotionService = promotionService;
 		this.realtimeNotifier = realtimeNotifier;
 		this.persistence = persistence;
 		this.orderRepository = orderRepository;
@@ -139,8 +141,23 @@ public class OrderService {
 			order.getItems().add(item);
 			subtotal = subtotal.add(item.lineTotal());
 		}
-		order.setSubtotalAmount(subtotal);
-		order.setTotalAmount(subtotal);
+		final BigDecimal orderSubtotal = subtotal;
+		order.setSubtotalAmount(orderSubtotal);
+
+		// Applied at order time, not at preview time. Until issue #70 the customer could validate a
+		// code, be shown a discount, and then be charged the full price — the order simply never
+		// looked at promotionCode. A code that is present but unusable fails the whole order rather
+		// than being dropped silently: quietly charging more than the customer just agreed to is
+		// worse than making them fix the code.
+		promotionService.tryApply(request.promotionCode(), orderSubtotal, now).ifPresentOrElse(
+				discount -> {
+					order.setDiscountAmount(discount.discountAmount());
+					order.setTotalAmount(discount.totalAmount());
+					order.applyPromotion(
+							com.cmc.restaurant.promotions.domain.Promotion.normalizeCode(request.promotionCode()),
+							discount.promotionId());
+				},
+				() -> order.setTotalAmount(orderSubtotal));
 
 		OrderStatusHistoryEntity initialEvent = new OrderStatusHistoryEntity(
 				"osh_" + UUID.randomUUID().toString().replace("-", ""), null, OrderStatus.Placed.name(), "Status",

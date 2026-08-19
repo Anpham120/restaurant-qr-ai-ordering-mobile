@@ -18,7 +18,7 @@ public final class OrderDtos {
 
 	public record CreateOrderRequest(
 			String orderType, String tableCode, String qrToken, String tableSessionId,
-			List<CreateOrderItemRequest> items, String customerPhoneNumber) {
+			List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode) {
 	}
 
 	public record UpdateOrderStatusRequest(String status) {
