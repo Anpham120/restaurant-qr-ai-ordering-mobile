@@ -1,6 +1,7 @@
 package com.cmc.restaurant.tables;
 
 import com.cmc.restaurant.orders.application.OrderLookup;
+import com.cmc.restaurant.payments.VietQrProvider;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.tables.TableInvoiceDtos.InvoiceResponse;
 import com.cmc.restaurant.tables.TableInvoiceDtos.LineResponse;
@@ -29,17 +30,20 @@ public class TableInvoiceService {
 	private final TableSessionCapability capability;
 	private final com.cmc.restaurant.auth.JwtProperties jwtProperties;
 	private final OrderLookup orderLookup;
+	private final VietQrProvider vietQrProvider;
 
 	public TableInvoiceService(
 			TableSessionRepository sessionRepository, RestaurantTableRepository tableRepository,
 			TableInvoiceRepository invoiceRepository, TableSessionCapability capability,
-			com.cmc.restaurant.auth.JwtProperties jwtProperties, OrderLookup orderLookup) {
+			com.cmc.restaurant.auth.JwtProperties jwtProperties, OrderLookup orderLookup,
+			VietQrProvider vietQrProvider) {
 		this.sessionRepository = sessionRepository;
 		this.tableRepository = tableRepository;
 		this.invoiceRepository = invoiceRepository;
 		this.capability = capability;
 		this.jwtProperties = jwtProperties;
 		this.orderLookup = orderLookup;
+		this.vietQrProvider = vietQrProvider;
 	}
 
 	public InvoiceResponse getInvoice(String sessionId, String suppliedToken) {
@@ -50,6 +54,17 @@ public class TableInvoiceService {
 			throw new ApiException(org.springframework.http.HttpStatus.UNAUTHORIZED,
 					"TABLE_SESSION_TOKEN_INVALID", "A valid table session token is required.");
 		}
+		return buildInvoice(sessionId, session);
+	}
+
+	/**
+	 * Dựng bản hoá đơn, KHÔNG kiểm quyền (#96).
+	 *
+	 * <p>Tách khỏi {@link #getInvoice} vì luồng thanh toán và màn quầy đã xác thực theo cách khác
+	 * (khoá idempotency, JWT nhân viên) và cần đúng bản dựng này. Dùng chung một hàm dựng thay vì
+	 * chép lại phép gộp món và cộng tiền là điều kiện để khách và quầy luôn nhìn thấy CÙNG con số.
+	 */
+	public InvoiceResponse buildInvoice(String sessionId, TableSessionEntity session) {
 
 		List<OrderRoundResponse> orderRounds = orderLookup.findRoundsForTableSession(sessionId).stream()
 				.map(r -> new OrderRoundResponse(
@@ -72,15 +87,28 @@ public class TableInvoiceService {
 
 		TableInvoiceEntity invoice = invoiceRepository.findByTableSessionId(sessionId).orElse(null);
 		BigDecimal discount = invoice == null ? BigDecimal.ZERO : invoice.getDiscountAmount();
-		String tableCode = tableRepository.findById(session.getRestaurantTableId())
-				.map(RestaurantTableEntity::getTableCode).orElse(session.getTableCode());
+		String tableCode = session == null ? null
+				: tableRepository.findById(session.getRestaurantTableId())
+						.map(RestaurantTableEntity::getTableCode).orElse(session.getTableCode());
+
+		BigDecimal total = subtotal.subtract(discount).max(BigDecimal.ZERO);
+
+		// VietQR chỉ dựng khi hoá đơn thật sự chọn phương thức đó. Dựng vô điều kiện sẽ trả về mã
+		// quét được cho một hoá đơn đang trả tiền mặt — khách quét rồi chuyển khoản thành hai lần thu.
+		TableInvoiceDtos.VietQrResponse vietQr = null;
+		if (invoice != null && "VietQR".equals(invoice.getMethod())) {
+			VietQrProvider.VietQrPayload payload =
+					vietQrProvider.createPayload(invoice.getInvoiceCode(), invoice.getTotalAmount());
+			vietQr = new TableInvoiceDtos.VietQrResponse(
+					invoice.getInvoiceCode(), invoice.getTotalAmount(), payload.transferContent(),
+					payload.quickLink(), payload.qrImageDataUri());
+		}
 
 		return new InvoiceResponse(
 				sessionId, invoice == null ? null : invoice.getInvoiceCode(), tableCode,
-				invoice == null ? "NotRequested" : invoice.getStatus(), subtotal, discount,
-				subtotal.subtract(discount).max(BigDecimal.ZERO),
+				invoice == null ? "NotRequested" : invoice.getStatus(), subtotal, discount, total,
 				invoice == null ? null : invoice.getPromotionCode(),
 				invoice == null ? null : invoice.getCustomerPhoneNumber(),
-				invoice == null ? "Unselected" : invoice.getMethod(), orderRounds, items);
+				invoice == null ? "Unselected" : invoice.getMethod(), orderRounds, items, vietQr);
 	}
 }

@@ -66,6 +66,17 @@ public class OrderRealtimeNotifier {
 		}
 	}
 
+	/** Hoá đơn bàn đã tất toán (#96) — quầy và bàn đó cùng cần biết. */
+	public void tableInvoicePaymentConfirmed(
+			RealtimeDtos.TableInvoicePaymentConfirmedEvent payload, String tableCode) {
+		Map<String, Object> headers =
+				Map.of("event", RealtimeDtos.EventNames.TABLE_INVOICE_PAYMENT_CONFIRMED);
+		send(RealtimeDestinations.OPERATIONS, payload, headers);
+		if (tableCode != null && !tableCode.isBlank()) {
+			send(RealtimeDestinations.table(tableCode), payload, headers);
+		}
+	}
+
 	/** Mirrors {@code SendToOrderAndOperationsAsync}. The event name travels in an {@code event}
 	 * header because STOMP has no equivalent of SignalR's named method invocation. */
 	private void fanOut(String eventName, Object payload, String orderCode, String tableCode) {

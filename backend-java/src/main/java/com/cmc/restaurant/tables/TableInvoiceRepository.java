@@ -1,5 +1,6 @@
 package com.cmc.restaurant.tables;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,4 +19,9 @@ public interface TableInvoiceRepository extends JpaRepository<TableInvoiceEntity
 	@Query("select count(i) > 0 from TableInvoiceEntity i, TableSessionEntity s "
 			+ "where i.tableSessionId = s.id and s.restaurantTableId = :tableId and i.status = 'Pending'")
 	boolean existsPendingForTable(@Param("tableId") String tableId);
+
+	/** Danh sách cho quầy, mới cập nhật trước (#96). */
+	List<TableInvoiceEntity> findAllByOrderByUpdatedAtDesc();
+
+	List<TableInvoiceEntity> findByStatusOrderByUpdatedAtDesc(String status);
 }

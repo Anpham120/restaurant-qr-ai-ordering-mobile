@@ -57,6 +57,27 @@ public class CounterShiftTransactionEntity {
 		this.createdAt = createdAt;
 	}
 
+	/**
+	 * Giao dịch tiền mặt phát sinh từ một hoá đơn bàn (#96).
+	 *
+	 * <p>Hàm dựng riêng vì nó mang thêm {@code tableSessionId} và {@code invoiceCode} — hai cột
+	 * dùng để đối soát ngược từ sổ quỹ về đúng bàn nào, hoá đơn nào. Điều chỉnh thủ công thì không
+	 * có hai thứ đó, nên nhập chung một hàm dựng sẽ buộc mọi lời gọi truyền hai {@code null}.
+	 */
+	public CounterShiftTransactionEntity(
+			String id, String counterShiftId, BigDecimal amount, String note, String createdByUserId,
+			OffsetDateTime createdAt, String tableSessionId, String invoiceCode) {
+		this.id = id;
+		this.counterShiftId = counterShiftId;
+		this.type = "CashPayment";
+		this.amount = amount;
+		this.note = note;
+		this.createdByUserId = createdByUserId;
+		this.createdAt = createdAt;
+		this.tableSessionId = tableSessionId;
+		this.invoiceCode = invoiceCode;
+	}
+
 	/** Gán lại người tạo giao dịch khi tài khoản đó bị xoá — xem {@link CounterUserReferences}. */
 	void reassignCreatedBy(String userId) {
 		this.createdByUserId = userId;

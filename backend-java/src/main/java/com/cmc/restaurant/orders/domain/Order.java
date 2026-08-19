@@ -247,6 +247,35 @@ public class Order {
 				.map(OrderItem::lineTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
+	/**
+	 * Tất toán hoá đơn bàn hoàn tất đơn này, BỎ QUA máy trạng thái thông thường (#96).
+	 *
+	 * <p>Đây là ngoại lệ duy nhất của {@link #transitionTo}, và nó có thật trong bản .NET
+	 * ({@code OrderStore.StageTableSessionCompletion}): khi khách trả tiền, mọi đơn chưa xong của
+	 * phiên đều thành {@code Completed} bất kể đang ở đâu — kể cả {@code Placed} thẳng lên
+	 * {@code Completed}, thứ mà {@link #canTransitionTo} từ chối.
+	 *
+	 * <p>Lý do đó là đúng chứ không phải lỗi: tiền đã thu, bàn đã dọn, khách đã đi. Giữ một đơn ở
+	 * {@code Preparing} sau khi đã tất toán nghĩa là bảng bếp mãi mãi có một dòng không ai xử lý.
+	 *
+	 * <p>Đặt thành một phương thức CÓ TÊN trên aggregate thay vì cho nơi gọi tự set trạng thái: như
+	 * vậy ngoại lệ nằm ngay cạnh luật nó phá, và ai đọc {@code transitionTo} sẽ thấy nó ở đây.
+	 *
+	 * @return true nếu đơn thật sự đổi trạng thái (đơn đã Completed/Cancelled thì không)
+	 */
+	public boolean completeOnSettlement(Actor actor, OffsetDateTime now) {
+		if (status == OrderStatus.Completed || status == OrderStatus.Cancelled) {
+			return false;
+		}
+		OrderStatus from = status;
+		status = OrderStatus.Completed;
+		updatedAt = now;
+		newChanges.add(new StatusChange(
+				from, OrderStatus.Completed, StatusChange.SOURCE_STATUS, actor,
+				"Table invoice settled.", now));
+		return true;
+	}
+
 	/** Changes made since this aggregate was loaded, for the persistence adapter to append. Cleared
 	 * once taken so a second save cannot duplicate the audit trail. */
 	public List<StatusChange> takeNewChanges() {

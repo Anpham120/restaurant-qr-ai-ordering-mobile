@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**74 endpoint** trong **12 module**, đọc trực tiếp từ
+**78 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -137,7 +137,7 @@
 |---|---|---|
 | `GET` | `/api/health` | `shared/HealthController.java` |
 
-### tables (12)
+### tables (16)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -146,11 +146,15 @@
 | `POST` | `/api/admin/tables` | `tables/AdminTableController.java` |
 | `PATCH` | `/api/admin/tables/{tableCode}` | `tables/AdminTableController.java` |
 | `POST` | `/api/admin/tables/{tableCode}/qr/rotate` | `tables/AdminTableController.java` |
+| `GET` | `/api/table-invoices` | `tables/TableInvoicePaymentController.java` |
 | `POST` | `/api/table-sessions` | `tables/TableController.java` |
 | `GET` | `/api/table-sessions/{sessionId}` | `tables/TableController.java` |
 | `POST` | `/api/table-sessions/{sessionId}/assistance` | `tables/TableController.java` |
 | `POST` | `/api/table-sessions/{sessionId}/close` | `tables/TableController.java` |
 | `GET` | `/api/table-sessions/{sessionId}/invoice` | `tables/TableController.java` |
+| `POST` | `/api/table-sessions/{sessionId}/invoice/payment-request` | `tables/TableInvoicePaymentController.java` |
+| `POST` | `/api/table-sessions/{sessionId}/invoice/payment/cancel` | `tables/TableInvoicePaymentController.java` |
+| `POST` | `/api/table-sessions/{sessionId}/invoice/payment/confirm` | `tables/TableInvoicePaymentController.java` |
 | `GET` | `/api/table-sessions/{sessionId}/orders` | `tables/TableController.java` |
 | `GET` | `/api/tables/{tableCode}` | `tables/TableController.java` |
 

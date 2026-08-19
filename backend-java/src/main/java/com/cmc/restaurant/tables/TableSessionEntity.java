@@ -96,6 +96,19 @@ public class TableSessionEntity {
 		return asDomain().isExpiredAt(now);
 	}
 
+	/**
+	 * Đóng phiên vì hoá đơn vừa được tất toán (#96).
+	 *
+	 * <p>Tách khỏi {@link #expireIfPast}: hết hạn là phiên tự chết vì quá giờ, còn đây là khách đã
+	 * trả tiền và rời bàn. Hai lý do khác nhau, và cột {@code status} ghi lại đúng lý do nào — báo
+	 * cáo phân biệt được bàn bỏ dở với bàn thanh toán xong.
+	 */
+	void closeAt(OffsetDateTime now) {
+		this.status = TableSessionStatus.Closed;
+		this.closedAt = now;
+		this.updatedAt = now;
+	}
+
 	/** Returns true (and mutates state to Expired) only if it actually transitioned. */
 	public boolean expireIfPast(OffsetDateTime now) {
 		com.cmc.restaurant.tables.domain.TableSession session = asDomain();

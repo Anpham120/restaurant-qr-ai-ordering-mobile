@@ -57,6 +57,59 @@ public class TableInvoiceEntity {
 		// JPA
 	}
 
+	/** Hoá đơn mới, tạo lúc khách bấm thanh toán lần đầu (#96). */
+	TableInvoiceEntity(String id, String invoiceCode, String tableSessionId, OffsetDateTime now) {
+		this.id = id;
+		this.invoiceCode = invoiceCode;
+		this.tableSessionId = tableSessionId;
+		this.status = "NotRequested";
+		this.subtotalAmount = java.math.BigDecimal.ZERO;
+		this.discountAmount = java.math.BigDecimal.ZERO;
+		this.totalAmount = java.math.BigDecimal.ZERO;
+		this.method = "Unselected";
+		this.createdAt = now;
+		this.updatedAt = now;
+	}
+
+	/** Ghi lại toàn bộ phần tính được từ một lần khách yêu cầu thanh toán. */
+	void applyPaymentRequest(
+			BigDecimal subtotal, BigDecimal discount, BigDecimal total, String promotionCode,
+			String customerPhoneNumber, String method, OffsetDateTime now) {
+		this.status = "Pending";
+		this.subtotalAmount = subtotal;
+		this.discountAmount = discount;
+		this.totalAmount = total;
+		this.promotionCode = promotionCode;
+		this.customerPhoneNumber = customerPhoneNumber;
+		this.method = method;
+		this.updatedAt = now;
+	}
+
+	void settle(String status, OffsetDateTime now) {
+		this.status = status;
+		this.updatedAt = now;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public BigDecimal getSubtotalAmount() {
+		return subtotalAmount;
+	}
+
+	public BigDecimal getTotalAmount() {
+		return totalAmount;
+	}
+
+	public OffsetDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public OffsetDateTime getUpdatedAt() {
+		return updatedAt;
+	}
+
 	public String getInvoiceCode() {
 		return invoiceCode;
 	}
