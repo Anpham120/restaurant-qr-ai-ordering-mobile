@@ -11,8 +11,8 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**84 endpoint** trong **14 module**, đọc trực tiếp từ
-`backend/src/RestaurantQrAiOrdering.Api/**/*.cs` bởi `docs/build_api_inventory.py`.
+**46 endpoint** trong **12 module**, đọc trực tiếp từ
+`backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
 > bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/84 endpoint.
@@ -20,159 +20,111 @@
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
 
-### Auth (5)
+### auth (4)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/auth/admin-check` | `Auth/AuthEndpoints.cs` |
-| `POST` | `/api/auth/change-password` | `Auth/AuthEndpoints.cs` |
-| `POST` | `/api/auth/login` | `Auth/AuthEndpoints.cs` |
-| `GET` | `/api/auth/me` | `Auth/AuthEndpoints.cs` |
-| `POST` | `/api/auth/register` | `Auth/AuthEndpoints.cs` |
+| `POST` | `/api/auth/change-password` | `auth/AuthController.java` |
+| `POST` | `/api/auth/login` | `auth/AuthController.java` |
+| `GET` | `/api/auth/me` | `auth/AuthController.java` |
+| `POST` | `/api/auth/register` | `auth/AuthController.java` |
 
-### Cart (3)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `DELETE` | `/api/table-sessions/{tableSessionId}/cart` | `Cart/CartEndpoints.cs` |
-| `GET` | `/api/table-sessions/{tableSessionId}/cart` | `Cart/CartEndpoints.cs` |
-| `POST` | `/api/table-sessions/{tableSessionId}/cart/items` | `Cart/CartEndpoints.cs` |
-
-### Categories (5)
+### cart (3)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/admin/categories` | `Categories/CategoryEndpoints.cs` |
-| `POST` | `/api/admin/categories` | `Categories/CategoryEndpoints.cs` |
-| `DELETE` | `/api/admin/categories/{categoryId}` | `Categories/CategoryEndpoints.cs` |
-| `GET` | `/api/admin/categories/{categoryId}` | `Categories/CategoryEndpoints.cs` |
-| `PUT` | `/api/admin/categories/{categoryId}` | `Categories/CategoryEndpoints.cs` |
+| `DELETE` | `/api/table-sessions/{tableSessionId}/cart` | `cart/CartController.java` |
+| `GET` | `/api/table-sessions/{tableSessionId}/cart` | `cart/CartController.java` |
+| `POST` | `/api/table-sessions/{tableSessionId}/cart/items` | `cart/CartController.java` |
 
-### Chat (8)
+### chat (2)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/admin/chat/feedback` | `Chat/ChatAdminEndpoints.cs` |
-| `POST` | `/api/chat/sessions` | `Chat/ChatEndpoints.cs` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/assistance` | `Chat/ChatEndpoints.cs` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/feedback` | `Chat/ChatEndpoints.cs` |
-| `GET` | `/api/chat/sessions/{chatSessionId}/messages` | `Chat/ChatEndpoints.cs` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/messages` | `Chat/ChatEndpoints.cs` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/messages/stream` | `Chat/ChatStreamEndpoints.cs` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/recommendations` | `Chat/ChatEndpoints.cs` |
+| `POST` | `/api/chat/sessions` | `chat/ChatController.java` |
+| `POST` | `/api/chat/sessions/{chatSessionId}/messages` | `chat/ChatController.java` |
 
-### Counter (4)
+### counter (4)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/counter/shifts/current` | `Counter/CounterShiftEndpoints.cs` |
-| `POST` | `/api/counter/shifts/open` | `Counter/CounterShiftEndpoints.cs` |
-| `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `Counter/CounterShiftEndpoints.cs` |
-| `POST` | `/api/counter/shifts/{shiftId}/close` | `Counter/CounterShiftEndpoints.cs` |
+| `GET` | `/api/counter/shifts/current` | `counter/CounterController.java` |
+| `POST` | `/api/counter/shifts/open` | `counter/CounterController.java` |
+| `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `counter/CounterController.java` |
+| `POST` | `/api/counter/shifts/{shiftId}/close` | `counter/CounterController.java` |
 
-### Loyalty (10)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `GET` | `/api/admin/loyalty/members` | `Loyalty/LoyaltyEndpoints.cs` |
-| `POST` | `/api/admin/loyalty/members` | `Loyalty/LoyaltyEndpoints.cs` |
-| `DELETE` | `/api/admin/loyalty/members/{memberId}` | `Loyalty/LoyaltyEndpoints.cs` |
-| `GET` | `/api/admin/loyalty/members/{memberId}` | `Loyalty/LoyaltyEndpoints.cs` |
-| `PUT` | `/api/admin/loyalty/members/{memberId}` | `Loyalty/LoyaltyEndpoints.cs` |
-| `GET` | `/api/admin/loyalty/rewards` | `Loyalty/LoyaltyEndpoints.cs` |
-| `POST` | `/api/admin/loyalty/rewards` | `Loyalty/LoyaltyEndpoints.cs` |
-| `DELETE` | `/api/admin/loyalty/rewards/{rewardId}` | `Loyalty/LoyaltyEndpoints.cs` |
-| `PUT` | `/api/admin/loyalty/rewards/{rewardId}` | `Loyalty/LoyaltyEndpoints.cs` |
-| `GET` | `/api/loyalty/lookup` | `Loyalty/LoyaltyEndpoints.cs` |
-
-### Menu (9)
+### loyalty (1)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/admin/menu-items` | `Menu/MenuEndpoints.cs` |
-| `POST` | `/api/admin/menu-items` | `Menu/MenuEndpoints.cs` |
-| `DELETE` | `/api/admin/menu-items/{menuItemId}` | `Menu/MenuEndpoints.cs` |
-| `GET` | `/api/admin/menu-items/{menuItemId}` | `Menu/MenuEndpoints.cs` |
-| `PUT` | `/api/admin/menu-items/{menuItemId}` | `Menu/MenuEndpoints.cs` |
-| `PATCH` | `/api/admin/menu-items/{menuItemId}/availability` | `Menu/MenuEndpoints.cs` |
-| `GET` | `/api/kitchen/menu-items` | `Menu/MenuEndpoints.cs` |
-| `PATCH` | `/api/kitchen/menu-items/{menuItemId}/availability` | `Menu/MenuEndpoints.cs` |
-| `GET` | `/api/menu` | `Menu/MenuEndpoints.cs` |
+| `GET` | `/api/loyalty/lookup` | `loyalty/LoyaltyController.java` |
 
-### Orders (5)
+### menu (12)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/orders` | `Orders/OrderEndpoints.cs` |
-| `POST` | `/api/orders` | `Orders/OrderEndpoints.cs` |
-| `GET` | `/api/orders/{orderCode}` | `Orders/OrderEndpoints.cs` |
-| `PATCH` | `/api/orders/{orderCode}/items/{orderItemId}/status` | `Orders/OrderEndpoints.cs` |
-| `PATCH` | `/api/orders/{orderCode}/status` | `Orders/OrderEndpoints.cs` |
+| `GET` | `/api/admin/categories` | `menu/AdminCategoryController.java` |
+| `POST` | `/api/admin/categories` | `menu/AdminCategoryController.java` |
+| `DELETE` | `/api/admin/categories/{categoryId}` | `menu/AdminCategoryController.java` |
+| `GET` | `/api/admin/categories/{categoryId}` | `menu/AdminCategoryController.java` |
+| `PUT` | `/api/admin/categories/{categoryId}` | `menu/AdminCategoryController.java` |
+| `GET` | `/api/admin/menu-items` | `menu/AdminMenuItemController.java` |
+| `POST` | `/api/admin/menu-items` | `menu/AdminMenuItemController.java` |
+| `DELETE` | `/api/admin/menu-items/{menuItemId}` | `menu/AdminMenuItemController.java` |
+| `GET` | `/api/admin/menu-items/{menuItemId}` | `menu/AdminMenuItemController.java` |
+| `PUT` | `/api/admin/menu-items/{menuItemId}` | `menu/AdminMenuItemController.java` |
+| `PATCH` | `/api/admin/menu-items/{menuItemId}/availability` | `menu/AdminMenuItemController.java` |
+| `GET` | `/api/menu` | `menu/MenuController.java` |
 
-### Payments (5)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `GET` | `/api/orders/{orderCode}/payment` | `Payments/PaymentEndpoints.cs` |
-| `POST` | `/api/orders/{orderCode}/payment/confirm` | `Payments/PaymentEndpoints.cs` |
-| `POST` | `/api/orders/{orderCode}/payment/fail` | `Payments/PaymentEndpoints.cs` |
-| `POST` | `/api/orders/{orderCode}/payment/refund` | `Payments/PaymentEndpoints.cs` |
-| `POST` | `/api/orders/{orderCode}/payment/request` | `Payments/PaymentEndpoints.cs` |
-
-### Program.cs (1)
+### orders (6)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/health` | `Program.cs` |
+| `GET` | `/api/orders` | `orders/adapter/in/web/OrderController.java` |
+| `POST` | `/api/orders` | `orders/adapter/in/web/OrderController.java` |
+| `GET` | `/api/orders/{orderCode}` | `orders/adapter/in/web/OrderController.java` |
+| `POST` | `/api/orders/{orderCode}/items/{orderItemId}/cancel` | `orders/adapter/in/web/OrderController.java` |
+| `PATCH` | `/api/orders/{orderCode}/items/{orderItemId}/status` | `orders/adapter/in/web/OrderController.java` |
+| `PATCH` | `/api/orders/{orderCode}/status` | `orders/adapter/in/web/OrderController.java` |
 
-### Promotions (6)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `GET` | `/api/admin/promotions` | `Promotions/PromotionEndpoints.cs` |
-| `POST` | `/api/admin/promotions` | `Promotions/PromotionEndpoints.cs` |
-| `DELETE` | `/api/admin/promotions/{promotionId}` | `Promotions/PromotionEndpoints.cs` |
-| `GET` | `/api/admin/promotions/{promotionId}` | `Promotions/PromotionEndpoints.cs` |
-| `PUT` | `/api/admin/promotions/{promotionId}` | `Promotions/PromotionEndpoints.cs` |
-| `POST` | `/api/promotions/validate` | `Promotions/PromotionEndpoints.cs` |
-
-### Reports (1)
+### payments (6)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/admin/reports/summary` | `Reports/ReportEndpoints.cs` |
+| `GET` | `/api/orders/{orderCode}/payment` | `payments/PaymentController.java` |
+| `POST` | `/api/orders/{orderCode}/payment/confirm` | `payments/PaymentController.java` |
+| `POST` | `/api/orders/{orderCode}/payment/fail` | `payments/PaymentController.java` |
+| `POST` | `/api/orders/{orderCode}/payment/refund` | `payments/PaymentController.java` |
+| `POST` | `/api/orders/{orderCode}/payment/request` | `payments/PaymentController.java` |
+| `POST` | `/api/payments/webhooks/casso` | `payments/CassoWebhookController.java` |
 
-### Tables (17)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `GET` | `/api/admin/table-sessions` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/admin/tables` | `Tables/TableEndpoints.cs` |
-| `POST` | `/api/admin/tables` | `Tables/TableEndpoints.cs` |
-| `PATCH` | `/api/admin/tables/{tableCode}` | `Tables/TableEndpoints.cs` |
-| `POST` | `/api/admin/tables/{tableCode}/qr/rotate` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/table-invoices` | `Tables/TableInvoiceEndpoints.cs` |
-| `POST` | `/api/table-sessions` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/table-sessions/{sessionId}` | `Tables/TableEndpoints.cs` |
-| `POST` | `/api/table-sessions/{sessionId}/assistance` | `Tables/TableEndpoints.cs` |
-| `POST` | `/api/table-sessions/{sessionId}/close` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/table-sessions/{sessionId}/invoice` | `Tables/TableInvoiceEndpoints.cs` |
-| `POST` | `/api/table-sessions/{sessionId}/invoice/payment-request` | `Tables/TableInvoiceEndpoints.cs` |
-| `POST` | `/api/table-sessions/{sessionId}/invoice/payment/cancel` | `Tables/TableInvoiceEndpoints.cs` |
-| `POST` | `/api/table-sessions/{sessionId}/invoice/payment/confirm` | `Tables/TableInvoiceEndpoints.cs` |
-| `GET` | `/api/table-sessions/{sessionId}/orders` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/tables/qr/{qrToken}` | `Tables/TableEndpoints.cs` |
-| `GET` | `/api/tables/{tableCode}` | `Tables/TableEndpoints.cs` |
-
-### Users (5)
+### promotions (1)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
-| `GET` | `/api/users` | `Users/UserEndpoints.cs` |
-| `POST` | `/api/users` | `Users/UserEndpoints.cs` |
-| `DELETE` | `/api/users/{userId}` | `Users/UserEndpoints.cs` |
-| `PUT` | `/api/users/{userId}` | `Users/UserEndpoints.cs` |
-| `POST` | `/api/users/{userId}/reset-password` | `Users/UserEndpoints.cs` |
+| `POST` | `/api/promotions/validate` | `promotions/PromotionController.java` |
+
+### reports (1)
+
+| Động từ | Đường dẫn | Khai ở |
+|---|---|---|
+| `GET` | `/api/admin/reports/summary` | `reports/ReportController.java` |
+
+### shared (1)
+
+| Động từ | Đường dẫn | Khai ở |
+|---|---|---|
+| `GET` | `/api/health` | `shared/HealthController.java` |
+
+### tables (5)
+
+| Động từ | Đường dẫn | Khai ở |
+|---|---|---|
+| `POST` | `/api/table-sessions` | `tables/TableController.java` |
+| `GET` | `/api/table-sessions/{sessionId}` | `tables/TableController.java` |
+| `POST` | `/api/table-sessions/{sessionId}/close` | `tables/TableController.java` |
+| `GET` | `/api/table-sessions/{sessionId}/invoice` | `tables/TableController.java` |
+| `GET` | `/api/tables/{tableCode}` | `tables/TableController.java` |
 
 <!-- HET:api-inventory -->
 Tai lieu nay la contract chinh thuc giua Backend, Frontend, AI service va DevOps cho giai doan Week 5. Neu thay doi endpoint, field, enum, error code hoac event payload sau tai lieu nay, nguoi thuc hien phai tao breaking-change note trong issue/PR lien quan.

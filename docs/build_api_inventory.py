@@ -22,10 +22,24 @@ Phần nào SINH, phần nào người viết
 Chỉ phần giữa hai mốc `<!-- SINH:api-inventory -->` được sinh. Mọi phần khác — quy ước đặt tên, mã
 lỗi, ví dụ payload, ghi chú hợp đồng — do người viết, vì máy không suy được ý nghĩa từ chữ ký hàm.
 
-Giới hạn phải nói rõ: bộ này đọc `MapGroup` và `MapGet/MapPost/...`, nên nó biết **đường dẫn và
-động từ**, KHÔNG biết **dạng phản hồi**. Một endpoint đổi kiểu trả về mà giữ nguyên đường dẫn thì
-kiểm kê này vẫn xanh. Nó chặn được lớp lỗi "tài liệu thiếu endpoint", không chặn được lớp "tài liệu
-mô tả sai hành vi".
+Giới hạn phải nói rõ: bộ này đọc chú giải định tuyến của Spring, nên nó biết **đường dẫn và động
+từ**, KHÔNG biết **dạng phản hồi**. Một endpoint đổi kiểu trả về mà giữ nguyên đường dẫn thì kiểm
+kê này vẫn xanh. Nó chặn được lớp lỗi "tài liệu thiếu endpoint", không chặn được lớp "tài liệu mô
+tả sai hành vi".
+
+Đổi nguồn quét: .NET -> Java (issue #58)
+----------------------------------------
+Bản đầu đọc `backend/src/**/*.cs`, tìm `app.MapGroup(...)` và `MapGet/MapPost/...`. Backend nay là
+Spring Boot, nên nguồn là `backend-java/src/main/java/**/*.java` và hai mẫu tương đương:
+
+    .NET                                      Spring
+    var g = app.MapGroup("/api/auth")    ->   @RequestMapping("/api/auth")  (cấp lớp)
+    g.MapPost("/login", ...)             ->   @PostMapping("/login")        (cấp phương thức)
+
+Một khác biệt có thật, không phải ánh xạ 1-1: Spring cho phép `@PostMapping` **không kèm đường
+dẫn**, nghĩa là dùng nguyên tiền tố của lớp. Bốn endpoint trong `AdminCategoryController` và
+`AdminMenuItemController` đang ở dạng đó. Bỏ sót nhánh này thì bảng thiếu 4 endpoint mà `--check`
+vẫn xanh — tức đúng lớp lỗi mà tệp này tồn tại để chặn.
 """
 from __future__ import annotations
 
@@ -35,37 +49,42 @@ from pathlib import Path
 
 DOCS = Path(__file__).resolve().parent
 REPO = DOCS.parent
-SRC = REPO / "backend" / "src" / "RestaurantQrAiOrdering.Api"
+SRC = REPO / "backend-java" / "src" / "main" / "java" / "com" / "cmc" / "restaurant"
 OUT = DOCS / "backend" / "API_CONTRACT.md"
 
 BAT_DAU = "<!-- SINH:api-inventory -->"
 KET_THUC = "<!-- HET:api-inventory -->"
 
-NHOM_RE = re.compile(r'var\s+(\w+)\s*=\s*app\.MapGroup\(\s*"([^"]+)"')
-MAP_RE = re.compile(r'(?:(\w+)\.)?Map(Get|Post|Put|Patch|Delete)\(\s*"([^"]*)"')
+# Tiền tố cấp lớp. `@RequestMapping` chỉ xuất hiện trên lớp trong mã này (đã kiểm: không chỗ nào
+# dùng nó ở cấp phương thức, cũng không chỗ nào dùng dạng `value =` hay `method =`).
+NHOM_RE = re.compile(r'@RequestMapping\(\s*"([^"]*)"\s*\)')
+
+# Chú giải cấp phương thức. Nhóm 2 là đường dẫn và CÓ THỂ VẮNG: `@PostMapping` trần nghĩa là dùng
+# đúng tiền tố của lớp.
+MAP_RE = re.compile(r'@(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*"([^"]*)"\s*\))?')
 
 
 def quet() -> dict[str, list[tuple[str, str, str]]]:
     """{module: [(động từ, đường dẫn đầy đủ, tệp)]} — đọc từ mã, không từ tài liệu."""
     ra: dict[str, list[tuple[str, str, str]]] = {}
-    for p in sorted(SRC.rglob("*.cs")):
-        # BỎ QUA `obj/` và `bin/` — tệp `.cs` do trình biên dịch sinh ra, chỉ có ở máy đã build.
-        # Không bỏ thì bảng sinh ở máy nhà khác bảng sinh trên CI, và cổng `--check` đỏ ở CI mà
-        # không tái lập được ở máy nhà. Xem chú thích cùng nội dung trong `build_system_facts.py`.
-        if {"obj", "bin"} & set(p.parts):
+    for p in sorted(SRC.rglob("*.java")):
+        # BỎ QUA `build/` và `out/` — Gradle sinh ra, chỉ có ở máy đã build. Không bỏ thì bảng
+        # sinh ở máy nhà khác bảng sinh trên CI, và cổng `--check` đỏ ở CI mà không tái lập được ở
+        # máy nhà. Xem chú thích cùng nội dung trong `build_system_facts.py`.
+        if {"build", "out"} & set(p.parts):
             continue
         t = p.read_text(encoding="utf-8", errors="ignore")
-        if "Map" not in t:
+        if "Mapping" not in t:
             continue
-        # biến nhóm -> tiền tố đường dẫn, để ghép ra đường dẫn đầy đủ
-        nhom = {m.group(1): m.group(2) for m in NHOM_RE.finditer(t)}
+        # Tiền tố cấp lớp, nếu có. Không có thì đường dẫn của phương thức đã là đầy đủ.
+        m_nhom = NHOM_RE.search(t)
+        tien_to = m_nhom.group(1).rstrip("/") if m_nhom else ""
         muc: list[tuple[str, str, str]] = []
         for m in MAP_RE.finditer(t):
-            bien, dong_tu, duong = m.group(1), m.group(2).upper(), m.group(3)
-            if bien in ("app", None, ""):
-                day_du = duong
-            else:
-                day_du = nhom.get(bien, "") + duong
+            dong_tu = m.group(1).upper()
+            # `@PostMapping` trần -> group(2) là None -> đường dẫn chính là tiền tố lớp.
+            duong = m.group(2) or ""
+            day_du = tien_to + duong
             if not day_du.startswith("/"):
                 continue
             muc.append((dong_tu, day_du.rstrip("/") or "/", p.relative_to(SRC).as_posix()))
@@ -84,7 +103,7 @@ def dung() -> str:
         "## Kiểm kê endpoint — SINH TỪ MÃ",
         "",
         f"**{tong} endpoint** trong **{len(bang)} module**, đọc trực tiếp từ",
-        "`backend/src/RestaurantQrAiOrdering.Api/**/*.cs` bởi `docs/build_api_inventory.py`.",
+        "`backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.",
         "",
         "> Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà",
         "> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/84 endpoint.",
