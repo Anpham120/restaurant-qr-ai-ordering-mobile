@@ -1,17 +1,21 @@
 # Multi-stage, mirroring backend/Dockerfile (.NET): a fat SDK image builds, a slim runtime ships.
 #
-# Build stage pins the same Gradle/JDK pair used throughout development so the image cannot compile
-# against a different toolchain than the one every issue was verified on.
+# Bản Gradle do WRAPPER quyết (gradle/wrapper/gradle-wrapper.properties → 8.10.2), không phải do
+# image. Trước đây CI gọi `gradle` trần nên dùng bản có sẵn trên runner GitHub; runner nhảy lên
+# 9.7.0 và build đỏ trong khi image vẫn 8.10 — cùng một commit cho ra hai kết quả. Wrapper làm
+# máy lập trình, image này và CI dùng chung đúng một bản.
 FROM gradle:8.10-jdk21 AS build
 WORKDIR /src
 
 # Dependency descriptors first: this layer is cached unless the build files themselves change, so
 # editing Java sources does not re-resolve the whole dependency graph on every rebuild.
+COPY backend-java/gradlew ./
+COPY backend-java/gradle ./gradle
 COPY backend-java/build.gradle backend-java/settings.gradle ./
-RUN gradle --no-daemon dependencies --configuration runtimeClasspath > /dev/null 2>&1 || true
+RUN ./gradlew --no-daemon dependencies --configuration runtimeClasspath > /dev/null 2>&1 || true
 
 COPY backend-java/src ./src
-RUN gradle --no-daemon bootJar -x test
+RUN ./gradlew --no-daemon bootJar -x test
 
 # JRE, not JDK: the compiler is build-time only, and shipping it would carry javac and the full tool
 # chain into production for nothing.

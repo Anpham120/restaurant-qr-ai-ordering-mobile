@@ -1,0 +1,8 @@
+# Wrapper là script shell chạy trên runner Linux. Nếu ai đó commit nó với CRLF thì Linux báo
+# "bad interpreter: /bin/sh^M" — lỗi chỉ xuất hiện ở CI, không bao giờ thấy trên Windows.
+# Ép LF ở đây để không phụ thuộc core.autocrlf của từng máy.
+gradlew        text eol=lf
+*.sh           text eol=lf
+
+# Đừng đụng vào nội dung nhị phân.
+*.jar          binary

@@ -47,12 +47,12 @@ jobs:
       # `build` kéo theo `check`, nên Checkstyle (import thừa) chạy ở đây.
       - name: Build + Checkstyle
         working-directory: backend-java
-        run: gradle --no-daemon build -x test
+        run: ./gradlew --no-daemon build -x test
 
       # CHẶN merge. Gồm 82 test domain và test kiến trúc — không cái nào cần Docker.
       - name: Test domain + kiến trúc
         working-directory: backend-java
-        run: gradle --no-daemon test
+        run: ./gradlew --no-daemon test
 
       # KHÔNG chặn merge, và đây là lần đầu bộ này thực sự chạy được.
       #
@@ -65,7 +65,7 @@ jobs:
       # trong build.gradle chính là để cờ chỉ còn phủ đúng phần cần Docker.
       - name: Integration test (Testcontainers)
         working-directory: backend-java
-        run: gradle --no-daemon integrationTest
+        run: ./gradlew --no-daemon integrationTest
         continue-on-error: true
 
       - name: Upload test report

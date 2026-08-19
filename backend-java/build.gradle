@@ -41,6 +41,10 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	// Giữ ranh giới tầng của §5.3 bằng test, thay vì bằng quy ước.
 	testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+	// Gradle 9 không còn tự thêm launcher vào test runtime classpath. Thiếu dòng này thì task
+	// `test` chết ngay lúc khởi động với "Failed to load JUnit Platform" — đã xảy ra thật khi
+	// runner GitHub nhảy từ Gradle 8 lên 9.7.0.
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 // javac không cảnh báo import thừa, nên import chết tích tụ suốt hơn 20 PR mà không gì báo —
