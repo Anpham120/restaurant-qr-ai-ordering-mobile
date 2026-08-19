@@ -92,7 +92,7 @@ public class OrderService {
 				throw ApiException.conflict("IDEMPOTENCY_KEY_REUSED",
 						"Idempotency key was already used with a different request.");
 			}
-			return toCreateResponse(populateChildren(existing.get()));
+			return toCreateResponse(existing.get());
 		}
 
 		validateCreateRequest(request);
@@ -137,8 +137,7 @@ public class OrderService {
 			OrderItemEntity item = new OrderItemEntity(
 					"oi_" + UUID.randomUUID().toString().replace("-", ""), menuItem.getId(), menuItem.getName(),
 					menuItem.getPrice(), requestItem.quantity(), now);
-			item.setOrderId(orderId);
-			order.getItems().add(item);
+			order.addItem(item);
 			subtotal = subtotal.add(item.lineTotal());
 		}
 		final BigDecimal orderSubtotal = subtotal;
@@ -162,12 +161,11 @@ public class OrderService {
 		OrderStatusHistoryEntity initialEvent = new OrderStatusHistoryEntity(
 				"osh_" + UUID.randomUUID().toString().replace("-", ""), null, OrderStatus.Placed.name(), "Status",
 				actor.userId(), actor.role(), null, now);
-		initialEvent.setOrderId(orderId);
-		order.getStatusHistory().add(initialEvent);
+		order.addStatusChange(initialEvent);
 
+		// One save. Cascade writes the lines and the first history row in the same unit of work,
+		// so there is no window where an order exists without its items.
 		orderRepository.save(order);
-		orderItemRepository.saveAll(order.getItems());
-		orderStatusHistoryRepository.save(initialEvent);
 
 		PaymentEntity payment = new PaymentEntity("pay_" + UUID.randomUUID().toString().replace("-", ""), orderId, now);
 		payment.setAmount(order.getTotalAmount());
@@ -188,23 +186,17 @@ public class OrderService {
 	/** Re-reads the entity view after the aggregate saved, so the response DTO keeps reporting the
 	 * columns the aggregate does not own (payment status, amounts, full history). */
 	private OrderEntity reload(String orderCode) {
-		return populateChildren(orderRepository.findByOrderCode(orderCode)
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+		return orderRepository.findByOrderCode(orderCode)
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 	}
 
-	/** Fills the {@code @Transient} items/statusHistory lists (see {@link OrderEntity}) — call
-	 * after any {@code orderRepository.findBy...} before reading those lists. */
-	private OrderEntity populateChildren(OrderEntity order) {
-		order.getItems().clear();
-		order.getItems().addAll(orderItemRepository.findByOrderId(order.getId()));
-		order.getStatusHistory().clear();
-		order.getStatusHistory().addAll(orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId()));
-		return order;
-	}
-
+	/** readOnly transaction, not open-in-view: the lines are lazy, and the DTO is built here while
+	 * the session is still open. Leaving open-in-view on would make every controller able to
+	 * trigger queries during JSON serialisation, which is how lazy loading turns into a mystery. */
+	@Transactional(readOnly = true)
 	public OrderDtos.OrderResponse getOrder(String orderCode, String suppliedAccessToken, boolean isOperator) {
-		OrderEntity order = populateChildren(orderRepository.findByOrderCode(orderCode.trim())
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.")));
+		OrderEntity order = orderRepository.findByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
 		if (!isOperator && !CustomerTokenGuard.hasCustomerToken(order.getCustomerAccessToken(), suppliedAccessToken)) {
 			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
@@ -213,11 +205,11 @@ public class OrderService {
 		return toResponse(order);
 	}
 
+	@Transactional(readOnly = true)
 	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(
 				status, tableCode, updatedSince, org.springframework.data.domain.PageRequest.of(0, 100));
 		List<OrderDtos.OrderResponse> response = orders.stream()
-				.map(this::populateChildren)
 				.map(this::toResponse)
 				.toList();
 		return new OrderDtos.OrderListResponse(response, response.size());
@@ -398,7 +390,6 @@ public class OrderService {
 				"osh_" + UUID.randomUUID().toString().replace("-", ""),
 				fromStatus == null ? null : fromStatus.name(), toStatus.name(), source,
 				actor.userId(), actor.role(), note, now);
-		event.setOrderId(order.getId());
 		order.getStatusHistory().add(event);
 		orderStatusHistoryRepository.save(event);
 	}

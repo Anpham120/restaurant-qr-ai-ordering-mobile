@@ -4,7 +4,10 @@ import com.cmc.restaurant.orders.domain.OrderItemStatus;
 import com.cmc.restaurant.orders.domain.OrderStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 
@@ -15,8 +18,9 @@ public class OrderStatusHistoryEntity {
 	@Id
 	private String id;
 
-	@Column(name = "order_id", nullable = false)
-	private String orderId;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "order_id", nullable = false)
+	private OrderEntity order;
 
 	@Column(name = "from_status")
 	private String fromStatus;
@@ -55,8 +59,8 @@ public class OrderStatusHistoryEntity {
 		this.createdAt = createdAt;
 	}
 
-	public void setOrderId(String orderId) {
-		this.orderId = orderId;
+	void setOrder(OrderEntity order) {
+		this.order = order;
 	}
 
 	public String getToStatus() {

@@ -7,8 +7,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -78,14 +80,21 @@ public class OrderEntity {
 	@Column(name = "customer_phone_number")
 	private String customerPhoneNumber;
 
-	// Not a JPA relationship on purpose: mapping the same order_id FK from both this side
-	// (@OneToMany @JoinColumn) and the child's own @Column caused Hibernate to insert the child
-	// row before the FK was set, violating the NOT NULL constraint. OrderService populates these
-	// explicitly via OrderItemRepository/OrderStatusHistoryRepository instead.
-	@Transient
+	// mappedBy, not @JoinColumn: the child owns the FK (see OrderItemEntity). Cascade means saving
+	// an order saves its lines in one unit of work, and loading one brings them along — so nothing
+	// has to remember to fetch them, which is what the old @Transient version required.
+	// @BatchSize turns the kitchen board's N+1 into ceil(N/50) queries: listing 100 orders would
+	// otherwise fire one extra SELECT per order for its lines. Two List collections cannot both be
+	// join-fetched in one query (MultipleBagFetchException), so batching is the fix that works for
+	// both of them.
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OrderBy("createdAt asc")
+	@org.hibernate.annotations.BatchSize(size = 50)
 	private List<OrderItemEntity> items = new ArrayList<>();
 
-	@Transient
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OrderBy("createdAt asc")
+	@org.hibernate.annotations.BatchSize(size = 50)
 	private List<OrderStatusHistoryEntity> statusHistory = new ArrayList<>();
 
 	protected OrderEntity() {
@@ -110,6 +119,18 @@ public class OrderEntity {
 		this.totalAmount = BigDecimal.ZERO;
 		this.createdAt = now;
 		this.updatedAt = now;
+	}
+
+	/** Attaches a line and sets both sides. Adding to {@code getItems()} directly would leave the
+	 * child's FK null and the insert would fail — so the aggregate offers the safe way instead. */
+	public void addItem(OrderItemEntity item) {
+		items.add(item);
+		item.setOrder(this);
+	}
+
+	public void addStatusChange(OrderStatusHistoryEntity event) {
+		statusHistory.add(event);
+		event.setOrder(this);
 	}
 
 	public String getId() {
