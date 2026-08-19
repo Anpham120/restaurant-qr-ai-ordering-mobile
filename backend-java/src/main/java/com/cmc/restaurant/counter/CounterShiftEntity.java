@@ -87,4 +87,21 @@ public class CounterShiftEntity {
 	public OffsetDateTime getOpenedAt() {
 		return openedAt;
 	}
+
+	/**
+	 * Gán lại người mở ca khi tài khoản đó bị xoá — package-private nên chỉ module Counter dùng
+	 * được.
+	 *
+	 * <p>Không phải setter thông thường. Ca quầy là chứng từ tiền bạc, nên bản .NET giữ lịch sử ca
+	 * lại và chuyển sang một Admin dự phòng thay vì xoá theo tài khoản. Xem
+	 * {@link CounterUserReferences}.
+	 */
+	void reassignOpenedBy(String userId) {
+		this.openedByUserId = userId;
+	}
+
+	/** Người đóng ca được phép trống, nên khi tài khoản đó bị xoá thì trả trường này về null. */
+	void clearClosedBy() {
+		this.closedByUserId = null;
+	}
 }

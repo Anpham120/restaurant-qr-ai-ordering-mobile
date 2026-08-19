@@ -7,7 +7,6 @@ import com.cmc.restaurant.auth.AuthDtos.LoginResponse;
 import com.cmc.restaurant.auth.AuthDtos.RegisterRequest;
 import com.cmc.restaurant.auth.AuthDtos.RegisterResponse;
 import com.cmc.restaurant.shared.ApiException;
-import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,7 +23,6 @@ public class AuthController {
 
 	// Simple, deliberately permissive check (unlike .NET's MailAddress-based validator) — good
 	// enough to reject obviously-invalid input; exact edge-case parity was not worth chasing.
-	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 	private final UserService userService;
 	private final JwtService jwtService;
@@ -98,6 +96,6 @@ public class AuthController {
 	}
 
 	private static boolean isValidEmail(String email) {
-		return email != null && EMAIL_PATTERN.matcher(email.trim()).matches();
+		return EmailRule.isValid(email);
 	}
 }

@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**46 endpoint** trong **12 module**, đọc trực tiếp từ
+**51 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -20,7 +20,7 @@
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
 
-### auth (4)
+### auth (9)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -28,6 +28,11 @@
 | `POST` | `/api/auth/login` | `auth/AuthController.java` |
 | `GET` | `/api/auth/me` | `auth/AuthController.java` |
 | `POST` | `/api/auth/register` | `auth/AuthController.java` |
+| `GET` | `/api/users` | `auth/AdminUserController.java` |
+| `POST` | `/api/users` | `auth/AdminUserController.java` |
+| `DELETE` | `/api/users/{userId}` | `auth/AdminUserController.java` |
+| `PUT` | `/api/users/{userId}` | `auth/AdminUserController.java` |
+| `POST` | `/api/users/{userId}/reset-password` | `auth/AdminUserController.java` |
 
 ### cart (3)
 

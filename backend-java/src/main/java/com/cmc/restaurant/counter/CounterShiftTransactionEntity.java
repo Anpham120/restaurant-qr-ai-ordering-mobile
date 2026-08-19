@@ -56,4 +56,9 @@ public class CounterShiftTransactionEntity {
 		this.createdByUserId = createdByUserId;
 		this.createdAt = createdAt;
 	}
+
+	/** Gán lại người tạo giao dịch khi tài khoản đó bị xoá — xem {@link CounterUserReferences}. */
+	void reassignCreatedBy(String userId) {
+		this.createdByUserId = userId;
+	}
 }

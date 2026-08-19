@@ -13,6 +13,14 @@ public final class UserRole {
 
 	public static final List<String> ALL = List.of(CUSTOMER, STAFF, COUNTER_STAFF, KITCHEN, ADMIN);
 
+	/**
+	 * Vai trò mà quản trị viên được phép gán khi tạo hoặc sửa tài khoản nhân sự.
+	 *
+	 * <p>Hẹp hơn {@link #ALL} có chủ ý: `Customer` do người dùng tự đăng ký, `Staff` là vai trò cũ
+	 * không còn cấp mới. Thông báo lỗi ROLE_INVALID của bản .NET liệt kê đúng ba giá trị này.
+	 */
+	public static final List<String> ADMIN_ASSIGNABLE = List.of(ADMIN, COUNTER_STAFF, KITCHEN);
+
 	private UserRole() {
 	}
 }
