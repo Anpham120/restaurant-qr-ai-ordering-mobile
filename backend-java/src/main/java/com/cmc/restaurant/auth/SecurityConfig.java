@@ -66,6 +66,10 @@ public class SecurityConfig {
 						// chat, and X-Chat-Session-Token gates every message after that.
 						.requestMatchers(HttpMethod.POST, "/api/chat/sessions").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/messages").permitAll()
+						// #95 — đường SSE là đường CHÍNH của khách, và lịch sử hội thoại cũng của họ.
+						// Xác thực bằng token phiên chat bên trong service, giống hai đường đã có.
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/messages/stream").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/chat/sessions/*/messages").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

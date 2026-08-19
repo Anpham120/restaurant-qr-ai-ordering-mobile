@@ -39,6 +39,15 @@ public final class ChatDtos {
 			boolean requiresCustomerConfirmation, List<String> evidenceIds) {
 	}
 
+	/** Một tin nhắn đã lưu, dạng frontend đọc (#95). */
+	public record ChatMessageResponse(
+			String id, String role, String content, java.time.OffsetDateTime createdAt,
+			List<SuggestedCartActionResponse> suggestedCartActions) {
+	}
+
+	public record ChatMessageListResponse(List<ChatMessageResponse> messages) {
+	}
+
 	/** Deliberately has no {@code decision} field. {@code ai/app/service.py} states that the backend
 	 * must not forward it: it is an operator log trace that carries internal exception types and
 	 * error reference codes. Leaving the field out means a future edit cannot leak it by accident. */
