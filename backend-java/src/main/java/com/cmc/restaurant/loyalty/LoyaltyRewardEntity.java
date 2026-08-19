@@ -35,6 +35,23 @@ public class LoyaltyRewardEntity {
 	protected LoyaltyRewardEntity() {
 	}
 
+	/** Ưu đãi do quản trị viên tạo (#94). */
+	LoyaltyRewardEntity(String id, OffsetDateTime now) {
+		this.id = id;
+		this.createdAt = now;
+		this.updatedAt = now;
+	}
+
+	/** Ghi toàn bộ phần quản trị viên nhập được — cùng tập trường cho cả tạo và sửa. */
+	void applyDefinition(
+			String name, String description, int pointsRequired, boolean active, OffsetDateTime now) {
+		this.name = name;
+		this.description = description;
+		this.pointsRequired = pointsRequired;
+		this.active = active;
+		this.updatedAt = now;
+	}
+
 	public String getId() {
 		return id;
 	}

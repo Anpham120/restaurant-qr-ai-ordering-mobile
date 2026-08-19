@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**63 endpoint** trong **12 module**, đọc trực tiếp từ
+**72 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -58,10 +58,19 @@
 | `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `counter/CounterController.java` |
 | `POST` | `/api/counter/shifts/{shiftId}/close` | `counter/CounterController.java` |
 
-### loyalty (1)
+### loyalty (10)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
+| `GET` | `/api/admin/loyalty/members` | `loyalty/AdminLoyaltyController.java` |
+| `POST` | `/api/admin/loyalty/members` | `loyalty/AdminLoyaltyController.java` |
+| `DELETE` | `/api/admin/loyalty/members/{memberId}` | `loyalty/AdminLoyaltyController.java` |
+| `GET` | `/api/admin/loyalty/members/{memberId}` | `loyalty/AdminLoyaltyController.java` |
+| `PUT` | `/api/admin/loyalty/members/{memberId}` | `loyalty/AdminLoyaltyController.java` |
+| `GET` | `/api/admin/loyalty/rewards` | `loyalty/AdminLoyaltyController.java` |
+| `POST` | `/api/admin/loyalty/rewards` | `loyalty/AdminLoyaltyController.java` |
+| `DELETE` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
+| `PUT` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
 | `GET` | `/api/loyalty/lookup` | `loyalty/LoyaltyController.java` |
 
 ### menu (14)
