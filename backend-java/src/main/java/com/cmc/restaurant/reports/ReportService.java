@@ -1,5 +1,6 @@
 package com.cmc.restaurant.reports;
 
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderRepository;
 import com.cmc.restaurant.reports.domain.ReportRange;
 import com.cmc.restaurant.reports.domain.RevenueLedger;
 import java.time.OffsetDateTime;
@@ -13,11 +14,15 @@ import org.springframework.stereotype.Service;
 /**
  * Mirrors {@code ReportEndpoints.cs} (.NET) — the admin revenue summary.
  *
- * <p>Reads go through {@link JdbcTemplate} rather than JPA on purpose, and this is the one module
- * where that is the right call rather than a shortcut: a report joins across orders, order items,
- * invoices and payments purely to aggregate, and loading those as managed entities would build an
- * object graph the report immediately reduces to numbers. The queries here return exactly the
- * columns the report sums.
+ * <p>Bốn truy vấn tổng hợp đi qua {@link JdbcTemplate} chứ không qua JPA, và đây là module duy
+ * nhất mà lựa chọn đó là đúng chứ không phải đi tắt: báo cáo join qua orders, order items,
+ * invoices và payments thuần tuý để cộng dồn, nạp chúng thành entity được quản lý sẽ dựng lên một
+ * đồ thị đối tượng mà báo cáo lập tức rút lại thành vài con số. Các câu ở đây trả về đúng những
+ * cột mà báo cáo cộng.
+ *
+ * <p>Issue #78: câu thứ năm — đếm số đơn trong khoảng — KHÔNG thuộc diện đó. Nó không join, không
+ * tổng hợp, nên lý do trên không áp dụng, và nó đã chuyển sang {@code OrderRepository}. Giữ lại sẽ
+ * là áp tiêu chuẩn không đều: đòi mọi nơi khác bỏ SQL thô rồi tự miễn cho chính mình.
  *
  * <p>Which rows count at all is decided by {@link RevenueLedger}, not here.
  */
@@ -27,9 +32,11 @@ public class ReportService {
 	private static final int TOP_ITEM_LIMIT = 10;
 
 	private final JdbcTemplate jdbcTemplate;
+	private final OrderRepository orderRepository;
 
-	public ReportService(JdbcTemplate jdbcTemplate) {
+	public ReportService(JdbcTemplate jdbcTemplate, OrderRepository orderRepository) {
 		this.jdbcTemplate = jdbcTemplate;
+		this.orderRepository = orderRepository;
 	}
 
 	public ReportDtos.SummaryResponse summary(OffsetDateTime from, OffsetDateTime to) {
@@ -92,9 +99,9 @@ public class ReportService {
 						rs.getInt("quantity"), rs.getBigDecimal("line_total")),
 				range.from(), range.to(), range.from(), range.to());
 
-		Integer totalOrders = jdbcTemplate.queryForObject(
-				"select count(*) from orders where created_at >= ? and created_at < ?",
-				Integer.class, range.from(), range.to());
+		// Không phải truy vấn tổng hợp như bốn câu trên, nên không có lý do nào để nó là SQL thô.
+		long totalOrders = orderRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+				range.from(), range.to());
 
 		List<ReportDtos.TopItemResponse> topItems = RevenueLedger.topItems(soldItems, TOP_ITEM_LIMIT).stream()
 				.map(t -> new ReportDtos.TopItemResponse(t.menuItemId(), t.name(), t.quantitySold(), t.revenue()))
@@ -105,7 +112,7 @@ public class ReportService {
 
 		return new ReportDtos.SummaryResponse(
 				range.from(), range.to(),
-				totalOrders == null ? 0 : totalOrders,
+				(int) totalOrders,
 				revenue.size(),
 				RevenueLedger.sum(revenue, RevenueLedger.Settlement::subtotal),
 				RevenueLedger.sum(revenue, RevenueLedger.Settlement::discount),

@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,7 +59,6 @@ public class OrderService {
 	private final MenuItemRepository menuItemRepository;
 	private final RestaurantTableRepository tableRepository;
 	private final TableSessionRepository tableSessionRepository;
-	private final JdbcTemplate jdbcTemplate;
 	private final OrderItemEstimationService estimationService;
 	private final OrderRealtimeNotifier realtimeNotifier;
 	private final OrderPersistenceAdapter persistence;
@@ -71,7 +69,7 @@ public class OrderService {
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
 			OrderStatusHistoryRepository orderStatusHistoryRepository, PaymentRepository paymentRepository,
 			MenuItemRepository menuItemRepository, RestaurantTableRepository tableRepository,
-			TableSessionRepository tableSessionRepository, JdbcTemplate jdbcTemplate,
+			TableSessionRepository tableSessionRepository,
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
 			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService,
 			com.cmc.restaurant.promotions.PromotionService promotionService) {
@@ -86,7 +84,6 @@ public class OrderService {
 		this.menuItemRepository = menuItemRepository;
 		this.tableRepository = tableRepository;
 		this.tableSessionRepository = tableSessionRepository;
-		this.jdbcTemplate = jdbcTemplate;
 		this.estimationService = estimationService;
 	}
 
@@ -129,8 +126,7 @@ public class OrderService {
 		}
 
 		String orderId = "ord_" + UUID.randomUUID().toString().replace("-", "");
-		String orderCode = "ORD-" + jdbcTemplate.queryForObject(
-				"select nextval('orders_order_code_seq')", Long.class);
+		String orderCode = "ORD-" + orderRepository.nextOrderCodeNumber();
 
 		OrderEntity order = new OrderEntity(
 				orderId, orderCode, "DineIn", table.getId(), table.getTableCode(), session.getId(),

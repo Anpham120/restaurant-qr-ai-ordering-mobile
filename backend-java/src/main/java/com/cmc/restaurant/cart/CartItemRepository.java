@@ -11,6 +11,9 @@ public interface CartItemRepository extends JpaRepository<CartItemEntity, String
 
 	Optional<CartItemEntity> findByTableSessionIdAndMenuItemId(String tableSessionId, String menuItemId);
 
+	/** Số dòng giỏ còn hiệu lực — ResumeStateQueryService chỉ cần con số, không cần dòng. */
+	long countByTableSessionIdAndQuantityGreaterThan(String tableSessionId, int quantity);
+
 	@Transactional
 	void deleteByTableSessionId(String tableSessionId);
 }
