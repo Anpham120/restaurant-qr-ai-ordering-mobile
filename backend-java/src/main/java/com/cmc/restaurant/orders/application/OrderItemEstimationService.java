@@ -1,5 +1,6 @@
-package com.cmc.restaurant.orders;
+package com.cmc.restaurant.orders.application;
 
+import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemEntity;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;

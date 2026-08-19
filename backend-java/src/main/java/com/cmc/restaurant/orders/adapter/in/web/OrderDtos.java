@@ -1,4 +1,4 @@
-package com.cmc.restaurant.orders;
+package com.cmc.restaurant.orders.adapter.in.web;
 
 import com.cmc.restaurant.orders.domain.OrderItemStatus;
 import com.cmc.restaurant.orders.domain.OrderStatus;

@@ -1,4 +1,4 @@
-package com.cmc.restaurant.orders;
+package com.cmc.restaurant.shared;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
