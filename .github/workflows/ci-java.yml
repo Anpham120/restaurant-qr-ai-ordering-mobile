@@ -10,10 +10,12 @@ on:
     paths:
       - 'backend-java/**'
       - '.github/workflows/ci-java.yml'
+  # KHÔNG lọc `paths` ở đây, dù PR sửa tài liệu cũng chạy. Lý do không phải là thừa:
+  # `backend-java-build` được đặt làm required status check cho `develop`. Check bắt buộc
+  # mà không chạy thì GitHub coi là PENDING mãi mãi, chứ không coi là bỏ qua — nên một PR
+  # chỉ sửa tài liệu (như #84) sẽ không bao giờ merge được. Đổi ~2 phút runner lấy việc
+  # cổng chặn hoạt động đúng là đáng.
   pull_request:
-    paths:
-      - 'backend-java/**'
-      - '.github/workflows/ci-java.yml'
 
 jobs:
   backend-java-build:
