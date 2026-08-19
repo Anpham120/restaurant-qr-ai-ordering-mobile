@@ -51,11 +51,11 @@ Thứ tự này là thứ tự phụ thuộc, không phải thứ tự ưu tiên
 
 ## Vẫn còn ngoài thư mục này
 
-- `backend/data/menu-dataset.json` — danh mục 91 món, nguồn AI dùng. Bước 1 phát hiện
+- `data/menu-dataset.json` — danh mục 91 món, nguồn AI dùng. Bước 1 phát hiện
   khách **không** thấy tệp này: `/api/menu` đọc cơ sở dữ liệu, và cơ sở dữ liệu chỉ có
   1,7 nhãn/món so với 15 ở đây. **Đã hợp nhất** — hai nguồn nay mang đúng cùng bộ nhãn,
   có test canh. Xem `docs/01-data-dictionary.md` mục 1.
-- `backend/data/menu-tags.json` — từ điển 85 nhãn / 16 nhóm (khóa, nhãn Việt, nhãn Anh,
+- `data/menu-tags.json` — từ điển 85 nhãn / 16 nhóm (khóa, nhãn Việt, nhãn Anh,
   tên cũ), sinh bởi `scripts/build_tag_dictionary.py`. Nguồn sự thật duy nhất, dùng chung
   giữa AI, cơ sở dữ liệu và hai bảng nhãn ở frontend.
 - Backend .NET gọi 6 endpoint (`/v1/chat`, `/v1/chat/stream`, `/ready`, `/health`,

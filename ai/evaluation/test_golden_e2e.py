@@ -24,7 +24,7 @@ from run_golden_e2e import cham_luot, cham_the_gio, suy_ra_kind  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ITEMS = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 BY_ID = {m["id"]: m for m in ITEMS}
 BY_NAME = {m["name"]: m for m in ITEMS}

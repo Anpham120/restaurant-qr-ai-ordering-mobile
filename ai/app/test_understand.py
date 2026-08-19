@@ -20,7 +20,7 @@ from understand import fold, understand
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 ITEMS = MENU["items"]
 
@@ -569,7 +569,7 @@ class KhoTriThucVaTuVungPhaiKhopNhau(unittest.TestCase):
     def _topics_with_content(self) -> set[str]:
         """Chủ đề có nội dung trả lời, đọc từ kho tri thức đã gộp.
 
-        Trước đây đọc `backend/data/restaurant-facts.json`. Kho gộp về `ai/knowledge/` nên
+        Trước đây đọc `data/restaurant-facts.json`. Kho gộp về `ai/knowledge/` nên
         nguồn đổi, nhưng bất biến không đổi: chủ đề có nội dung phải có đường tới từ câu khách.
         """
         from rag.chunker import verbatim_answers

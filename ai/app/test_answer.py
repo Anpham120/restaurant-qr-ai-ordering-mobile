@@ -36,7 +36,7 @@ from understand import DRINK_CATEGORIES, FOOD_CATEGORIES, understand  # noqa: E4
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 ITEMS = _MENU["items"]
 BY_ID = {i["id"]: i for i in ITEMS}
@@ -201,7 +201,7 @@ class BangTenNhanPhaiPhuDU(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tags = json.loads(
-            (REPO_ROOT / "backend" / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
+            (REPO_ROOT / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
         )["tags"]
 
     def test_moi_nhan_di_nguyen_co_ten_tieng_viet(self):

@@ -37,10 +37,10 @@ from intent import cau_xac_nhan_da_bo               # noqa: E402
 from understand import understand                   # noqa: E402
 
 ITEMS = json.loads(
-    (GOC / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (GOC / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 TAGS = json.loads(
-    (GOC / "backend" / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
+    (GOC / "data" / "menu-tags.json").read_text(encoding="utf-8-sig")
 )["tags"]
 
 

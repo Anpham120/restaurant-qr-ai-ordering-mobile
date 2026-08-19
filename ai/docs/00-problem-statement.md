@@ -22,7 +22,7 @@ hàng**. Điều này định hình mọi thứ:
 > nguồn và chúng lệch nhau: `/api/menu` đọc cơ sở dữ liệu (1,7 nhãn/món), còn AI đọc
 > `menu-dataset.json` (15 nhãn/món). Chi tiết và hệ quả: `01-data-dictionary.md` mục 1.
 
-Nguồn AI dùng: `backend/data/menu-dataset.json`.
+Nguồn AI dùng: `data/menu-dataset.json`.
 
 | Thuộc tính | Giá trị |
 |---|---|

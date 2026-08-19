@@ -38,8 +38,8 @@ sys.path.insert(0, str(REPO_ROOT / "ai" / "app"))
 
 from rag.chunker import SYNTHESIZE, KnowledgeError, load_all  # noqa: E402
 
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
-DICT_PATH = REPO_ROOT / "backend" / "data" / "menu-tags.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
+DICT_PATH = REPO_ROOT / "data" / "menu-tags.json"
 KNOWLEDGE_ROOT = REPO_ROOT / "ai" / "knowledge"
 DERIVED_DIR = KNOWLEDGE_ROOT / "derived"
 WRITTEN_DIR = KNOWLEDGE_ROOT / "written"
@@ -304,7 +304,7 @@ def kiem_so_tien(docs) -> list[str]:
     import re
     import statistics
 
-    duong = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+    duong = REPO_ROOT / "data" / "menu-dataset.json"
     items = json.loads(duong.read_text(encoding="utf-8-sig"))["items"]
     hop_le = {i["price"] for i in items}
     hop_le.add(int(statistics.median(i["price"] for i in items)))

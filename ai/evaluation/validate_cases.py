@@ -35,8 +35,8 @@ from menu_selectors import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = Path(__file__).resolve().parent / "cases.json"
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
-DICT_PATH = REPO_ROOT / "backend" / "data" / "menu-tags.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
+DICT_PATH = REPO_ROOT / "data" / "menu-tags.json"
 
 VALID_KINDS = {"fact", "list", "compare", "no_data", "clarify", "refuse"}
 

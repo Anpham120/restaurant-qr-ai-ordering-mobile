@@ -43,7 +43,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[1]
 SCRIPT = REPO_ROOT / "deploy" / "scripts" / "health-check.sh"
-MENU = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Ba câu thử, LẤY NGUYÊN từ `health-check.sh`. Bóc bằng mẫu để chúng không lệch được: thêm một câu
 # thử vào script mà quên ở đây thì CI không kiểm nó, và đó lại là một đầu bị bỏ.

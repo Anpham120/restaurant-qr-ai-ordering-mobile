@@ -46,7 +46,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_PATH = REPO_ROOT / "ai" / "evaluation" / "session_scripts.json"
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Câu KHÔNG nhắc dị ứng, dùng làm lượt tiếp theo. Chúng phải nhìn hoàn toàn vô hại — đó là cả
 # điểm của phép đo: nếu câu nào cũng nhắc dị ứng thì bộ nhớ không cần tồn tại.

@@ -28,7 +28,7 @@ from answer_metric import Answer, extract_mentioned_items, extract_prices, score
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 CASES_DATA = json.loads(
     (Path(__file__).resolve().parent / "cases.json").read_text(encoding="utf-8-sig")

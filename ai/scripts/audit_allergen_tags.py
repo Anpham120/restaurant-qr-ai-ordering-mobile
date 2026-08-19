@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Từ khóa cho từng loại dị nguyên. Cụm nhiều từ khớp nguyên cụm; từ đơn khớp theo biên từ.
 SIGNS: dict[str, dict[str, str]] = {

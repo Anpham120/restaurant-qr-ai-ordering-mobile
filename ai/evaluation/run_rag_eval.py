@@ -34,7 +34,7 @@ from rag.chunker import doan_toan_kho  # noqa: E402
 from understand import understand      # noqa: E402
 
 MENU = json.loads(
-    (GOC / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (GOC / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 CA = json.loads(
     (Path(__file__).parent / "rag_cases.json").read_text(encoding="utf-8-sig")

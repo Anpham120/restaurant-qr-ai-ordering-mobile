@@ -36,7 +36,7 @@ from rag.chunker import doan_toan_kho, load_all       # noqa: E402
 from understand import understand                     # noqa: E402
 
 MENU = json.loads(
-    (GOC / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (GOC / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 _DOAN = doan_toan_kho(GOC / "ai" / "knowledge")
 _TAI_LIEU = {d.doc_id: d for d in load_all(GOC / "ai" / "knowledge")}

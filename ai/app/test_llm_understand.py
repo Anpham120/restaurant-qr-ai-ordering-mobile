@@ -24,7 +24,7 @@ from understand import understand
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )
 ITEMS = MENU["items"]
 ENV = {"LLM_MODEL": "test", "LLM_BASE_URL": "http://test", "LLM_API_KEY": "test"}

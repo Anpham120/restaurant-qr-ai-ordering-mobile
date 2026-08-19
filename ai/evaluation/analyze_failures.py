@@ -80,7 +80,7 @@ def _dem(path, khoa: str) -> int:
 
 CASES_PATH = HERE / "cases.json"
 RETRIEVAL_PATH = HERE / "retrieval_cases.json"
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Nhãn ba tập KHÔNG mang con số. Bản đầu đặt tên là "119 ca trả lời", nên khi tập lên 140 ca thì
 # chính CÁI TÊN thành sai — và tên sai còn khó thấy hơn mẫu số sai.

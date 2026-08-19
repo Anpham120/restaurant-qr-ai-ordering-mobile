@@ -43,7 +43,7 @@ GOLDEN_PATH = HERE / "golden_e2e.json"
 # Phép đo này cần backend + Postgres + dịch vụ AI đang chạy, nên notebook KHÔNG tính lại
 # được và phải ĐỌC số từ tệp. Xem docstring của `results.py`.
 import results  # noqa: E402
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Cụm nói lên là ngoài phạm vi. Dùng chung định nghĩa với thước đo một lượt để hai bộ không lệch
 # nhau về nghĩa của chữ "từ chối".

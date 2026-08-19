@@ -42,7 +42,7 @@ from understand import understand  # noqa: E402
 
 CA = REPO_ROOT / "ai" / "evaluation" / "khai_di_ung_cases.json"
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 
 

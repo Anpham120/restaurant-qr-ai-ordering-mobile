@@ -229,7 +229,7 @@ chỉ mục mà không phục vụ đường nào. Từ điển **85 nhãn / 16 
 ### Sở hữu tệp
 `ai/knowledge/*` · `ai/app/rag/chunker.py` · `ai/app/test_chunker.py` ·
 `ai/scripts/build_knowledge.py` · `build_tag_dictionary.py` · `audit_allergen_tags.py` ·
-`backend/data/menu-tags.json` ·
+`data/menu-tags.json` ·
 `ai/app/understand.py` · `llm_understand.py` · `test_understand.py` · `test_llm_understand.py` ·
 `test_source_hygiene.py`
 

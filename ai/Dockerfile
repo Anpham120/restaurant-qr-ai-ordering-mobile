@@ -49,22 +49,29 @@ RUN groupadd --system --gid 10001 app \
 
 COPY --chown=app:app ai ./ai
 
-# Dịch vụ AI đọc hai tệp trong `backend/data/` lúc chạy, và chúng PHẢI có trong ảnh:
+# Dịch vụ AI đọc hai tệp trong `data/` lúc chạy, và chúng PHẢI có trong ảnh:
 #
 #   menu-dataset.json   service.py — 91 món, là dữ liệu để lọc và nêu giá
 #   menu-tags.json      llm_understand.py — từ điển nhãn để kiểm nhãn mô hình trả về
 #
-# Trước đây dòng này không có, nên `/app/backend/` không tồn tại trong ảnh. Và chỗ đọc thoái hóa
+# Trước đây dòng này không có, nên thư mục chứa chúng không tồn tại trong ảnh. Và chỗ đọc thoái hóa
 # IM LẶNG khi thiếu tệp, nên hậu quả là toàn bộ chủ đề chính sách trả "mình chưa có dữ liệu" —
 # không lỗi, không log. Khách hỏi giờ mở cửa và AI nói không biết, dù dữ liệu nằm trong repo.
 #
 # Bất biến này được ép trong `ai/app/test_packaging.py`: test đọc chính Dockerfile này và đối
 # chiếu với đường dẫn mà mã lúc chạy thật sự dùng, nên xóa dòng dưới là test đỏ ngay.
 #
-# Hai tệp này thuộc về backend (chúng seed cơ sở dữ liệu qua migration EF) nên copy vào là đúng.
+# Issue #57 — hai tệp này TỪNG nằm ở `backend/data/`, và chú thích cũ ở đây nói chúng "thuộc về
+# backend (chúng seed cơ sở dữ liệu qua migration EF)". Câu đó SAI: backend .NET chỉ nhắc tới
+# chúng trong chú thích migration, dữ liệu seed đã nhúng thẳng vào mã migration, không có chỗ nào
+# đọc tệp. Ba nơi ĐỌC thật là dịch vụ AI, test từ điển nhãn của frontend, và phép thăm dò ngữ
+# nghĩa trong `deploy/scripts/health-check.sh`. Chúng là dữ liệu sản phẩm dùng chung nên ở gốc
+# repo — không nhét vào `ai/`, vì làm vậy sẽ nói sai về quyền sở hữu theo chiều ngược lại và buộc
+# frontend với tay vào thư mục của dịch vụ AI.
+#
 # Kho tri thức thì KHÔNG cần dòng này — nó đã được gộp vào `ai/knowledge/`, tức nằm trong phạm vi
 # `COPY ai` ở trên. Đó là cách sửa bằng cấu trúc, không phải bằng việc nhớ thêm một dòng COPY.
-COPY --chown=app:app backend/data ./backend/data
+COPY --chown=app:app data ./data
 
 # TÍNH SẴN vector của kho tri thức, lúc BUILD.
 #

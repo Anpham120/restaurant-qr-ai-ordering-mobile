@@ -24,10 +24,10 @@ import { tagLabel } from "./MenuItemCard";
 
 const frontendRoot = new URL("../../../", import.meta.url);
 const dictionaryPath = fileURLToPath(
-  new URL("../backend/data/menu-tags.json", frontendRoot),
+  new URL("../data/menu-tags.json", frontendRoot),
 );
 const menuPath = fileURLToPath(
-  new URL("../backend/data/menu-dataset.json", frontendRoot),
+  new URL("../data/menu-dataset.json", frontendRoot),
 );
 
 type TagEntry = {

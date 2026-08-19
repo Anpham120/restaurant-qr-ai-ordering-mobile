@@ -62,7 +62,7 @@ from session import MEMORY_VERSION, SessionState, merge_into_request, session_up
 from understand import understand
 
 APP_DIR = Path(__file__).resolve().parent
-MENU_PATH = APP_DIR.parents[1] / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = APP_DIR.parents[1] / "data" / "menu-dataset.json"
 KNOWLEDGE_PATH = APP_DIR.parent / "knowledge"
 
 SERVICE_VERSION = "rebuild-1"

@@ -69,7 +69,7 @@ for p in (ROOT / "ai" / "app", ROOT / "ai" / "evaluation"):
         sys.path.insert(0, str(p))
 
 def load(name):
-    return json.loads((ROOT / "backend" / "data" / name).read_text(encoding="utf-8-sig"))
+    return json.loads((ROOT / "data" / name).read_text(encoding="utf-8-sig"))
 
 KNOWLEDGE = ROOT / "ai" / "knowledge"
 '''
@@ -225,7 +225,7 @@ bản đa lượt. Nên thứ tự tuần 1 của TV1 là **ca đánh giá trư�
 |---|---|
 | **Câu hỏi khâu này trả lời** | *AI được phép trả lời gì, dữ liệu có gì, và khi một nhãn không có mặt thì kết luận được gì?* |
 | **Kiến thức phải nắm** | phân loại ba loại câu hỏi A/B/C · rút dấu tiếng Việt là phép mất thông tin · độ phủ nhãn quyết định filterability · chunking cho truy hồi · provenance `derived` vs `demo` |
-| **Tệp sở hữu** | `ai/knowledge/*` · `rag/chunker.py` · `build_knowledge.py` · `build_tag_dictionary.py` · `audit_allergen_tags.py` · `backend/data/menu-tags.json` · `ai/evaluation/*` |
+| **Tệp sở hữu** | `ai/knowledge/*` · `rag/chunker.py` · `build_knowledge.py` · `build_tag_dictionary.py` · `audit_allergen_tags.py` · `data/menu-tags.json` · `ai/evaluation/*` |
 | **Đầu vào** | thực đơn thật (91 món) và yêu cầu nghiệp vụ |
 | **Đầu ra bàn giao** | từ điển nhãn có tiền tố nhóm · kho 84 tài liệu / 327 đoạn · `KnowledgeChunk` cho TV3 · 119 ca và thước đo cho cả nhóm |
 | **Tự đo bằng** | `build_knowledge.py --check` · `build_tag_dictionary.py --check` · `audit_allergen_tags.py` · `python -m unittest test_chunker test_packaging` |

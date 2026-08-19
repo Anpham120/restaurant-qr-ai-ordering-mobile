@@ -89,7 +89,7 @@ khách gõ
 
 ### 2.1 Hai nguồn, một sự thật
 
-Thực đơn tồn tại ở **hai nơi**: `backend/data/menu-dataset.json` cho dịch vụ AI, và bảng trong
+Thực đơn tồn tại ở **hai nơi**: `data/menu-dataset.json` cho dịch vụ AI, và bảng trong
 Postgres cho backend. Chúng phải khớp **91/91 món**, và cổng CI canh điều đó.
 
 Nếu để hai nguồn tự do thì mọi con số của bốn chặng sau đều đo trên dữ liệu sai — nên đây là bất biến

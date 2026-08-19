@@ -53,7 +53,7 @@ import session as S  # noqa: E402
 from understand import understand  # noqa: E402
 
 SCRIPTS_PATH = HERE / "session_scripts.json"
-MENU_PATH = REPO_ROOT / "backend" / "data" / "menu-dataset.json"
+MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
 # Nhóm CHỐT AN TOÀN. Đỏ ở đây là CHẶN, không phải số liệu.
 GATE_GROUPS = ("allergy_persists",)

@@ -45,7 +45,7 @@ from answer import respond  # noqa: E402
 from understand import understand  # noqa: E402
 
 MENU = json.loads(
-    (REPO_ROOT / "backend" / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
+    (REPO_ROOT / "data" / "menu-dataset.json").read_text(encoding="utf-8-sig")
 )["items"]
 OUT_CSV = REPO_ROOT / "ai" / "evaluation" / "measurements" / "dinh_tuyen.csv"
 

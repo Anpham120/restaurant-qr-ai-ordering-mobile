@@ -31,7 +31,7 @@ import session as S                              # noqa: E402
 from understand import understand                # noqa: E402
 from run_session_eval import cham_luot, _theo_id  # noqa: E402
 
-MENU = json.loads((GOC / "backend" / "data" / "menu-dataset.json")
+MENU = json.loads((GOC / "data" / "menu-dataset.json")
                   .read_text(encoding="utf-8-sig"))
 ITEMS = MENU["items"]
 
