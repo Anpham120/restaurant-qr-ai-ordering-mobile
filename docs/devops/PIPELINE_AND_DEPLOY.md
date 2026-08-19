@@ -16,11 +16,12 @@
 
 ## Workflow và cổng chặn — SINH TỪ CẤU HÌNH
 
-**9 workflow**, **14 cổng `--check`** trong CI.
+**10 workflow**, **14 cổng `--check`** trong CI.
 
 | Workflow | Kích hoạt bởi |
 |---|---|
 | `auto-merge.yml` | pull_request_target |
+| `ci-java.yml` | pull_request, push |
 | `ci.yml` | pull_request, push, workflow_dispatch, workflow_call |
 | `dependency-review.yml` | pull_request |
 | `deploy-production.yml` | push, workflow_dispatch |
