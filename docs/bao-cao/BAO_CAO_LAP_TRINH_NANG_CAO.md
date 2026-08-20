@@ -1,14 +1,16 @@
-# TRƯỜNG ĐẠI HỌC CMC
-## KHOA CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG
-
----
+<div align="center">
+  <img src="../../frontend/src/mocks/images/logo.png" alt="Logo CMC Restaurant" width="150" />
 
 # BÁO CÁO MÔN HỌC: LẬP TRÌNH NÂNG CAO
+## Trường Đại học CMC — Khoa Công nghệ Thông tin và Truyền thông
+
+</div>
 
 **Đề tài:** Chuyển backend hệ thống gọi món qua mã QR từ ASP.NET Core sang Java Spring Boot —
 quyết định kỹ thuật và bằng chứng
 
 **Sinh viên:** Phạm Duy An — BIT240002
+
 **Kho mã:** `Anpham120/restaurant-qr-ai-ordering-mobile` (fork cá nhân)
 
 ---
