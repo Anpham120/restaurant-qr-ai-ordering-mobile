@@ -17,21 +17,15 @@ export class OpsErrorBoundary extends Component<OpsErrorBoundaryProps, OpsErrorB
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // #region agent log
-    fetch("http://127.0.0.1:7639/ingest/45c610dd-1025-4f92-a068-a057f791be7f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "613762" },
-      body: JSON.stringify({
-        sessionId: "613762",
-        hypothesisId: "E",
-        location: "OpsErrorBoundary.tsx:componentDidCatch",
-        message: "ops shell render error",
-        data: { scope: this.props.scope ?? "ops", name: error.name, detail: error.message.slice(0, 200), stack: info.componentStack?.slice(0, 300) },
-        timestamp: Date.now(),
-        runId: "ops-realtime",
-      }),
-    }).catch(() => {});
-    // #endregion
+    // Giữ lại phương thức này thay vì xoá hẳn: `getDerivedStateFromError` chỉ lo phần HIỆN màn
+    // hình lỗi, nó không nhận `componentStack`. Không ghi gì ở đây thì một lần vỡ hiển thị không
+    // để lại dấu vết nào — người trực ca chỉ thấy "Ứng dụng vận hành gặp lỗi hiển thị" và không ai
+    // biết vỡ ở component nào.
+    console.error(
+      `Lỗi hiển thị trong khu vực "${this.props.scope ?? "ops"}":`,
+      error,
+      info.componentStack,
+    );
   }
 
   render() {
