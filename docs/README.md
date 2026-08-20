@@ -1,6 +1,6 @@
 # CMC Restaurant — chỉ mục tài liệu
 
-**57 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
+**58 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
 `docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không
 tồn tại, và không thể bỏ sót tệp mới.
 
@@ -57,6 +57,7 @@ Thêm tài liệu mới: đặt đúng thư mục rồi chạy `python docs/buil
 | [BAO_CAO_CONG_NGHE_PHAN_MEM.md](bao-cao/BAO_CAO_CONG_NGHE_PHAN_MEM.md) | BÁO CÁO BÀI TẬP LỚN |
 | [BAO_CAO_DO_AN_CHUYEN_NGANH.md](bao-cao/BAO_CAO_DO_AN_CHUYEN_NGANH.md) | BÁO CÁO ĐỒ ÁN CHUYÊN NGÀNH |
 | [BAO_CAO_HOC_MAY_KPDL.md](bao-cao/BAO_CAO_HOC_MAY_KPDL.md) | BÁO CÁO ĐỒ ÁN MÔN HỌC |
+| [BAO_CAO_LAP_TRINH_NANG_CAO.md](bao-cao/BAO_CAO_LAP_TRINH_NANG_CAO.md) | TRƯỜNG ĐẠI HỌC CMC |
 | [CHUAN_BI_VAN_DAP.md](bao-cao/CHUAN_BI_VAN_DAP.md) | CHUẨN BỊ VẤN ĐÁP — CMC RESTAURANT |
 | [HOI_DAP_KY_THUAT.md](bao-cao/HOI_DAP_KY_THUAT.md) | HỎI ĐÁP KỸ THUẬT — CMC RESTAURANT |
 | [HUMAN_PEER_REVIEW.md](bao-cao/HUMAN_PEER_REVIEW.md) | Quy trình và bằng chứng human peer review |
