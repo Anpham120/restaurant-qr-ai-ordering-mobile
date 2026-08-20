@@ -10,11 +10,30 @@ import {
 import { formatVndDigitsInput, parseVndDigitsInput } from "../../utils/vndInputFormat";
 import "../../components/operations/operations.css";
 import "./counter-hub.css";
+import { useOpsConfirm } from "../../components/operations/OpsConfirmProvider";
 
 const formatVnd = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
 
 const formatTime = (value: string) =>
   new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+/**
+ * Mô tả chênh lệch giữa tiền đếm được và tiền kỳ vọng.
+ *
+ * Tách thành hàm thuần để kiểm được. Đây là tính tiền CÓ DẤU: nhầm chiều một lần là hộp thoại báo
+ * "thừa" trong khi két đang thiếu, và thu ngân bấm chốt vì thấy không có vấn đề gì.
+ *
+ * Nói "THIẾU 50.000đ" chứ không nói "-50.000đ": một dấu trừ giữa câu rất dễ trôi qua mắt người
+ * vừa đếm xong két lúc cuối ca.
+ */
+export function moTaLechQuy(thucDem: number, kyVong: number): string {
+  const lech = thucDem - kyVong;
+  if (lech === 0) {
+    return "Khớp đúng số kỳ vọng.";
+  }
+  const huong = lech > 0 ? "THỪA" : "THIẾU";
+  return `${huong} ${formatVnd(Math.abs(lech))} so với kỳ vọng ${formatVnd(kyVong)}.`;
+}
 
 export function CounterShiftPanel({
   embedded = false,
@@ -23,6 +42,7 @@ export function CounterShiftPanel({
   embedded?: boolean;
   supervisorMode?: boolean;
 }) {
+  const confirm = useOpsConfirm();
   const [shift, setShift] = useState<CounterShiftSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [openingCash, setOpeningCash] = useState("");
@@ -77,6 +97,21 @@ export function CounterShiftPanel({
       setNotice("Nhập số tiền thực tế trong két.");
       return;
     }
+    // Hiện số LỆCH trước khi chốt, vì đây là con số duy nhất người ta thật sự cần cân nhắc —
+    // và sau khi chốt thì ca đã đóng, không sửa lại được.
+    //
+    // Tự tính chênh lệch thay vì bắt thu ngân nhẩm: đếm két xong, người ta đang mệt, và một dấu
+    // trừ bị bỏ sót nghĩa là ca đóng với khoản thiếu không ai ghi nhận.
+    const lech = actual - shift.expectedCashTotal;
+    const moTaLech = moTaLechQuy(actual, shift.expectedCashTotal);
+
+    if (!(await confirm({
+      title: "Chốt ca quầy?",
+      message: `Thực đếm ${formatVnd(actual)}. ${moTaLech} Ca đã chốt thì không mở lại được.`,
+      confirmLabel: "Chốt ca",
+      danger: lech !== 0,
+    }))) return;
+
     try {
       setShift(await closeCounterShift(shift.shiftId, actual));
       setClosingCash("");

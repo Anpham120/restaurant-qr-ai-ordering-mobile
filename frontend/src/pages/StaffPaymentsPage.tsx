@@ -61,14 +61,43 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     highlightRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [awaiting.length, tableFilter]);
 
-  async function runAction(sessionId: string, action: () => Promise<unknown>, successMessage: string) {
+  /**
+   * Đổi giao diện NGAY, hoàn tác nếu máy chủ từ chối.
+   *
+   * Quầy thu tiền mặt xong là bấm, rồi quay sang khách tiếp theo — chờ một vòng gọi mạng rồi chờ
+   * thêm một lần tải lại cả danh sách là chờ hai lần cho một thao tác đã xong ngoài đời.
+   *
+   * HOÀN TÁC chỉ đúng hoá đơn đó, không khôi phục cả mảng. Trang này có realtime chạy song song
+   * (`useOpsRealtime`), nên chụp cả mảng rồi đặt lại sẽ NUỐT MẤT những sự kiện đến trong lúc chờ —
+   * một bàn khác vừa yêu cầu thanh toán sẽ biến khỏi màn hình.
+   *
+   * Khi thành công thì thay bằng hoá đơn máy chủ TRẢ VỀ chứ không giữ bản dự đoán: `paidAt`, số
+   * tiền sau làm tròn và mã giao dịch chỉ máy chủ mới biết.
+   */
+  async function runAction(
+    sessionId: string,
+    duDoan: (invoice: TableInvoice) => TableInvoice,
+    action: () => Promise<TableInvoice>,
+    successMessage: string,
+  ) {
+    const truoc = invoices.find((invoice) => invoice.tableSessionId === sessionId);
     setPendingSessionId(sessionId);
     setNotice("");
+    setInvoices((prev) =>
+      prev.map((invoice) => (invoice.tableSessionId === sessionId ? duDoan(invoice) : invoice)),
+    );
     try {
-      await action();
-      await loadInvoices();
+      const daCapNhat = await action();
+      setInvoices((prev) =>
+        prev.map((invoice) => (invoice.tableSessionId === sessionId ? daCapNhat : invoice)),
+      );
       setNotice(successMessage);
     } catch (caughtError) {
+      if (truoc) {
+        setInvoices((prev) =>
+          prev.map((invoice) => (invoice.tableSessionId === sessionId ? truoc : invoice)),
+        );
+      }
       setNotice(caughtError instanceof Error ? caughtError.message : "Thao tác thất bại. Thử lại.");
     } finally {
       setPendingSessionId(null);
@@ -143,13 +172,26 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
                   <button
                     className="ops-btn ops-btn--success ops-btn--sm"
                     disabled={pendingSessionId === invoice.tableSessionId}
-                    onClick={() => void runAction(invoice.tableSessionId, () => confirmTableInvoicePayment(invoice.tableSessionId, "Thu ngân xác nhận đã thu đủ."), `Đã thanh toán bàn ${invoice.tableCode}`)}
+                    onClick={() => void runAction(
+                      invoice.tableSessionId,
+                      // Dự đoán: hoá đơn chuyển sang "đã thu", tức rời khỏi danh sách chờ ngay.
+                      (current) => ({ ...current, status: "Confirmed" }),
+                      () => confirmTableInvoicePayment(invoice.tableSessionId, "Thu ngân xác nhận đã thu đủ."),
+                      `Đã thanh toán bàn ${invoice.tableCode}`,
+                    )}
                     type="button"
                   ><Check aria-hidden="true" size={14} /> Xác nhận thu</button>
                   <button
                     className="ops-btn ops-btn--ghost ops-btn--sm"
                     disabled={pendingSessionId === invoice.tableSessionId}
-                    onClick={() => void runAction(invoice.tableSessionId, () => cancelTableInvoicePayment(invoice.tableSessionId, "Hủy yêu cầu để bàn tiếp tục gọi món."), `Đã hủy yêu cầu bàn ${invoice.tableCode}`)}
+                    onClick={() => void runAction(
+                      invoice.tableSessionId,
+                      // Huỷ yêu cầu thì bàn quay lại trạng thái chưa yêu cầu thu, nên nó rời danh
+                      // sách chờ mà KHÔNG sang danh sách đã thu.
+                      (current) => ({ ...current, status: "NotRequested" }),
+                      () => cancelTableInvoicePayment(invoice.tableSessionId, "Hủy yêu cầu để bàn tiếp tục gọi món."),
+                      `Đã hủy yêu cầu bàn ${invoice.tableCode}`,
+                    )}
                     type="button"
                   ><X aria-hidden="true" size={14} /> Hủy yêu cầu</button>
                 </div>
