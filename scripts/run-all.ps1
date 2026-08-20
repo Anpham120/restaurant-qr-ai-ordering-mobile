@@ -1,7 +1,17 @@
+# Chạy cả hệ thống tại máy (Windows).
+#
+#   scripts\run-all.ps1              # native: JVM + uvicorn + Vite dev server, có hot reload
+#   scripts\run-all.ps1 -Docker      # dựng nguyên stack bằng Docker Compose
+#
+# Chế độ -Docker cần deploy\.env:
+#
+#   Copy-Item deploy\env\local.example.env deploy\.env
+#
+# Chế độ native cần một PostgreSQL đang chạy sẵn; nó KHÔNG tự dựng cơ sở dữ liệu.
 param(
     [switch]$Docker,
     [switch]$Install,
-    [string]$EnvFile = "deploy/env/staging.env"
+    [string]$EnvFile = "deploy/.env"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,30 +30,41 @@ function Import-DotEnv([string]$Path) {
 if ($Docker) {
     $resolvedEnv = Join-Path $root $EnvFile
     if (-not (Test-Path -LiteralPath $resolvedEnv)) {
-        throw "Missing $EnvFile. Copy a deploy/env/*.example.env file and fill required secrets first."
+        throw "Thiếu $EnvFile. Chạy: Copy-Item deploy\env\local.example.env deploy\.env"
     }
-    & docker compose --env-file $resolvedEnv -f (Join-Path $root "deploy/docker-compose.yml") up --build
+    $compose = Join-Path $root "deploy/docker-compose.java.yml"
+    # Migrate là bước RIÊNG, chạy xong mới tới API — giữ nguyên tắc V10 của bản .NET.
+    & docker compose --env-file $resolvedEnv -f $compose --profile migrate run --rm migrate
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & docker compose --env-file $resolvedEnv -f $compose up --build
     exit $LASTEXITCODE
 }
 
-Import-DotEnv (Join-Path $root "backend/.env")
+Import-DotEnv (Join-Path $root "backend-java/.env")
 Import-DotEnv (Join-Path $root "ai/.env")
 Import-DotEnv (Join-Path $root "frontend/.env")
 
-if (-not $env:Jwt__SigningKey -and $env:JWT_SIGNING_KEY) { $env:Jwt__SigningKey = $env:JWT_SIGNING_KEY }
-if (-not $env:CORS_ALLOWED_ORIGINS) {
-    $env:CORS_ALLOWED_ORIGINS = "http://localhost:5173;http://localhost:5174;http://localhost:5175;http://localhost:5176"
-}
-if (-not $env:ConnectionStrings__DefaultConnection -and $env:DB_PASSWORD) {
+# Spring đọc SPRING_DATASOURCE_*; dựng từ các biến DB_* rời cho ai quen đặt kiểu đó.
+if (-not $env:SPRING_DATASOURCE_URL) {
     $hostName = if ($env:DB_HOST) { $env:DB_HOST } else { "localhost" }
     $port = if ($env:DB_PORT) { $env:DB_PORT } else { "5432" }
     $database = if ($env:DB_NAME) { $env:DB_NAME } else { "restaurant_qr" }
-    $username = if ($env:DB_USERNAME) { $env:DB_USERNAME } else { "restaurant_user" }
-    $env:ConnectionStrings__DefaultConnection = "Host=$hostName;Port=$port;Database=$database;Username=$username;Password=$($env:DB_PASSWORD)"
+    $env:SPRING_DATASOURCE_URL = "jdbc:postgresql://${hostName}:${port}/${database}"
+}
+if (-not $env:SPRING_DATASOURCE_USERNAME) {
+    $env:SPRING_DATASOURCE_USERNAME = if ($env:DB_USERNAME) { $env:DB_USERNAME } else { "restaurant_user" }
+}
+if (-not $env:SPRING_DATASOURCE_PASSWORD -and $env:DB_PASSWORD) {
+    $env:SPRING_DATASOURCE_PASSWORD = $env:DB_PASSWORD
+}
+if (-not $env:BACKEND_JAVA_PORT) { $env:BACKEND_JAVA_PORT = "8081" }
+if (-not $env:AI_SERVICE_PORT) { $env:AI_SERVICE_PORT = "8001" }
+if (-not $env:CORS_ALLOWED_ORIGINS) {
+    $env:CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177"
 }
 
-if (-not $env:Jwt__SigningKey -or $env:Jwt__SigningKey.Length -lt 32) {
-    throw "Set Jwt__SigningKey in backend/.env with at least 32 random characters."
+if (-not $env:JWT_SIGNING_KEY -or $env:JWT_SIGNING_KEY.Length -lt 32) {
+    throw "Đặt JWT_SIGNING_KEY (từ 32 ký tự ngẫu nhiên trở lên) trong backend-java\.env"
 }
 
 if ($Install -or -not (Test-Path (Join-Path $root "frontend/node_modules"))) {
@@ -55,17 +76,20 @@ if ($Install -or -not (Test-Path (Join-Path $root "frontend/node_modules"))) {
 
 $processes = @()
 try {
-    $processes += Start-Process dotnet -ArgumentList @("run", "--project", (Join-Path $root "backend/src/RestaurantQrAiOrdering.Api/RestaurantQrAiOrdering.Api.csproj")) -WorkingDirectory $root -NoNewWindow -PassThru
-    $processes += Start-Process python -ArgumentList @("-m", "uvicorn", "app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8001") -WorkingDirectory (Join-Path $root "ai") -NoNewWindow -PassThru
-    foreach ($portal in @("customer", "admin", "kitchen", "staff")) {
+    # gradlew bootRun: biên dịch lại khi mã đổi, đúng thứ cần khi đang sửa.
+    # Wrapper nằm trong `backend-java/`, không ở gốc kho.
+    $gradlew = Join-Path $root "backend-java/gradlew.bat"
+    $processes += Start-Process $gradlew -ArgumentList @("bootRun") -WorkingDirectory (Join-Path $root "backend-java") -NoNewWindow -PassThru
+    $processes += Start-Process python -ArgumentList @("-m", "uvicorn", "service:app", "--app-dir", "app", "--reload", "--host", "127.0.0.1", "--port", $env:AI_SERVICE_PORT) -WorkingDirectory (Join-Path $root "ai") -NoNewWindow -PassThru
+    foreach ($portal in @("customer", "ordering", "ops")) {
         $processes += Start-Process npm.cmd -ArgumentList @("run", "dev:$portal") -WorkingDirectory (Join-Path $root "frontend") -NoNewWindow -PassThru
     }
 
-    Write-Host "API, AI, customer, admin, kitchen and staff servers started. Press Ctrl+C to stop."
+    Write-Host "Đã chạy: API Java (:$($env:BACKEND_JAVA_PORT)), dịch vụ AI (:$($env:AI_SERVICE_PORT)), và ba giao diện. Ctrl+C để dừng."
     while ($true) {
         Start-Sleep -Seconds 1
         $failed = $processes | Where-Object { $_.HasExited }
-        if ($failed) { throw "A server process exited unexpectedly with code $($failed[0].ExitCode)." }
+        if ($failed) { throw "Một tiến trình đã thoát với mã $($failed[0].ExitCode)." }
     }
 }
 finally {

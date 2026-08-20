@@ -95,7 +95,7 @@ export function SessionOrdersPage() {
     });
 
     void connectOrderRealtime()
-      .then(() => watchTableSessionRealtime(context.sessionId, context.sessionToken))
+      .then(() => watchTableSessionRealtime(context.tableCode, context.sessionToken))
       .catch(() => { if (active) setConnectionStatus("error"); });
 
     return () => {

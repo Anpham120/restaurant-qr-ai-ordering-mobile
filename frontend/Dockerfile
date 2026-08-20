@@ -2,7 +2,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 ARG VITE_API_BASE_URL=https://api.cmcrestaurant.app/api
-ARG VITE_ORDER_HUB_URL=https://api.cmcrestaurant.app/hubs/orders
+# `/hub/orders` (SỐ ÍT) — đích STOMP của backend Java. Bản .NET dùng `/hubs/orders` của SignalR;
+# để nguyên đường dẫn cũ thì client nối vào một đường không tồn tại và realtime im lặng chết.
+ARG VITE_ORDER_HUB_URL=https://api.cmcrestaurant.app/hub/orders
 ARG VITE_ORDERING_BASE_URL=https://order.cmcrestaurant.app
 ARG VITE_MARKETING_BASE_URL=https://cmcrestaurant.app
 ARG VITE_USE_MOCK_CHAT=false

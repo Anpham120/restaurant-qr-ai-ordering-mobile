@@ -21,12 +21,12 @@ cd frontend && npm ci && npm run dev       # customer app locally
 npm run dev:ops                            # operations app (admin/counter/kitchen)
 npm run dev:ordering                       # table ordering app
 npm run build                              # type-check and build all Vite apps
-./gradlew -p backend-java build            # build + Checkstyle + test
+cd backend-java && ./gradlew build            # build + Checkstyle + test
 python -m pip install -r ai/requirements.txt
 python -m compileall ai/app
 ```
 
-Run the API with `./gradlew -p backend-java bootRun` (nghe cổng 8081). Run the AI service from `ai/` with `uvicorn app.main:app --reload --port 8001`.
+Run the API with `cd backend-java && ./gradlew bootRun` (nghe cổng 8081). Run the AI service from `ai/` with `uvicorn app.main:app --reload --port 8001`.
 
 ## Coding Style & Naming Conventions
 
@@ -34,7 +34,7 @@ Follow existing formatting: two-space indentation in TypeScript/TSX, and tabs in
 
 ## Verification Guidelines
 
-Frontend regression tests live beside their utilities under `frontend/src`; backend regression tests live in `backend-java/src/test/java`; AI guardrail tests live in `ai/tests`. Verify changes with `npm --prefix frontend test`, frontend type-check/build, `./gradlew -p backend-java build` (gồm Checkstyle và ArchUnit), `PYTHONPATH=ai python -m unittest discover -s ai/tests`, Python bytecode compilation, Docker Compose validation, and focused manual smoke checks for auth, orders, payments, table sessions, and AI guardrails.
+Frontend regression tests live beside their utilities under `frontend/src`; backend regression tests live in `backend-java/src/test/java`; AI guardrail tests live in `ai/tests`. Verify changes with `npm --prefix frontend test`, frontend type-check/build, `cd backend-java && ./gradlew build` (gồm Checkstyle và ArchUnit), `PYTHONPATH=ai python -m unittest discover -s ai/tests`, Python bytecode compilation, Docker Compose validation, and focused manual smoke checks for auth, orders, payments, table sessions, and AI guardrails.
 
 ## Commit & Pull Request Guidelines
 

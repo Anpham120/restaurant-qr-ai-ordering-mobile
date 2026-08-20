@@ -27,7 +27,7 @@ Cảm ơn bạn đã đóng góp cho **CMC Restaurant — QR AI Ordering**.
 cd frontend && npm ci && npm run build
 
 # Backend
-./gradlew -p backend-java build
+cd backend-java && ./gradlew build
 
 # AI service
 python -m pip install -r ai/requirements.txt

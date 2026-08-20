@@ -142,6 +142,36 @@ services:
       retries: 5
       start_period: 90s
 
+  # Frontend. Trước đây chỉ có ở compose bản .NET, nên `docker compose up` trên stack Java dựng
+  # được API mà không có giao diện — tức không chạy thử được cả hệ thống bằng một lệnh.
+  frontend:
+    image: ${FRONTEND_IMAGE:-cmc-restaurant-frontend:${DEPLOY_ENV:-local}}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        # Trình duyệt của khách gọi các URL này, nên chúng phải là địa chỉ nhìn từ MÁY THẬT, không
+        # phải tên dịch vụ trong mạng Docker: `http://api:8081` chỉ phân giải được bên trong mạng đó.
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://127.0.0.1:8081/api}
+        # `/hub/orders` — đích STOMP của Spring. KHÔNG phải `/hubs/orders` của SignalR.
+        VITE_ORDER_HUB_URL: ${PUBLIC_ORDER_HUB_URL:-http://127.0.0.1:8081/hub/orders}
+        VITE_ORDERING_BASE_URL: ${PUBLIC_ORDERING_BASE_URL:-http://127.0.0.1:8080}
+        VITE_MARKETING_BASE_URL: ${PUBLIC_MARKETING_BASE_URL:-http://127.0.0.1:8080}
+        VITE_USE_MOCK_CHAT: ${VITE_USE_MOCK_CHAT:-false}
+        VITE_USE_MOCK_ORDER: ${VITE_USE_MOCK_ORDER:-false}
+        VITE_USE_MOCK_MENU: ${VITE_USE_MOCK_MENU:-false}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
 volumes:
   # Volume riêng, không dùng chung với stack .NET: hai bản chạy song song phải có CSDL độc lập thì
   # so khớp hành vi ở issue #15 mới có nghĩa.

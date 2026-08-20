@@ -54,8 +54,19 @@ const client = createOrderHubClient({
 export async function connectOrderRealtime() { await client.connect(); }
 export async function disconnectOrderRealtime() { await client.disconnect(); }
 export async function watchOrderRealtime(orderCode: string, orderToken: string) { await client.watchOrder(orderCode, orderToken); }
-export async function watchTableRealtime(tableCode: string) { await client.watchTable(tableCode); }
-export async function watchTableSessionRealtime(tableSessionId: string, sessionToken: string) { await client.watchTableSession(tableSessionId, sessionToken); }
+export async function watchTableRealtime(tableCode: string, sessionToken = "") { await client.watchTable(tableCode, sessionToken); }
+
+/**
+ * Theo dõi realtime của một phiên bàn.
+ *
+ * Bản .NET có hẳn một lượt gọi `WatchTableSession(sessionId, token)`: hub xác thực token rồi tự
+ * thêm kết nối vào nhóm của BÀN. Bản Java không có đích riêng cho phiên bàn — sự kiện vẫn phát tới
+ * `/topic/table.<mã bàn>` — nên nơi gọi phải đưa mã bàn, và token phiên đi kèm khung SUBSCRIBE để
+ * `StompSubscriptionGuard` đối chiếu với các phiên đang mở của đúng bàn đó.
+ *
+ * Giữ tên hàm cũ vì nó mô tả đúng ý định của nơi gọi (theo dõi phiên bàn của tôi); chỉ tham số đổi.
+ */
+export async function watchTableSessionRealtime(tableCode: string, sessionToken: string) { await client.watchTable(tableCode, sessionToken); }
 export function subscribeOrderRealtime(listener: RealtimeListener) { realtimeListeners.add(listener); return () => realtimeListeners.delete(listener); }
 export function subscribeRealtimeConnection(listener: ConnectionListener) { connectionListeners.add(listener); listener(connectionStatus); return () => connectionListeners.delete(listener); }
 

@@ -93,7 +93,7 @@ body:
       label: Kiểm thử / xác minh bắt buộc
       description: Lệnh test/build/check cần chạy trước khi mở PR.
       placeholder: |
-        - ./gradlew -p backend-java build
+        - cd backend-java && ./gradlew build
         - npm run build
     validations:
       required: true
