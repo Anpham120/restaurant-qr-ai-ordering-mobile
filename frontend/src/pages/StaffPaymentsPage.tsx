@@ -10,10 +10,32 @@ import { useOpsRealtime } from "../hooks/useOpsRealtime";
 import { matchesTableFilter, normalizeTableCode } from "../components/operations/opsDeepLinkUtils";
 import { Banknote, Check, CreditCard, QrCode, RefreshCw, X } from "lucide-react";
 import "../components/operations/operations.css";
+import { useOpsConfirm } from "../components/operations/OpsConfirmProvider";
 
 const formatVnd = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
 
+/**
+ * Những hoá đơn được phép xác nhận HÀNG LOẠT.
+ *
+ * Hai điều kiện, và điều kiện thứ hai là hàng rào an toàn:
+ *
+ *   status === "Pending"  — chỉ hoá đơn đang chờ thu
+ *   method === "COD"      — CHỈ tiền mặt
+ *
+ * VietQR bị loại có chủ đích. Hai phương thức khác nhau về bản chất chứ không chỉ khác tên: tiền
+ * mặt do thu ngân đếm nên chính họ xác nhận, còn VietQR được đối soát tự động qua webhook Casso
+ * (#3). Bấm "đã thu" cho một hoá đơn VietQR là khẳng định tiền đã về trong khi chưa ai kiểm — đúng
+ * loại thao tác mà việc gom hàng loạt khiến người ta làm mà không kịp nghĩ.
+ *
+ * Tách thành hàm thuần để kiểm được: nới điều kiện này ra là mở đường cho việc đánh dấu đã thu một
+ * khoản tiền chưa về.
+ */
+export function locCoTheThuHangLoat(invoices: TableInvoice[]): TableInvoice[] {
+  return invoices.filter((invoice) => invoice.status === "Pending" && invoice.method === "COD");
+}
+
 export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) {
+  const confirm = useOpsConfirm();
   const [searchParams] = useSearchParams();
   const tableFilter = normalizeTableCode(searchParams.get("table"));
   const highlightRef = useRef<HTMLElement | null>(null);
@@ -104,6 +126,74 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     }
   }
 
+  const codAwaiting = useMemo(() => locCoTheThuHangLoat(awaiting), [awaiting]);
+
+  const bulkConfirmCod = useCallback(async () => {
+    if (codAwaiting.length === 0) return;
+    const tong = codAwaiting.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+    const banList = codAwaiting.map((invoice) => invoice.tableCode ?? "?").join(", ");
+
+    if (!(await confirm({
+      title: `Xác nhận đã thu ${codAwaiting.length} bàn tiền mặt?`,
+      // Liệt kê MÃ BÀN chứ không chỉ số lượng: hàng rào thật ở đây là thu ngân đọc lại xem bàn nào
+      // sắp bị đánh dấu đã thu, chứ không phải gõ lại một con số.
+      message: `Bàn ${banList}. Tổng ${formatVnd(tong)}. Số này vào quỹ ca hiện tại.`,
+      confirmLabel: "Đã thu đủ",
+      danger: true,
+    }))) return;
+
+    const muc = codAwaiting;
+    setNotice("");
+    // Đánh dấu cả nhóm trước, rồi hoàn tác từng hoá đơn nào máy chủ từ chối — cùng lý do với thao
+    // tác đơn lẻ: không đụng tới những hoá đơn khác đang có trên màn hình.
+    setInvoices((prev) =>
+      prev.map((invoice) =>
+        muc.some((m) => m.tableSessionId === invoice.tableSessionId)
+          ? { ...invoice, status: "Confirmed" }
+          : invoice,
+      ),
+    );
+    const ketQua = await Promise.allSettled(
+      muc.map((invoice) => confirmTableInvoicePayment(invoice.tableSessionId, "Thu ngân xác nhận đã thu đủ.")),
+    );
+    setInvoices((prev) =>
+      prev.map((invoice) => {
+        const i = muc.findIndex((m) => m.tableSessionId === invoice.tableSessionId);
+        if (i < 0) return invoice;
+        const r = ketQua[i];
+        return r.status === "fulfilled" ? r.value : muc[i];
+      }),
+    );
+    const hong = ketQua.filter((r) => r.status === "rejected").length;
+    setNotice(hong === 0
+      ? `Đã thu ${muc.length} bàn, tổng ${formatVnd(tong)}.`
+      : `${muc.length - hong}/${muc.length} bàn thu được, ${hong} bàn lỗi — kiểm lại danh sách chờ.`);
+  }, [codAwaiting, confirm]);
+
+  /**
+   * Phím tắt cho thao tác lặp nhiều nhất trong giờ cao điểm.
+   *
+   * `c` chỉ MỞ hộp xác nhận, không tự xác nhận. Một phím đơn làm thay đổi tiền là thứ không nên
+   * tồn tại: thu ngân gõ tìm bàn, chạm nhầm bàn phím, và cả loạt hoá đơn thành "đã thu".
+   *
+   * Bỏ qua khi con trỏ đang ở ô nhập, và khi có phím điều khiển — nếu không thì gõ chữ "c" trong ô
+   * tìm kiếm sẽ bật hộp thoại.
+   */
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const el = event.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      if (event.key === "c" || event.key === "C") {
+        event.preventDefault();
+        void bulkConfirmCod();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [bulkConfirmCod]);
+
   if (isLoading) {
     return <div className="ops-empty"><div className="ops-empty-icon"><CreditCard aria-hidden="true" /></div>Đang tải...</div>;
   }
@@ -144,7 +234,21 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
 
       {awaiting.length > 0 ? (
         <section style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Hóa đơn chờ thu ({awaiting.length})</h3>
+          <div className="ops-toolbar" style={{ marginBottom: 12 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Hóa đơn chờ thu ({awaiting.length})</h3>
+            {codAwaiting.length > 0 ? (
+              <button
+                className="ops-btn ops-btn--success ops-btn--sm"
+                onClick={() => void bulkConfirmCod()}
+                type="button"
+                // Nhắc phím tắt ngay trên nút: một phím tắt không ai biết thì không tồn tại.
+                title="Phím tắt: C"
+              >
+                <Banknote aria-hidden="true" size={14} />
+                Thu tất cả tiền mặt ({codAwaiting.length}) · phím C
+              </button>
+            ) : null}
+          </div>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
             {awaiting.map((invoice, index) => (
               <article
