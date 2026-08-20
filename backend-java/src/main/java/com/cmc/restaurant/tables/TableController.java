@@ -43,6 +43,31 @@ public class TableController {
 		return new TableResponse(table.getTableCode(), table.getDisplayName(), table.isActive());
 	}
 
+	/**
+	 * Phân giải mã QR trên bàn thành bàn nào (#97).
+	 *
+	 * <p>Đây là bước ĐẦU TIÊN của khách: quét QR, frontend gọi endpoint này lấy {@code tableCode}
+	 * rồi mới mở phiên bàn. Thiếu nó thì mọi luồng gọi món tại chỗ đứng ngay từ bước một.
+	 *
+	 * <p>Không đăng nhập, và cũng không thể đăng nhập — khách chưa có tài khoản gì. Thứ gác ở đây
+	 * là bản thân mã QR: nó dài, ngẫu nhiên, và {@link TableQrTokenRotator} đổi nó sau mỗi phiên.
+	 *
+	 * <p>Chỉ trả {@code tableCode} và {@code displayName}, đúng {@code TableQrResponse} của bản
+	 * .NET — KHÔNG trả lại chính mã QR hay {@code id} nội bộ, vì phản hồi này đi tới một thiết bị
+	 * chưa xác thực nào đó.
+	 */
+	@GetMapping("/api/tables/qr/{qrToken}")
+	public TableDtos.TableQrResponse resolveQr(@PathVariable String qrToken) {
+		String normalized = qrToken == null || qrToken.isBlank() ? null : qrToken.trim();
+		if (normalized == null) {
+			throw ApiException.badRequest("QR_TOKEN_INVALID", "QR token is required.");
+		}
+		RestaurantTableEntity table = tableRepository.findByQrTokenAndActiveTrue(normalized)
+				.orElseThrow(() -> ApiException.notFound(
+						"QR_NOT_FOUND", "QR token does not match an active table."));
+		return new TableDtos.TableQrResponse(table.getTableCode(), table.getDisplayName());
+	}
+
 	@PostMapping("/api/table-sessions")
 	public OpenTableSessionResponse openTableSession(@RequestBody OpenTableSessionRequest request) {
 		return sessionService.openOrResumeSession(request);
