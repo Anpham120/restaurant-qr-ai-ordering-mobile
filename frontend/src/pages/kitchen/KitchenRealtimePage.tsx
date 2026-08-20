@@ -107,21 +107,10 @@ export function KitchenRealtimePage() {
           setOrders((current) => mergeOrderItemStatusChanged(current, event.payload));
         }
       } catch (error) {
-        // #region agent log
-        fetch("http://127.0.0.1:7639/ingest/45c610dd-1025-4f92-a068-a057f791be7f", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "613762" },
-          body: JSON.stringify({
-            sessionId: "613762",
-            hypothesisId: "D",
-            location: "KitchenRealtimePage.tsx:onEvent",
-            message: "kitchen merge error",
-            data: { event: event.event, detail: error instanceof Error ? error.message : "unknown" },
-            timestamp: Date.now(),
-            runId: "ops-realtime",
-          }),
-        }).catch(() => {});
-        // #endregion
+        // Gộp sự kiện thất bại thì tải lại cả danh sách — bảng bếp thà chậm một nhịp còn hơn hiện
+        // trạng thái sai. Vẫn ghi log: nếu chuyện này xảy ra liên tục thì tải lại chỉ là băng dán,
+        // và không ai biết nếu nó im lặng.
+        console.error("Không gộp được sự kiện realtime vào bảng bếp:", event.event, error);
         void loadOrders();
       }
     },
