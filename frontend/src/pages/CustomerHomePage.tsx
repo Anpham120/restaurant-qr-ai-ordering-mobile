@@ -19,17 +19,17 @@ import {
 const initialMenu: CustomerMenuResponse = { categories: [], items: [] };
 
 const HERO_FALLBACK_SLIDES = [
-  { src: "/menu-images/08-pho-bo-tai-nam.png", alt: "Phở bò tái nạm truyền thống" },
-  { src: "/menu-images/11-bun-cha-ha-noi.png", alt: "Bún chả Hà Nội đặc trưng" },
-  { src: "/menu-images/15-com-tam-suon-bi-cha.png", alt: "Cơm tấm sườn bì chả Sài Gòn" },
-  { src: "/menu-images/33-lau-hai-san-chua-cay.png", alt: "Lẩu hải sản chua cay" },
+  { src: "/menu-images/08-pho-bo-tai-nam.webp", alt: "Phở bò tái nạm truyền thống" },
+  { src: "/menu-images/11-bun-cha-ha-noi.webp", alt: "Bún chả Hà Nội đặc trưng" },
+  { src: "/menu-images/15-com-tam-suon-bi-cha.webp", alt: "Cơm tấm sườn bì chả Sài Gòn" },
+  { src: "/menu-images/33-lau-hai-san-chua-cay.webp", alt: "Lẩu hải sản chua cay" },
 ];
 
 const CUISINE_FALLBACK = [
-  { id: "f1", name: "Phở bò tái nạm", description: "Nước dùng hầm xương 12 tiếng, thịt bò tái mềm, nạm giòn và hành lá tươi. Tinh hoa ẩm thực Hà Nội.", categoryName: "Phở & Bún", price: 65000, imageUrl: "/menu-images/08-pho-bo-tai-nam.png", isAvailable: true },
-  { id: "f2", name: "Bún chả Hà Nội", description: "Chả viên và chả miếng nướng than hoa thơm lừng, ăn kèm bún tươi, rau sống và nước mắm chua ngọt.", categoryName: "Phở & Bún", price: 60000, imageUrl: "/menu-images/11-bun-cha-ha-noi.png", isAvailable: true },
-  { id: "f3", name: "Cơm tấm sườn bì chả", description: "Sườn nướng mật ong giòn ngọt, bì heo sợi giòn dai và chả trứng hấp mềm mịn, đúng vị Sài Gòn.", categoryName: "Cơm", price: 55000, imageUrl: "/menu-images/15-com-tam-suon-bi-cha.png", isAvailable: true },
-  { id: "f4", name: "Lẩu hải sản chua cay", description: "Tôm, mực, nghêu tươi sống trong nước lẩu Tom Yum chua cay đậm đà, ăn kèm rau sống và bún tươi.", categoryName: "Lẩu", price: 280000, imageUrl: "/menu-images/33-lau-hai-san-chua-cay.png", isAvailable: true },
+  { id: "f1", name: "Phở bò tái nạm", description: "Nước dùng hầm xương 12 tiếng, thịt bò tái mềm, nạm giòn và hành lá tươi. Tinh hoa ẩm thực Hà Nội.", categoryName: "Phở & Bún", price: 65000, imageUrl: "/menu-images/08-pho-bo-tai-nam.webp", isAvailable: true },
+  { id: "f2", name: "Bún chả Hà Nội", description: "Chả viên và chả miếng nướng than hoa thơm lừng, ăn kèm bún tươi, rau sống và nước mắm chua ngọt.", categoryName: "Phở & Bún", price: 60000, imageUrl: "/menu-images/11-bun-cha-ha-noi.webp", isAvailable: true },
+  { id: "f3", name: "Cơm tấm sườn bì chả", description: "Sườn nướng mật ong giòn ngọt, bì heo sợi giòn dai và chả trứng hấp mềm mịn, đúng vị Sài Gòn.", categoryName: "Cơm", price: 55000, imageUrl: "/menu-images/15-com-tam-suon-bi-cha.webp", isAvailable: true },
+  { id: "f4", name: "Lẩu hải sản chua cay", description: "Tôm, mực, nghêu tươi sống trong nước lẩu Tom Yum chua cay đậm đà, ăn kèm rau sống và bún tươi.", categoryName: "Lẩu", price: 280000, imageUrl: "/menu-images/33-lau-hai-san-chua-cay.webp", isAvailable: true },
 ];
 
 const TESTIMONIALS = [
@@ -203,19 +203,19 @@ export function CustomerHomePage() {
         <div className="landing-promo-vian-grid" data-reveal>
           {[
             {
-              img: promoItems.combo?.imageUrl ?? "/menu-images/33-lau-hai-san-chua-cay.png",
+              img: promoItems.combo?.imageUrl ?? "/menu-images/33-lau-hai-san-chua-cay.webp",
                title: t("Combo gia đình"),
               badge: "-20%",
                desc: t("Tiết kiệm 20% khi gọi combo 4 món chính + 2 đồ uống + 1 tráng miệng."),
             },
             {
-              img: promoItems.drink?.imageUrl ?? "/menu-images/57-ca-phe-sua-da.png",
+              img: promoItems.drink?.imageUrl ?? "/menu-images/57-ca-phe-sua-da.webp",
                title: t("Happy Hour 14h-17h"),
               badge: "-15%",
                desc: t("Giảm 15% tất cả đồ uống và tráng miệng vào khung giờ vàng mỗi ngày."),
             },
             {
-              img: promoItems.seasonal?.imageUrl ?? "/menu-images/43-mi-quang-tom-thit.png",
+              img: promoItems.seasonal?.imageUrl ?? "/menu-images/43-mi-quang-tom-thit.webp",
                title: t("Thực đơn mùa hè"),
                badge: t("MỚI"),
                desc: t("Ra mắt 10 món mới đặc biệt cho mùa hè với nguyên liệu theo mùa tươi ngon."),
@@ -382,7 +382,7 @@ function AboutSection() {
     <section className="landing-about" id="gioi-thieu" aria-labelledby="about-title">
       <div className="landing-about-image" data-reveal>
         <img
-          src="/menu-images/03-banh-xeo-mien-tay.png"
+          src="/menu-images/03-banh-xeo-mien-tay.webp"
           alt={t("Bánh xèo miền Tây tại CMC Restaurant")}
           loading="lazy"
         />
@@ -421,9 +421,9 @@ function AboutSection() {
 function SpaceSection() {
   const { t } = useI18n();
   const photos = [
-    { src: "/album-images/02-khong-gian-tang-1.png", alt: t("Không gian tầng 1 rộng rãi") },
-    { src: "/album-images/05-san-vuon.png", alt: t("Sân vườn xanh mát") },
-    { src: "/album-images/06-phong-vip.png", alt: t("Phòng VIP sang trọng") },
+    { src: "/album-images/02-khong-gian-tang-1.webp", alt: t("Không gian tầng 1 rộng rãi") },
+    { src: "/album-images/05-san-vuon.webp", alt: t("Sân vườn xanh mát") },
+    { src: "/album-images/06-phong-vip.webp", alt: t("Phòng VIP sang trọng") },
   ];
 
   return (
@@ -461,7 +461,7 @@ function CuisineSection({ items }: { items: CustomerMenuResponse["items"] }) {
         {items.map((item, idx) => (
           <div className={`landing-cuisine-item ${idx % 2 === 1 ? "reverse" : ""}`} key={item.id}>
             <div className="landing-cuisine-img-frame">
-              <img src={item.imageUrl ?? "/menu-images/08-pho-bo-tai-nam.png"} alt={item.name} loading="lazy" />
+              <img src={item.imageUrl ?? "/menu-images/08-pho-bo-tai-nam.webp"} alt={item.name} loading="lazy" />
             </div>
             <div className="landing-cuisine-text">
               <p className="landing-cuisine-category">{item.categoryName}</p>
@@ -498,7 +498,7 @@ function MediaSection() {
         </div>
         <div className="landing-media-video-placeholder">
           <img
-            src="/menu-images/02-nem-ran-ha-noi.png"
+            src="/menu-images/02-nem-ran-ha-noi.webp"
             alt={t("Nem rán Hà Nội - Đặc sản CMC Restaurant")}
             loading="lazy"
           />

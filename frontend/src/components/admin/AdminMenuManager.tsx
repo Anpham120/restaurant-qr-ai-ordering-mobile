@@ -271,7 +271,7 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
                   className="ops-form-input"
                   value={form.imageUrl ?? ""}
                   onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                  placeholder="/menu-images/01-goi-cuon-tom-thit.png"
+                  placeholder="/menu-images/01-goi-cuon-tom-thit.webp"
                 />
                 <div className="ops-form-hint" style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
                   Ảnh bộ menu chuẩn nằm trong /menu-images/ (91 ảnh theo tên món). Xem trước sau khi lưu trong lưới thẻ bên dưới.

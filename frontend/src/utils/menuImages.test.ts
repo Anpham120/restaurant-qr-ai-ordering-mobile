@@ -23,8 +23,8 @@ describe("resolveMenuImage", () => {
 describe("toPublicMenuImageUrl", () => {
   it("maps relative menu image paths to the ordering portal base URL", () => {
     vi.stubEnv("VITE_ORDERING_BASE_URL", "https://order.cmcrestaurant.app");
-    expect(toPublicMenuImageUrl("/menu-images/86-bia-ha-noi.png")).toBe(
-      "https://order.cmcrestaurant.app/menu-images/86-bia-ha-noi.png",
+    expect(toPublicMenuImageUrl("/menu-images/86-bia-ha-noi.webp")).toBe(
+      "https://order.cmcrestaurant.app/menu-images/86-bia-ha-noi.webp",
     );
   });
 });
