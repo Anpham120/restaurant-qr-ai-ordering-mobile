@@ -1,9 +1,21 @@
+# ĐÃ VÔ HIỆU HOÁ Ở FORK NÀY — #59.
+#
+# Workflow này deploy lên VPS CHUNG của nhóm, và fork cá nhân không được phép chạm vào đó: VPS đó
+# đang phục vụ điểm môn INFO2005 của 4 người khác (kế hoạch §8.1). Nó cũng dựng
+# `deploy/docker-compose.yml`, tệp đã xoá cùng backend .NET.
+#
+# Vì sao VÔ HIỆU HOÁ chứ không VIẾT LẠI cho stack Java: viết lại nghĩa là tạo ra một đường deploy
+# chạy được từ fork này tới VPS chung — đúng thứ §8.1 cấm. Không có phiên bản "an toàn" của việc đó.
+#
+# Vì sao KHÔNG XOÁ hẳn: §8 (môn Triển khai phần mềm) đọc chính những tệp này làm tài liệu tham
+# chiếu về một pipeline thật. Xoá thì mất tài liệu; để nguyên mà còn kích hoạt thì mỗi lần merge
+# vào `develop` lại thêm một lần chạy đỏ — đã xảy ra suốt, và mọi lần đều chết ở
+# `Missing required variable: SSH_HOST` vì fork không có secrets. Tức nó CHƯA TỪNG tới được VPS.
+#
+# Chỉ còn `workflow_dispatch`: phải có người chủ động bấm, và người đó phải tự thêm secrets.
 name: Deploy Staging
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
 
 permissions:

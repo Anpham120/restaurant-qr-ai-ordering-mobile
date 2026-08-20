@@ -59,8 +59,7 @@ body:
       label: File / vùng được phép sửa
       description: Chỉ được sửa các file hoặc module trong mục này.
       placeholder: |
-        - backend/src/Orders/**
-        - backend/src/RestaurantQrAiOrdering.Api/Orders/**
+        - backend-java/src/main/java/com/cmc/restaurant/orders/**
     validations:
       required: true
 
@@ -94,7 +93,7 @@ body:
       label: Kiểm thử / xác minh bắt buộc
       description: Lệnh test/build/check cần chạy trước khi mở PR.
       placeholder: |
-        - dotnet build --configuration Release
+        - ./gradlew -p backend-java build
         - npm run build
     validations:
       required: true

@@ -1,9 +1,11 @@
+# ĐÃ VÔ HIỆU HOÁ Ở FORK NÀY — #59. Xem chú thích đầu `deploy-staging.yml` cho lý do đầy đủ.
+#
+# Tóm tắt: workflow này deploy lên VPS CHUNG của nhóm (§8.1 cấm), và dựng
+# `deploy/docker-compose.yml` — tệp đã xoá cùng backend .NET. Viết lại cho stack Java sẽ TẠO RA một
+# đường deploy tới VPS chung, nên vô hiệu hoá là lựa chọn duy nhất đúng.
 name: Deploy Production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

@@ -1,4 +1,5 @@
-# Multi-stage, mirroring backend/Dockerfile (.NET): a fat SDK image builds, a slim runtime ships.
+# Multi-stage: a fat JDK image builds, a slim JRE image ships. Khuôn này kế thừa từ
+# `backend/Dockerfile` của bản .NET, tệp đó đã xoá ở #59.
 #
 # Bản Gradle do WRAPPER quyết (gradle/wrapper/gradle-wrapper.properties → 8.10.2), không phải do
 # image. Trước đây CI gọi `gradle` trần nên dùng bản có sẵn trên runner GitHub; runner nhảy lên

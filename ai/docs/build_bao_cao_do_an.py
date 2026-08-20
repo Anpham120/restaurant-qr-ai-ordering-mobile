@@ -443,7 +443,7 @@ LENH_TAI_LAP: list[tuple[str, str, str]] = [
     ("Bước 5 — cần MÔ HÌNH thật (`LLM_API_KEY`)",
      "python ai/evaluation/run_llm_rag_eval.py", "ai/evaluation/run_llm_rag_eval.py"),
     ("Bước 6 — cần CẢ STACK (docker compose) và mô hình thật",
-     "docker compose -f deploy/docker-compose.yml up -d --build", "deploy/docker-compose.yml"),
+     "docker compose -f deploy/docker-compose.java.yml up -d --build", "deploy/docker-compose.java.yml"),
     ("Bước 6 — cần CẢ STACK (docker compose) và mô hình thật",
      "python ai/evaluation/wait_for_stack.py", "ai/evaluation/wait_for_stack.py"),
     ("Bước 6 — cần CẢ STACK (docker compose) và mô hình thật",

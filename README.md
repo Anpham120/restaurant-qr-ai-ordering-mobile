@@ -104,7 +104,7 @@ flowchart TB
   Kitchen --> API
   Admin --> API
 
-  subgraph Backend["ASP.NET Core API"]
+  subgraph Backend["Java Spring Boot API"]
     API["REST API"]
     Auth["JWT & Role-based Access"]
     Orders["Menu · Tables · Orders · Payments"]
@@ -132,10 +132,10 @@ Backend nghiệp vụ được tổ chức như một modular monolith để gi�
 | Lớp | Công nghệ |
 | --- | --- |
 | Frontend | React 19, TypeScript, Vite, React Router, SignalR client |
-| Backend | ASP.NET Core, EF Core, SignalR, JWT |
+| Backend | Java 21, Spring Boot 3.3, Spring Data JPA, Flyway, STOMP/WebSocket, JWT |
 | Data | PostgreSQL 16 |
 | AI service | Python 3.12, FastAPI, RAG, sentence-transformers, Gemini |
-| Testing | Vitest, .NET integration tests, Python unittest/evaluation |
+| Testing | Vitest, JUnit 5 + ArchUnit + Testcontainers, Python unittest/evaluation |
 | Delivery | GitHub Actions, Docker Compose, Nginx, HTTPS, staging/production |
 
 ### AI, bảo mật và độ tin cậy
@@ -155,7 +155,7 @@ Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [AI/
 ### Yêu cầu
 
 - Node.js 24 và npm.
-- .NET SDK 10.
+- JDK 21 (Gradle wrapper đi kèm, không cần cài Gradle riêng).
 - Python 3.12.
 - PostgreSQL 16 hoặc Docker/Docker Compose.
 
@@ -181,7 +181,7 @@ npm run dev:staff
 ### Backend
 
 ```powershell
-dotnet run --project backend/src/RestaurantQrAiOrdering.Api/RestaurantQrAiOrdering.Api.csproj
+./gradlew -p backend-java bootRun
 ```
 
 Thiết lập PostgreSQL và migration: [Backend Database Setup](docs/backend/DATABASE.md).
@@ -203,7 +203,7 @@ AI service vẫn có fallback có kiểm soát khi chưa cấu hình `GEMINI_API
 ```powershell
 npm --prefix frontend test
 npm --prefix frontend run build
-dotnet test backend/RestaurantQrAiOrdering.sln --configuration Release
+./gradlew -p backend-java build
 $env:PYTHONPATH = "ai"
 python -m unittest discover -s ai/tests
 python -m compileall ai/app
@@ -215,7 +215,7 @@ docker compose -f deploy/docker-compose.yml config
 ```text
 .
 ├── frontend/   # 5 React/Vite apps, shared packages và frontend tests
-├── backend/    # ASP.NET Core API, domain modules và integration tests
+├── backend-java/  # Java Spring Boot API, domain modules và test
 ├── ai/         # FastAPI service, RAG pipeline, knowledge base và evaluation
 ├── deploy/     # Docker Compose và cấu hình triển khai
 ├── docs/       # Product, architecture, API, quality và operations

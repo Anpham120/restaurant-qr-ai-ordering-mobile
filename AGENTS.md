@@ -8,7 +8,7 @@
 
 - `frontend/` is a React 19/TypeScript workspace. Deployable Vite apps: `customer-web`, `ordering-web`, `admin-web` (package `@cmc/ops-web`), plus legacy redirect stubs `staff-web` / `kitchen-web`. Shared pages live under `src/`.
 - `backend-java/` là backend đang chạy: Spring Boot 3.3 / Java 21, build bằng Gradle. Mã theo kiến trúc lục giác cho module `orders` (`domain/`, `application/`, `adapter/in/web/`, `adapter/out/persistence/`); các module còn lại theo lối phẳng vì mật độ invariant thấp — xem kế hoạch §5.3.
-- `backend/` (ASP.NET Core) **không còn được CI kiểm và sẽ bị xoá ở #59**. Toàn bộ 85 endpoint đã có bản Java; đừng sửa gì trong đó nữa. Kết quả so khớp hành vi giữa hai bản giữ ở `docs/pm/BAO_CAO_SO_KHOP_NET_JAVA.md`.
+- `backend/` (ASP.NET Core) **đã xoá** (#59). Toàn bộ 85 endpoint đã chuyển sang `backend-java/`. Kết quả so khớp hành vi giữa hai bản giữ ở `docs/pm/BAO_CAO_SO_KHOP_NET_JAVA.md` — nay là tài liệu lịch sử, không tái lập được.
 - `ai/` contains the FastAPI/RAG service, knowledge base, evaluation data, and notebooks.
 - `deploy/` and `.github/workflows/` hold deployment and CI configuration; architecture and operational guidance belongs in `docs/`.
 

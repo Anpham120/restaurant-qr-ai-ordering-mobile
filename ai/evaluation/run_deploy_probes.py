@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         ready = goi(base, "/ready")
     except (urllib.error.URLError, OSError) as e:
         print(f"\nKHÔNG gọi được dịch vụ AI: {e}")
-        print("  Dựng stack trước: docker compose -f deploy/docker-compose.yml up -d")
+        print("  Dựng stack trước: docker compose -f deploy/docker-compose.java.yml up -d")
         return 2
 
     tmp = Path(tempfile.mkdtemp())

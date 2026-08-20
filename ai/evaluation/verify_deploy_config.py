@@ -71,13 +71,19 @@ def bo_truy_hoi_se_deploy() -> str:
 
 
 _BAT = {"1", "true", "yes", "on"}
-COMPOSE = REPO_ROOT / "deploy" / "docker-compose.yml"
+# Bản .NET đã xoá (#59), nên tệp compose duy nhất còn lại là bản Java.
+#
+# Đáng nói vì nó suýt hỏng ÂM THẦM: `duong_sinh_se_bat()` trả về False khi tệp không tồn tại, nên
+# sau khi xoá `docker-compose.yml` cổng này vẫn chạy và vẫn "có kết luận" — chỉ là kết luận sai
+# (đối chiếu với bằng chứng của cấu hình TẮT trong khi cấu hình thật là BẬT). Đúng cái lỗi mà
+# docstring của chính hàm đó mô tả, lặp lại vì một lý do khác.
+COMPOSE = REPO_ROOT / "deploy" / "docker-compose.java.yml"
 
 
 def duong_sinh_se_bat() -> bool:
     """Đường sinh có bật không — đọc đúng thứ QUYẾT ĐỊNH, không đọc thứ tiện đọc.
 
-    Thứ quyết định là mặc định trong `docker-compose.yml`:
+    Thứ quyết định là mặc định trong `docker-compose.java.yml`:
 
         AI_ENABLE_GENERATION: ${AI_ENABLE_GENERATION:-1}
 

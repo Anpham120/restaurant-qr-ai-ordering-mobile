@@ -639,7 +639,8 @@ class ComposeChiTruyenBienDichVuTHATSUDoc(unittest.TestCase):
     thời gian đệm vector trượt im lặng — khởi động 61,9s thay vì 19,0s trong khi log báo thành công.
     """
 
-    COMPOSE = REPO_ROOT / "deploy" / "docker-compose.yml"
+    # Bản .NET đã xoá (#59), nên tệp compose duy nhất còn lại là bản Java.
+    COMPOSE = REPO_ROOT / "deploy" / "docker-compose.java.yml"
 
     # Biến đặt ở Dockerfile hoặc do hạ tầng dùng, nên compose KHÔNG cần truyền lại.
     #

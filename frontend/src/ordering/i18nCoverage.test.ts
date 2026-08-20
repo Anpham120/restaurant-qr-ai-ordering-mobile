@@ -23,10 +23,15 @@ function sourceFiles(relativePath: string): string[] {
 
 describe("V44 complete VI/EN localization", () => {
   it("covers the canonical seed and accepts the shared MenuItem shape", () => {
-    const seed = read("backend/src/RestaurantQrAiOrdering.Api/Data/RestaurantMenuSeed.cs", repoRoot);
-    const seedItemIds = [...seed.matchAll(/\bItem\((\d+),/g)]
-      .map((match) => `m_${match[1].padStart(3, "0")}`);
-    const seedCategoryIds = [...seed.matchAll(/\"(cat_[a-z]+)\"/g)].map((match) => match[1]);
+    // Nguồn seed chuyển sang migration Flyway của bản Java (#59). Mã món nằm thẳng trong SQL
+    // (`'m_004'`) thay vì phải ghép từ số thứ tự như bản C#, nên phép đọc còn đơn giản hơn.
+    const seed = read(
+      "backend-java/src/main/resources/db/migration/V2__seed_official_menu_and_tables.sql",
+      repoRoot,
+    );
+    const seedItemIds = [...seed.matchAll(/INSERT INTO public\.menu_items[^;]*?VALUES \('(m_\d+)'/g)]
+      .map((match) => match[1]);
+    const seedCategoryIds = [...seed.matchAll(/'(cat_[a-z_]+)'/g)].map((match) => match[1]);
 
     expect(Object.keys(MENU_ITEM_EN).sort()).toEqual([...new Set(seedItemIds)].sort());
     expect(Object.keys(CATEGORY_EN).sort()).toEqual([...new Set(seedCategoryIds)].sort());

@@ -1,11 +1,11 @@
+# ĐÃ VÔ HIỆU HOÁ Ở FORK NÀY — #59. Xem chú thích đầu `deploy-staging.yml`.
+#
+# Bỏ `workflow_run` chứ không chỉ dựa vào việc `Deploy Staging` đã tắt trigger tự động: workflow đó
+# vẫn chạy được bằng `workflow_dispatch`, và nếu ai bấm nó thì workflow này sẽ TỰ ĐỘNG chạy theo —
+# tức một cú bấm hoá thành hai lần deploy. Cắt cả hai đầu.
 name: Promote Production
 
 on:
-  workflow_run:
-    workflows:
-      - Deploy Staging
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
