@@ -9,6 +9,10 @@ public final class TableDtos {
 	private TableDtos() {
 	}
 
+	/** Phân giải QR — chỉ mã bàn và tên hiển thị, đúng {@code TableQrResponse} của bản .NET (#97). */
+	public record TableQrResponse(String tableCode, String displayName) {
+	}
+
 	public record TableResponse(String tableCode, String displayName, boolean isActive) {
 	}
 

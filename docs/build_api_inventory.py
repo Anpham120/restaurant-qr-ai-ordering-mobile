@@ -112,7 +112,10 @@ def dung() -> str:
         "`backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.",
         "",
         "> Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà",
-        "> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/84 endpoint.",
+        # Con số 10 là số endpoint bảng viết tay từng liệt kê — một sự kiện đã xảy ra, nên nó cố
+        # định. Tổng thì lấy từ lần quét này, vì viết cứng cả hai sẽ khiến câu văn tự sai đi mỗi
+        # lần thêm endpoint.
+        f"> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/{tong} endpoint.",
         ">",
         "> Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là",
         "> phần người viết — xem các mục bên dưới.",

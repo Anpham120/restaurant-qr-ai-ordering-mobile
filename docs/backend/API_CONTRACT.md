@@ -11,11 +11,11 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**84 endpoint** trong **12 module**, đọc trực tiếp từ
+**85 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/84 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/85 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
@@ -143,7 +143,7 @@
 |---|---|---|
 | `GET` | `/api/health` | `shared/HealthController.java` |
 
-### tables (16)
+### tables (17)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -162,6 +162,7 @@
 | `POST` | `/api/table-sessions/{sessionId}/invoice/payment/cancel` | `tables/TableInvoicePaymentController.java` |
 | `POST` | `/api/table-sessions/{sessionId}/invoice/payment/confirm` | `tables/TableInvoicePaymentController.java` |
 | `GET` | `/api/table-sessions/{sessionId}/orders` | `tables/TableController.java` |
+| `GET` | `/api/tables/qr/{qrToken}` | `tables/TableController.java` |
 | `GET` | `/api/tables/{tableCode}` | `tables/TableController.java` |
 
 <!-- HET:api-inventory -->
@@ -289,15 +290,18 @@ Response `200 OK`:
 }
 ```
 
-### GET `/api/auth/admin-check`
+### GET `/api/auth/admin-check` — CỐ Ý KHÔNG PORT (#97)
 
-Auth: role `Admin`.
+Endpoint này tồn tại ở bản .NET (`AuthEndpoints.cs`) và **không được port sang Java**.
 
-Response:
+Lý do: không nơi nào gọi nó. Đã tìm khắp kho — `frontend/src`, `scripts/`, `.github/`,
+`docs/`, `ai/` — kết quả duy nhất ngoài định nghĩa .NET là một lớp CSS trùng tên
+(`.admin-check-row` trong `styles.css`), không liên quan. Frontend quyết định quyền quản trị
+bằng prop `isAdmin` truyền vào `OpsHubShell`, không hỏi máy chủ.
 
-```json
-{ "status": "ok", "requiredRole": "Admin" }
-```
+Bản thân endpoint chỉ trả `{ "status": "ok", "requiredRole": "Admin" }` — nó không làm gì
+ngoài việc xác nhận token gọi nó có vai Admin, thứ mà mọi endpoint quản trị khác đã tự kiểm.
+Port nó chỉ để bảng kiểm kê đủ số sẽ tạo ra một endpoint không ai gọi mà vẫn phải bảo trì.
 
 ## 5. Menu Va Category Contract
 
