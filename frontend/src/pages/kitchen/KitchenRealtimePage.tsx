@@ -16,6 +16,7 @@ import { OpsConnectionBadge } from "../../components/operations/OpsConnectionBad
 import { useOpsRealtime } from "../../hooks/useOpsRealtime";
 import { getKitchenOrders } from "../../services/orderService";
 import { fetchKitchenMenuItems, toggleMenuItemAvailability } from "../../services/adminMenuService";
+import { locMonTheoTen } from "./kitchenMenuFilter";
 import { ChefHat, RefreshCw, UtensilsCrossed } from "lucide-react";
 import "../../components/operations/operations.css";
 
@@ -29,6 +30,7 @@ export function KitchenRealtimePage() {
   const [error, setError] = useState("");
   const [showMenuPanel, setShowMenuPanel] = useState(searchParams.get("menu") === "1");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [timMon, setTimMon] = useState("");
 
   // Filter orders relevant to kitchen
   const kitchenOrders = useMemo(
@@ -57,6 +59,8 @@ export function KitchenRealtimePage() {
       { label: "Tổng món", value: String(totalItems), detail: "Trong pipeline" },
     ];
   }, [kitchenOrders]);
+
+  const monHienThi = useMemo(() => locMonTheoTen(menuItems, timMon), [menuItems, timMon]);
 
   const unavailableCount = useMemo(
     () => menuItems.filter((m) => !m.isAvailable).length,
@@ -156,7 +160,14 @@ export function KitchenRealtimePage() {
             </button>
             <button
               className="ops-btn ops-btn--ghost ops-btn--sm"
-              onClick={() => { setShowMenuPanel(!showMenuPanel); if (!showMenuPanel) loadMenu(); }}
+              onClick={() => {
+                const moRa = !showMenuPanel;
+                setShowMenuPanel(moRa);
+                // Xoá từ khoá mỗi lần đóng/mở. Mở lại mà còn dính bộ lọc cũ thì danh sách trông
+                // như bị mất món, và người trực ca sẽ báo là "hệ thống mất dữ liệu".
+                setTimMon("");
+                if (moRa) loadMenu();
+              }}
               type="button"
             >
               <UtensilsCrossed aria-hidden="true" size={14} /> Tắt/Mở món {unavailableCount > 0 ? `(${unavailableCount} hết)` : ""}
@@ -182,7 +193,30 @@ export function KitchenRealtimePage() {
       {showMenuPanel ? (
         <div style={{ marginBottom: 20, padding: 16, background: "var(--color-bg-subtle)", borderRadius: 12, maxHeight: 300, overflowY: "auto" }}>
           <h3 style={{ margin: "0 0 12px", fontSize: 15 }}>Quản lý tình trạng món</h3>
-          {menuItems.map((item) => (
+          <input
+            className="ops-form-input"
+            style={{ marginBottom: 12 }}
+            autoFocus
+            type="search"
+            value={timMon}
+            onChange={(event) => setTimMon(event.target.value)}
+            onKeyDown={(event) => {
+              // Esc xoá từ khoá thay vì đóng cả panel: bếp gõ nhầm thì muốn gõ lại, không muốn
+              // panel biến mất rồi phải bấm mở lần nữa.
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setTimMon("");
+              }
+            }}
+            placeholder="Tìm món — gõ không dấu cũng được (pho, dau hu)"
+            aria-label="Tìm món theo tên"
+          />
+          {monHienThi.length === 0 ? (
+            <p className="ops-stat-detail" style={{ margin: 0 }}>
+              Không có món nào khớp “{timMon}”. Nhấn Esc để xoá ô tìm.
+            </p>
+          ) : null}
+          {monHienThi.map((item) => (
             <div className="ops-toggle-row" key={item.id}>
               <span className="ops-toggle-label">
                 {item.name}
