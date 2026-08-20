@@ -43,17 +43,19 @@ public class ChatStreamService {
 	private final JwtProperties jwtProperties;
 	private final AiChatStreamClient streamClient;
 	private final ObjectMapper objectMapper;
+	private final ChatRateLimiter rateLimiter;
 
 	public ChatStreamService(
 			ChatSessionRepository chatSessionRepository, ChatMessageRepository chatMessageRepository,
 			ChatSessionCapability capability, JwtProperties jwtProperties,
-			AiChatStreamClient streamClient, ObjectMapper objectMapper) {
+			AiChatStreamClient streamClient, ObjectMapper objectMapper, ChatRateLimiter rateLimiter) {
 		this.chatSessionRepository = chatSessionRepository;
 		this.chatMessageRepository = chatMessageRepository;
 		this.capability = capability;
 		this.jwtProperties = jwtProperties;
 		this.streamClient = streamClient;
 		this.objectMapper = objectMapper;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -85,6 +87,16 @@ public class ChatStreamService {
 		if (question.length() > MAX_QUESTION_LENGTH) {
 			throw ApiException.badRequest("CHAT_MESSAGE_TOO_LONG",
 					"Chat message must be at most " + MAX_QUESTION_LENGTH + " characters.");
+		}
+
+		// Cùng hạn mức, cùng bộ đếm với đường không-stream: hai endpoint là hai cách gõ CÙNG một câu
+		// hỏi, nên đếm riêng sẽ cho khách gấp đôi hạn mức chỉ bằng cách đổi đường gọi.
+		//
+		// Kiểm ở ĐÂY chứ không trong `stream()`: một khi luồng SSE đã mở thì mã trạng thái đã gửi đi,
+		// không còn trả 429 được nữa — cùng lý do mọi phép kiểm khác nằm trong hàm này.
+		if (!rateLimiter.tryAcquire(session.getId())) {
+			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "CHAT_RATE_LIMITED",
+					"Too many messages. Please wait a moment before sending again.");
 		}
 
 		return chatMessageRepository.save(new ChatMessageEntity(

@@ -45,13 +45,15 @@ public class ChatService {
 	private final ChatRecommendationRepository chatRecommendationRepository;
 	private final ChatFeedbackRepository chatFeedbackRepository;
 	private final OrderRealtimeNotifier realtimeNotifier;
+	private final ChatRateLimiter rateLimiter;
 
 	public ChatService(
 			ChatSessionRepository chatSessionRepository, TableSessionRepository tableSessionRepository,
 			ChatSessionCapability capability, JwtProperties jwtProperties, AiChatClient aiChatClient,
 			ChatMessageRepository chatMessageRepository,
 			ChatRecommendationRepository chatRecommendationRepository,
-			ChatFeedbackRepository chatFeedbackRepository, OrderRealtimeNotifier realtimeNotifier) {
+			ChatFeedbackRepository chatFeedbackRepository, OrderRealtimeNotifier realtimeNotifier,
+			ChatRateLimiter rateLimiter) {
 		this.chatSessionRepository = chatSessionRepository;
 		this.tableSessionRepository = tableSessionRepository;
 		this.capability = capability;
@@ -61,6 +63,7 @@ public class ChatService {
 		this.chatRecommendationRepository = chatRecommendationRepository;
 		this.chatFeedbackRepository = chatFeedbackRepository;
 		this.realtimeNotifier = realtimeNotifier;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -156,6 +159,14 @@ public class ChatService {
 			// 422 from the AI service that the customer would see as a generic failure.
 			throw ApiException.badRequest("CHAT_MESSAGE_TOO_LONG",
 					"Message must be " + MAX_QUESTION_LENGTH + " characters or fewer.");
+		}
+
+		// Hạn mức tính SAU khi token đã hợp lệ và TRƯỚC khi lưu gì — đúng chỗ bản .NET đặt.
+		// Sau xác thực: người lạ đoán mã phiên không đốt được hạn mức của khách đang ngồi ở bàn.
+		// Trước khi lưu: một lượt bị chặn không được để lại tin nhắn mồ côi không có ai trả lời.
+		if (!rateLimiter.tryAcquire(session.getId())) {
+			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "CHAT_RATE_LIMITED",
+					"Too many messages. Please wait a moment before sending again.");
 		}
 
 		// Lưu câu hỏi TRƯỚC khi gọi dịch vụ AI (#95). Gọi xong mới lưu thì một lần AI chết sẽ làm
