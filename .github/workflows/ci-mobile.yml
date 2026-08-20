@@ -31,9 +31,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # GHIM PHIÊN BẢN, không dùng `channel: stable`.
+      #
+      # Lý do là một lần đỏ thật ở PR #125, không phải đề phòng lý thuyết. Bốn gói `matcher`,
+      # `meta`, `test_api`, `vector_math` KHÔNG đến từ pub.dev — chính SDK Flutter ghim chúng.
+      # Nên khi `stable` nhích từ 3.44.0 (bản sinh ra lockfile) lên 3.47.1, bước sau đỏ ngay:
+      #
+      #     Unable to satisfy `pubspec.yaml` using `pubspec.lock`.
+      #     > vector_math 2.4.2 (was 2.2.0)
+      #
+      # `channel: stable` là mục tiêu DI ĐỘNG, còn `--enforce-lockfile` đòi mục tiêu cố định —
+      # hai thứ không thể cùng đúng. Bỏ `--enforce-lockfile` sẽ làm CI xanh trở lại nhưng biến
+      # lockfile thành đồ trang trí: mỗi lần chạy có thể giải ra phiên bản khác mà không ai đổi
+      # một dòng nào trong repo.
+      #
+      # Ghim ở đây nghĩa là nâng Flutter trở thành MỘT COMMIT CÓ CHỦ Ý sửa cả hai nơi cùng lúc.
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Phải khớp SDK đã sinh `mobile/pubspec.lock`. Đổi số này thì chạy lại
+          # `flutter pub get` và commit lockfile mới trong cùng commit.
+          flutter-version: 3.47.1
           channel: stable
           cache: true
 
