@@ -444,18 +444,42 @@ jobs:
 
       - name: Realtime đầu-cuối — client frontend thật nói với backend thật
         run: |
+          set -euo pipefail
           npm --prefix frontend ci --silent
-          SESSION=$(curl -sS -X POST "http://127.0.0.1:8081/api/table-sessions" \
-            -H 'Content-Type: application/json' \
-            -d "{\"qrToken\":\"$(docker compose -f deploy/docker-compose.java.yml exec -T postgres \
-                  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
-                  -c "select qr_token from restaurant_tables order by table_code limit 1;" | tr -d '\r')\",\"tableCode\":\"T01\"}")
-          export LIVE_SESSION_ID=$(printf '%s' "$SESSION" | sed -n 's/.*"sessionId":"\([^"]*\)".*/\1/p')
-          export LIVE_SESSION_TOKEN=$(printf '%s' "$SESSION" | sed -n 's/.*"tableSessionToken":"\([^"]*\)".*/\1/p')
-          test -n "$LIVE_SESSION_TOKEN" || { echo "không mở được phiên bàn: $SESSION"; exit 1; }
+
+          psql_q() {
+            docker compose -f deploy/docker-compose.java.yml exec -T postgres \
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "$1" | tr -d '\r'
+          }
+
           export LIVE_HUB_URL=http://127.0.0.1:8081/hub/orders
           export LIVE_API_URL=http://127.0.0.1:8081
           export LIVE_TABLE_CODE=T01
+          export LIVE_QR_TOKEN=$(psql_q "select qr_token from restaurant_tables where table_code='T01';")
+          test -n "$LIVE_QR_TOKEN" || { echo "không đọc được mã QR của bàn T01"; exit 1; }
+
+          SESSION=$(curl -sS -X POST "$LIVE_API_URL/api/table-sessions" \
+            -H 'Content-Type: application/json' \
+            -d "{\"qrToken\":\"$LIVE_QR_TOKEN\",\"tableCode\":\"$LIVE_TABLE_CODE\"}")
+          export LIVE_SESSION_ID=$(printf '%s' "$SESSION" | sed -n 's/.*"sessionId":"\([^"]*\)".*/\1/p')
+          export LIVE_SESSION_TOKEN=$(printf '%s' "$SESSION" | sed -n 's/.*"tableSessionToken":"\([^"]*\)".*/\1/p')
+          test -n "$LIVE_SESSION_TOKEN" || { echo "không mở được phiên bàn: $SESSION"; exit 1; }
+
+          # Tài khoản nhân viên cho hai ca cần quyền vận hành.
+          #
+          # Vai `Staff` chứ không phải `Kitchen`, và đây là điều đã học bằng cách làm sai: `Kitchen`
+          # CHỈ được chuyển một đơn `Ready` sang `Served` (`KITCHEN_ORDER_STATUS_FORBIDDEN`), nên ca
+          # đổi trạng thái đơn đỏ vì phân quyền chứ không vì realtime.
+          curl -sS -o /dev/null -X POST "$LIVE_API_URL/api/auth/register" \
+            -H 'Content-Type: application/json' \
+            -d '{"fullName":"CI Staff","email":"ci-staff@local.test","password":"MatKhauCI12345"}'
+          psql_q "update users set role='Staff' where email='ci-staff@local.test';" >/dev/null
+          export LIVE_STAFF_TOKEN=$(curl -sS -X POST "$LIVE_API_URL/api/auth/login" \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci-staff@local.test","password":"MatKhauCI12345"}' \
+            | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
+          test -n "$LIVE_STAFF_TOKEN" || { echo "không đăng nhập được tài khoản nhân viên"; exit 1; }
+
           npm --prefix frontend exec -- vitest run packages/realtime-client/src/liveRealtime.integration.test.ts
 
       - name: Ba câu thử của phép kiểm deploy — bắt ở CI, không chờ staging
