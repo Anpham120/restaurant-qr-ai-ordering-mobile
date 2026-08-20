@@ -54,9 +54,9 @@ flowchart LR
   Staff --> Kitchen["Bếp chuẩn bị món"]
   Kitchen --> Ready["Món sẵn sàng"]
   Ready --> Served["Phục vụ tại bàn"]
-  Order -. "SignalR" .-> Track["Khách theo dõi trạng thái"]
-  Staff -. "SignalR" .-> Track
-  Kitchen -. "SignalR" .-> Track
+  Order -. "STOMP/WebSocket" .-> Track["Khách theo dõi trạng thái"]
+  Staff -. "STOMP/WebSocket" .-> Track
+  Kitchen -. "STOMP/WebSocket" .-> Track
 ```
 
 ## Giao diện sản phẩm
@@ -108,7 +108,7 @@ flowchart TB
     API["REST API"]
     Auth["JWT & Role-based Access"]
     Orders["Menu · Tables · Orders · Payments"]
-    Hub["SignalR Order Hub"]
+    Hub["STOMP Order Hub"]
   end
 
   API --> Auth
@@ -131,7 +131,7 @@ Backend nghiệp vụ được tổ chức như một modular monolith để gi�
 
 | Lớp | Công nghệ |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite, React Router, SignalR client |
+| Frontend | React 19, TypeScript, Vite, React Router, STOMP client (`@stomp/stompjs`) |
 | Backend | Java 21, Spring Boot 3.3, Spring Data JPA, Flyway, STOMP/WebSocket, JWT |
 | Data | PostgreSQL 16 |
 | AI service | Python 3.12, FastAPI, RAG, sentence-transformers, Gemini |
@@ -161,6 +161,30 @@ Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [AI/
 
 Sao chép các tệp `.env.example` tương ứng và chỉ dùng secret dành cho môi trường local.
 
+### Cách nhanh nhất: cả hệ thống bằng một lệnh
+
+```powershell
+Copy-Item deploy\env\local.example.env deploy\.env    # rồi sửa 3 giá trị bắt buộc ở đầu tệp
+docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml --profile migrate run --rm --build migrate
+docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml up -d --build
+```
+
+| Địa chỉ | Là gì |
+|---|---|
+| <http://127.0.0.1:8080> | giao diện khách + vận hành |
+| <http://127.0.0.1:8081/api/health> | API Java |
+| <http://127.0.0.1:8001/ready> | dịch vụ AI |
+
+Hai điều đáng biết trước:
+
+- **`migrate` là bước riêng, phải chạy trước.** API cố ý không tự migrate lúc khởi động — nhiều
+  instance cùng migrate một cơ sở dữ liệu là loại lỗi chỉ xảy ra khi triển khai thật.
+- **Ảnh dịch vụ AI nặng (~9 GB)** vì có `torch` và mô hình embedding. Lần dựng đầu mất khá lâu;
+  những lần sau dùng lại ảnh đã có.
+
+Hạ stack: `docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml down`
+(thêm `-v` nếu muốn xoá luôn dữ liệu Postgres).
+
 ### Frontend
 
 ```powershell
@@ -181,7 +205,7 @@ npm run dev:staff
 ### Backend
 
 ```powershell
-./gradlew -p backend-java bootRun
+cd backend-java && ./gradlew bootRun
 ```
 
 Thiết lập PostgreSQL và migration: [Backend Database Setup](docs/backend/DATABASE.md).
@@ -193,7 +217,7 @@ cd ai
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
+uvicorn service:app --app-dir app --reload --port 8001
 ```
 
 AI service vẫn có fallback có kiểm soát khi chưa cấu hình `GEMINI_API_KEY`; xem [AI Chatbot](docs/archive/AI_ARCHITECTURE.md) và [AI Knowledge Base Guide](docs/archive/AI_KNOWLEDGE_BASE_GUIDE.md).
@@ -203,11 +227,11 @@ AI service vẫn có fallback có kiểm soát khi chưa cấu hình `GEMINI_API
 ```powershell
 npm --prefix frontend test
 npm --prefix frontend run build
-./gradlew -p backend-java build
+cd backend-java && ./gradlew build
 $env:PYTHONPATH = "ai"
 python -m unittest discover -s ai/tests
 python -m compileall ai/app
-docker compose -f deploy/docker-compose.yml config
+docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 ```
 
 ## Cấu trúc repository

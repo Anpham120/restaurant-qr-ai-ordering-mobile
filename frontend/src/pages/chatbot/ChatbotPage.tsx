@@ -180,7 +180,7 @@ export function ChatbotPage() {
     let active = true;
 
     void connectOrderRealtime()
-      .then(() => watchTableRealtime(tableCode))
+      .then(() => watchTableRealtime(tableCode, orderContext.sessionToken))
       .catch(() => undefined);
 
     const unsubscribe = subscribeOrderRealtime((event) => {

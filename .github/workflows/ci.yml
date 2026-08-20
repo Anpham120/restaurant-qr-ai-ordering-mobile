@@ -423,6 +423,41 @@ jobs:
       # Bộ này KHÔNG sao chép phép khẳng định: nó bóc các khối Python nội tuyến từ chính
       # `health-check.sh` rồi chạy lại nguyên văn. Sao chép thì nó thành đầu thứ hai của cùng một bất
       # biến, và dự án đã trả giá tám lần cho đúng chuyện đó.
+      # Realtime là mắt xích DUY NHẤT của chuỗi mà golden không đi qua: golden hỏi và đặt món bằng
+      # HTTP, còn bếp/quầy nhận cập nhật bằng WebSocket.
+      #
+      # Vì sao bước này tồn tại: frontend dùng SignalR suốt thời gian backend đã chuyển sang STOMP.
+      # Hai giao thức không nói chuyện được với nhau, nên MỌI tính năng realtime im lặng chết — và
+      # không tập nào đỏ, vì test backend kiểm STOMP bằng client STOMP, test frontend là unit test
+      # đọc mã, còn golden chỉ đi HTTP. Bước này nối đúng hai đầu đó lại: mã client THẬT của
+      # frontend, nói với backend THẬT đang chạy.
+      #
+      # Test tự bỏ qua khi thiếu biến môi trường (`describe.runIf`), nên nó không làm `npm test`
+      # thường đỏ — nhưng ở ĐÂY thì biến có đủ, tức nó thật sự chạy chứ không phải một test bị bỏ
+      # qua vĩnh viễn.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Realtime đầu-cuối — client frontend thật nói với backend thật
+        run: |
+          npm --prefix frontend ci --silent
+          SESSION=$(curl -sS -X POST "http://127.0.0.1:8081/api/table-sessions" \
+            -H 'Content-Type: application/json' \
+            -d "{\"qrToken\":\"$(docker compose -f deploy/docker-compose.java.yml exec -T postgres \
+                  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
+                  -c "select qr_token from restaurant_tables order by table_code limit 1;" | tr -d '\r')\",\"tableCode\":\"T01\"}")
+          export LIVE_SESSION_ID=$(printf '%s' "$SESSION" | sed -n 's/.*"sessionId":"\([^"]*\)".*/\1/p')
+          export LIVE_SESSION_TOKEN=$(printf '%s' "$SESSION" | sed -n 's/.*"tableSessionToken":"\([^"]*\)".*/\1/p')
+          test -n "$LIVE_SESSION_TOKEN" || { echo "không mở được phiên bàn: $SESSION"; exit 1; }
+          export LIVE_HUB_URL=http://127.0.0.1:8081/hub/orders
+          export LIVE_API_URL=http://127.0.0.1:8081
+          export LIVE_TABLE_CODE=T01
+          npm --prefix frontend exec -- vitest run packages/realtime-client/src/liveRealtime.integration.test.ts
+
       - name: Ba câu thử của phép kiểm deploy — bắt ở CI, không chờ staging
         run: python ai/evaluation/run_deploy_probes.py
 

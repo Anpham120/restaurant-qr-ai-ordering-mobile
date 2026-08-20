@@ -1,0 +1,48 @@
+# BẢN SAO của `.dockerignore` ở gốc kho — GIỮ GIỐNG HỆT.
+#
+# Vì sao phải nhân bản: `docker compose` đưa Dockerfile cho BuildKit qua stdin, nên BuildKit không
+# thấy `.dockerignore` của thư mục context và KHÔNG áp dụng quy tắc nào. Hệ quả đã dựng lại được:
+# `docker compose build frontend` gửi cả `frontend/node_modules` vào context và vỡ trên Windows,
+# trong khi `docker build -f frontend/Dockerfile .` chỉ gửi 1,07 kB.
+#
+# Nguy hơn chuyện dung lượng: khối `.env` ở dưới là bản vá của sự cố `ai/.env` (chứa `LLM_API_KEY`
+# thật) bị nướng vào ảnh. Quy tắc đó cũng không có hiệu lực trong đường compose — nên nó phải có
+# mặt Ở ĐÂY.
+#
+# `test_packaging.py` chặn hai bản lệch nhau.
+
+.git
+.github
+.playwright-cli
+tmp
+
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+ai/.venv
+
+*.log
+
+# Mẫu KHÔNG có `**/` chỉ khớp ở GỐC build context. Bản trước chỉ có `.env` và `.env.*`, nên
+# `ai/.env` LỌT VÀO ẢNH — 917 byte chứa `LLM_API_KEY` (35 ký tự) và `AI_INTERNAL_TOKEN` (41 ký
+# tự). Bí mật nướng vào một lớp ảnh thì không xóa được bằng cách xóa tệp ở lớp sau.
+#
+# Phát hiện được chỉ vì chạy container thật rồi `ls` bên trong: `/ready` báo
+# `model_configured: true` dù tôi truyền `LLM_MODEL=` rỗng — cấu hình đến từ trong ảnh.
+#
+# `ai/app/llm_cache.json` thì CỐ Ý giữ lại: nó được commit vào repo để CI chạy được phép so có
+# mô hình mà không cần proxy. Nó chỉ chứa nhãn ràng buộc, không chứa bí mật.
+.env
+.env.*
+**/.env
+**/.env.*
+!*.example.env
+!**/*.example.env
+!frontend/.env.example
+
+docs
+site-demo
+tools

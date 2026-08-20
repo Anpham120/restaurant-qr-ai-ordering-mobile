@@ -835,5 +835,47 @@ class BoDoPhaiThatSuBatDuoc(unittest.TestCase):
         self.assertEqual(hits, [])
 
 
+class DockerignoreCanhTheoDockerfile(unittest.TestCase):
+    """`docker compose` KHÔNG áp dụng `.dockerignore` của thư mục context.
+
+    Nó đưa Dockerfile cho BuildKit qua stdin, nên BuildKit không có chỗ nào để tìm tệp ignore của
+    context. Dựng lại được: `docker compose build frontend` gửi cả `frontend/node_modules` vào
+    build context và vỡ trên Windows, trong khi `docker build -f frontend/Dockerfile .` chỉ gửi
+    1,07 kB — cùng một Dockerfile, cùng một context.
+
+    Cách duy nhất có hiệu lực trong đường compose là đặt tệp ignore CẠNH Dockerfile
+    (`<Dockerfile>.dockerignore`). Nhưng nhân bản một tệp quy tắc ra bốn chỗ là mời trôi, và ở đây
+    trôi không chỉ tốn dung lượng: khối `.env` trong đó là bản vá của sự cố `ai/.env` (chứa
+    `LLM_API_KEY` thật) bị nướng vào ảnh. Bản sao thiếu khối đó thì sự cố quay lại y nguyên.
+    """
+
+    GOC = REPO_ROOT / ".dockerignore"
+    BAN_SAO = (
+        REPO_ROOT / "frontend" / "Dockerfile.dockerignore",
+        REPO_ROOT / "backend-java" / "Dockerfile.dockerignore",
+        REPO_ROOT / "ai" / "Dockerfile.dockerignore",
+    )
+
+    def test_moi_dockerfile_dung_compose_deu_co_ban_sao(self):
+        for path in self.BAN_SAO:
+            self.assertTrue(
+                path.exists(),
+                f"thiếu {path.relative_to(REPO_ROOT)} — `docker compose build` sẽ gửi cả "
+                f"node_modules và mọi tệp .env vào build context",
+            )
+
+    def test_ban_sao_khong_duoc_lech_ban_goc(self):
+        goc = [d for d in self.GOC.read_text(encoding="utf-8").splitlines() if d.strip()]
+        for path in self.BAN_SAO:
+            # Bỏ phần chú thích đầu tệp của bản sao: nó giải thích vì sao có bản sao, không phải
+            # quy tắc. So phần QUY TẮC, và so cả thứ tự — thứ tự đổi thì phủ định `!...` đổi nghĩa.
+            sao = [d for d in path.read_text(encoding="utf-8").splitlines() if d.strip()]
+            self.assertEqual(
+                sao[-len(goc):], goc,
+                f"{path.relative_to(REPO_ROOT)} lệch khỏi .dockerignore ở gốc — chạy lại việc "
+                f"nhân bản thay vì sửa tay một bên",
+            )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
