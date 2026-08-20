@@ -16,7 +16,7 @@
 
 ## Workflow và cổng chặn — SINH TỪ CẤU HÌNH
 
-**10 workflow**, **14 cổng `--check`** trong CI.
+**10 workflow**, **13 cổng `--check`** trong CI.
 
 | Workflow | Kích hoạt bởi |
 |---|---|
@@ -24,9 +24,9 @@
 | `ci-java.yml` | pull_request, push |
 | `ci.yml` | pull_request, push, workflow_dispatch, workflow_call |
 | `dependency-review.yml` | pull_request |
-| `deploy-production.yml` | push, workflow_dispatch |
-| `deploy-staging.yml` | push, workflow_dispatch |
-| `promote-production.yml` | workflow_dispatch, workflow_run |
+| `deploy-production.yml` | workflow_dispatch |
+| `deploy-staging.yml` | workflow_dispatch |
+| `promote-production.yml` | workflow_dispatch |
 | `recover-9router.yml` | workflow_dispatch |
 | `rollback.yml` | workflow_dispatch |
 | `security.yml` | pull_request, push, schedule, workflow_dispatch |
@@ -48,7 +48,6 @@ tệp dẫn xuất mà không chạy lại bộ sinh — lớp lỗi đã xảy 
 | `ai/scripts/build_retrieval_cases.py` |
 | `ai/scripts/build_session_scripts.py` |
 | `ai/scripts/build_tag_dictionary.py` |
-| `ai/scripts/build_tag_migration.py` |
 | `docs/build_api_inventory.py` |
 | `docs/build_docs_index.py` |
 | `docs/build_system_facts.py` |

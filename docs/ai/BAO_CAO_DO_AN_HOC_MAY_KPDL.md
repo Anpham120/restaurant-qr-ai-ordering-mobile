@@ -3605,7 +3605,7 @@ python ai/evaluation/run_llm_rag_eval.py
 **Bước 6 — cần CẢ STACK (docker compose) và mô hình thật**
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.java.yml up -d --build
 python ai/evaluation/wait_for_stack.py
 python ai/evaluation/run_golden_e2e.py
 ```

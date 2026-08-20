@@ -93,8 +93,14 @@ jobs:
       - name: Kiểm từ điển nhãn và thực đơn sinh lại được
         run: python ai/scripts/build_tag_dictionary.py --check
 
-      - name: Kiểm migration nhãn khớp thực đơn
-        run: python ai/scripts/build_tag_migration.py --check
+      # Bước `build_tag_migration.py --check` ĐÃ GỠ cùng backend .NET (#59): script đó sinh
+      # migration EF Core và cập nhật `RestaurantDbContextModelSnapshot.cs` — cả hai đều thuộc
+      # bản .NET, nên nó không còn đích để ghi.
+      #
+      # Bất biến "hai nguồn nhãn phải khớp" KHÔNG mất: `menuTagDictionary.test.ts` so tệp
+      # `data/menu-dataset.json` với seed Flyway V2 của bản Java, và nó đã được chuyển đầu sang
+      # đó ở cùng PR này. Thứ còn thiếu là bản Flyway của việc CẤP NHẬT nhãn cho cơ sở dữ liệu
+      # ĐANG CHẠY — ghi thành issue riêng, không giấu.
 
       # Kho tri thức có 8/24 chủ đề tính từ thực đơn, nên nó phải sinh lại được — nếu
       # thực đơn đổi mà tri thức không đổi theo thì con số trong câu trả lời sẽ sai.

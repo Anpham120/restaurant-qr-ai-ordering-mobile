@@ -10,9 +10,15 @@ function read(relativePath: string): string {
 
 describe("table invoice payment realtime", () => {
   it("backend emits tableInvoice.paymentConfirmed on staff confirm", () => {
-    const endpoints = read("../../backend/src/RestaurantQrAiOrdering.Api/Tables/TableInvoiceEndpoints.cs");
-    expect(endpoints).toContain("TableInvoicePaymentConfirmedAsync");
-    const contracts = read("../../backend/src/RestaurantQrAiOrdering.Api/Realtime/OrderRealtimeContracts.cs");
+    // Đầu kia của bất biến chuyển từ .NET sang Java (#59). Vẫn là hai tệp: nơi PHÁT sự kiện, và
+    // nơi ĐỊNH NGHĨA tên sự kiện — tách ra vì một tệp có tên mà không ai phát thì cũng vô dụng.
+    const service = read(
+      "../../backend-java/src/main/java/com/cmc/restaurant/tables/TableInvoicePaymentService.java",
+    );
+    expect(service).toContain("tableInvoicePaymentConfirmed");
+    const contracts = read(
+      "../../backend-java/src/main/java/com/cmc/restaurant/realtime/RealtimeDtos.java",
+    );
     expect(contracts).toContain("tableInvoice.paymentConfirmed");
   });
 

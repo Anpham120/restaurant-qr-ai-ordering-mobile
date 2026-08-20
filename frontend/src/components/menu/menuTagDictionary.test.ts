@@ -113,9 +113,12 @@ describe("từ điển nhãn thực đơn", () => {
     // liệu 1,7 nhãn/món (khách thấy qua /api/menu), tệp JSON 15 nhãn/món (AI dùng) —
     // suốt nhiều tháng, vì chưa từng có gì so chúng với nhau. AI vì thế suy luận trên
     // dữ liệu dày gấp gần chín lần thứ khách thật nhìn thấy.
+    // Nguồn phía cơ sở dữ liệu chuyển từ `RestaurantMenuSeed.cs` sang migration Flyway (#59).
+    // Vẫn là đúng dữ liệu đó — bản Java seed bằng SQL thay vì bằng mã C#, nên chỉ bộ phân tích
+    // đổi, còn phép so thì không.
     const seedPath = fileURLToPath(
       new URL(
-        "../backend/src/RestaurantQrAiOrdering.Api/Data/RestaurantMenuSeed.cs",
+        "../backend-java/src/main/resources/db/migration/V2__seed_official_menu_and_tables.sql",
         frontendRoot,
       ),
     );
@@ -127,11 +130,16 @@ describe("từ điển nhãn thực đơn", () => {
     const seedTags = new Map<string, string[]>();
     const seedCategory = new Map<string, string>();
     const seedPrice = new Map<string, number>();
+    // INSERT INTO public.menu_items (...) VALUES ('m_004', 'cat_appetizer', 'Tên món',
+    //   'mô tả', 55000.00, '/menu-images/...', true, '{tag:a,tag:b}', ...);
+    //
+    // Nhãn là mảng Postgres `'{a:b,c:d}'` chứ không phải danh sách chuỗi có nháy như bản C#.
     const itemPattern =
-      /Item\(\d+,\s*"([^"]+)",\s*"([^"]+)",\s*(\d+),\s*"[^"]*",\s*"[^"]+",\s*seededAt,\s*\[([^\]]*)\]\)/g;
+      /INSERT INTO public\.menu_items[^;]*?VALUES \('[^']+', '([^']+)', '((?:[^']|'')+)', '(?:[^']|'')*', (\d+)\.\d+, '[^']*', \w+, '\{([^}]*)\}'/g;
     for (const match of seed.matchAll(itemPattern)) {
-      const name = match[2]!;
-      const tags = [...match[4]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+      // SQL thoát dấu nháy đơn bằng cách nhân đôi; trả lại dạng người đọc để so với JSON.
+      const name = match[2]!.replace(/''/g, "'");
+      const tags = match[4]!.length === 0 ? [] : match[4]!.split(",");
       seedTags.set(name, tags.sort());
       seedCategory.set(name, match[1]!);
       seedPrice.set(name, Number(match[3]));

@@ -1,6 +1,0 @@
-@RestaurantQrAiOrdering.Api_HostAddress = http://localhost:5084
-
-GET {{RestaurantQrAiOrdering.Api_HostAddress}}/api/health
-Accept: application/json
-
-###

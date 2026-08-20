@@ -578,7 +578,7 @@ def main(argv: list[str] | None = None) -> int:
             f"({', '.join(can_gio)}), và bước đó cần một phiên bàn.\n\n"
             "  Chỉ cần MỘT mã, và dùng lại được qua nhiều lần chạy: giỏ hàng chỉ nhận `menuItemId`\n"
             "  cộng `delta`, không phụ thuộc bộ nhớ chat của bàn.\n\n"
-            "    docker compose -f deploy/docker-compose.yml exec -T postgres \\\n"
+            "    docker compose -f deploy/docker-compose.java.yml exec -T postgres \\\n"
             "      psql -U restaurant_user -d restaurant_qr -t -A \\\n"
             "      -c \"select qr_token from restaurant_tables order by table_code limit 1;\"\n\n"
             "    export GOLDEN_QR_TOKEN=<mã>"
@@ -625,7 +625,7 @@ def main(argv: list[str] | None = None) -> int:
         except KhongGoiDuocStack as e:
             print(f"KHÔNG GỌI ĐƯỢC STACK: {e}")
             print("\n  Dựng stack rồi chạy lại:")
-            print("    docker compose -f deploy/docker-compose.yml up -d")
+            print("    docker compose -f deploy/docker-compose.java.yml up -d")
             return 2
 
         duong = hoi_thoai.get("transport", "post")

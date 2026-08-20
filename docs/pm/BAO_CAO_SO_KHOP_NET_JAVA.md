@@ -3,6 +3,28 @@
 > Issue #15 (M5). Đo ngày 2026-08-18, trên cùng một máy, hai stack chạy **song song** trên cùng một
 > mạng Docker, mỗi bên một PostgreSQL **riêng biệt**.
 
+> ## ⚠ TÀI LIỆU LỊCH SỬ — KHÔNG TÁI LẬP ĐƯỢC (từ 2026-08-20, #59)
+>
+> Thư mục `backend/` (ASP.NET Core) **đã bị xoá khỏi kho**. Nghĩa là mọi phép đo trong tài liệu này
+> **không chạy lại được** nữa: không còn một bản .NET để dựng lên mà so.
+>
+> Điều đó **không** làm số liệu ở đây kém giá trị hơn — chúng được đo thật, trên hai stack thật, và
+> chính chúng là căn cứ để dám xoá bản .NET. Nhưng nó đổi *cách đọc* tài liệu: đây là **bằng chứng
+> đã niêm phong**, không phải một bộ kiểm có thể chạy lại. Ai muốn tái lập phải checkout một commit
+> trước `#59` — commit cuối còn `backend/` là `a44854e` (merge của #108).
+>
+> Việc xoá là có chủ đích và có thứ tự: 85 endpoint đã port và đối chiếu 1:1 (#88), CI đã chuyển
+> sang stack Java và `golden-e2e` 103/103 trên đó (#58), rồi mới xoá. Không phải ngược lại.
+>
+> Những bất biến mà bản .NET từng canh **đã được chuyển đầu sang Java trước khi xoá**, không bỏ:
+>
+> | Bất biến | Trước ở | Nay ở |
+> |---|---|---|
+> | dịch vụ AI phải hết hạn trước backend | `DeploymentConfigurationTests.cs` | `DeploymentConfigurationTest.java` (#58) |
+> | tên sự kiện realtime hoá đơn bàn | `OrderRealtimeContracts.cs` | `RealtimeDtos.java` |
+> | nhãn thực đơn: CSDL vs tệp AI | `RestaurantMenuSeed.cs` | `V2__seed_official_menu_and_tables.sql` |
+> | phủ i18n theo seed | `RestaurantMenuSeed.cs` | `V2__seed_official_menu_and_tables.sql` |
+
 ## 0. Báo cáo này trả lời câu hỏi gì — và không trả lời câu hỏi gì
 
 **Bối cảnh:** việc chuyển backend sang Java Spring Boot là **yêu cầu của môn Lập trình nâng cao**
