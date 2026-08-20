@@ -3,6 +3,7 @@ import type { Promotion, PromotionRequest, PromotionType } from "@cmc/shared-typ
 import { api } from "../../services/apiClient";
 import { Tags, X } from "lucide-react";
 import "../../components/operations/operations.css";
+import { useOpsConfirm } from "../../components/operations/OpsConfirmProvider";
 
 const EMPTY: PromotionRequest = {
   code: "",
@@ -24,6 +25,7 @@ function formatVnd(value: number | null): string {
 }
 
 export function AdminPromotionsPage() {
+  const confirm = useOpsConfirm();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -116,7 +118,12 @@ export function AdminPromotionsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Xóa khuyến mãi này?")) return;
+    if (!(await confirm({
+      title: "Xoá khuyến mãi này?",
+      message: "Mã đang phát cho khách sẽ ngừng áp dụng ngay.",
+      confirmLabel: "Xoá khuyến mãi",
+      danger: true,
+    }))) return;
     try {
       await api.promotions.delete(id);
       setNotice("Đã xóa khuyến mãi.");

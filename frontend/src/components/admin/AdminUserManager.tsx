@@ -5,6 +5,7 @@ import { ApiError } from "@cmc/api-client";
 import { Eye, EyeOff, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { api } from "../../services/apiClient";
 import "../operations/operations.css";
+import { useOpsConfirm } from "../operations/OpsConfirmProvider";
 
 const ASSIGNABLE_ROLES: UserRole[] = ["Admin", "CounterStaff", "Kitchen"];
 
@@ -82,6 +83,7 @@ function OpsPasswordInput({ id, label, value, onChange, autoComplete = "new-pass
 }
 
 export function AdminUserManager() {
+  const confirm = useOpsConfirm();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -200,7 +202,13 @@ export function AdminUserManager() {
   }
 
   async function handleDelete(user: UserSummary) {
-    if (!window.confirm(`Xóa tài khoản ${user.email}? Thao tác này không thể hoàn tác.`)) return;
+    if (!(await confirm({
+      title: "Xoá tài khoản này?",
+      message: `${user.email} sẽ mất quyền đăng nhập ngay. Thao tác này không hoàn tác được.`,
+      confirmLabel: "Xoá tài khoản",
+      danger: true,
+      requireText: user.email,
+    }))) return;
     setDeletingId(user.userId);
     setNotice("");
     try {

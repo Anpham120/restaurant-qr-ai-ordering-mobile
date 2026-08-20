@@ -16,6 +16,7 @@ import { api } from "../../services/apiClient";
 import { ClipboardList, Utensils, X } from "lucide-react";
 import "../operations/operations.css";
 import "./admin-menu-cards.css";
+import { useOpsConfirm } from "../operations/OpsConfirmProvider";
 
 const formatVnd = (v: number) => v.toLocaleString("vi-VN") + "đ";
 
@@ -50,6 +51,7 @@ const EMPTY_FORM: AdminMenuItemPayload = {
 };
 
 export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
+  const confirm = useOpsConfirm();
   const [items, setItems] = useState<AdminMenuItem[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +59,9 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
+  // Chọn theo ID chứ không theo chỉ số: danh sách được LỌC bằng ô tìm kiếm, nên chỉ số đổi nghĩa
+  // ngay khi người dùng gõ thêm một chữ — và thao tác hàng loạt sẽ chạy trên nhầm món.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AdminMenuItemPayload>(EMPTY_FORM);
@@ -158,7 +163,12 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Xóa món này?")) return;
+    if (!(await confirm({
+      title: "Xoá món này?",
+      message: "Món sẽ biến mất khỏi thực đơn khách đang xem.",
+      confirmLabel: "Xoá món",
+      danger: true,
+    }))) return;
     try {
       await deleteAdminMenuItem(id);
       setNotice("Đã xóa.");
@@ -166,6 +176,67 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
     } catch (err) {
       setNotice(describeSaveError(err, "Xóa thất bại."));
     }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  /** Danh sách ĐANG HIỆN, để "chọn tất cả" không lặng lẽ chọn cả những món bộ lọc đang giấu. */
+  const selectedVisible = filtered.filter((item) => selected.has(item.id));
+
+  async function handleBulkAvailability(available: boolean) {
+    const muc = selectedVisible;
+    if (muc.length === 0) return;
+    if (!(await confirm({
+      title: available ? `Bật bán ${muc.length} món?` : `Ngừng bán ${muc.length} món?`,
+      message: available
+        ? "Khách sẽ thấy lại những món này trên thực đơn ngay."
+        : "Những món này biến khỏi thực đơn khách đang xem ngay lập tức.",
+      confirmLabel: available ? "Bật bán" : "Ngừng bán",
+      danger: !available,
+    }))) return;
+
+    // `allSettled` cùng lý do với bulk move của bếp (#20): với `all`, một món hỏng sẽ ném ngay
+    // trong khi những món khác vẫn đang chạy và phần lớn thành công — rồi giao diện báo thất bại
+    // cho một thao tác đã làm được gần hết.
+    const ketQua = await Promise.allSettled(
+      muc.map((item) => setAdminMenuItemAvailability(item.id, available)),
+    );
+    const hong = ketQua.filter((r) => r.status === "rejected").length;
+    const xongIds = new Set(muc.filter((_, i) => ketQua[i].status === "fulfilled").map((m) => m.id));
+    setItems((prev) => prev.map((i) => (xongIds.has(i.id) ? { ...i, isAvailable: available } : i)));
+    setSelected(new Set());
+    setNotice(hong === 0
+      ? `Đã cập nhật ${xongIds.size} món.`
+      : `${xongIds.size}/${muc.length} món cập nhật được, ${hong} món lỗi.`);
+  }
+
+  async function handleBulkDelete() {
+    const muc = selectedVisible;
+    if (muc.length === 0) return;
+    if (!(await confirm({
+      title: `Xoá ${muc.length} món?`,
+      message: "Những món này biến mất khỏi thực đơn và không khôi phục được.",
+      confirmLabel: "Xoá",
+      danger: true,
+      // Gõ số lượng để xác nhận: xoá hàng loạt là thao tác dễ bấm nhầm nhất trên màn hình này,
+      // và bắt gõ lại con số buộc người dùng đọc xem mình đang xoá bao nhiêu món.
+      requireText: String(muc.length),
+    }))) return;
+
+    const ketQua = await Promise.allSettled(muc.map((item) => deleteAdminMenuItem(item.id)));
+    const hong = ketQua.filter((r) => r.status === "rejected").length;
+    const xongIds = new Set(muc.filter((_, i) => ketQua[i].status === "fulfilled").map((m) => m.id));
+    setItems((prev) => prev.filter((i) => !xongIds.has(i.id)));
+    setSelected(new Set());
+    setNotice(hong === 0
+      ? `Đã xoá ${xongIds.size} món.`
+      : `${xongIds.size}/${muc.length} món xoá được, ${hong} món lỗi.`);
   }
 
   async function handleToggle(id: string, available: boolean) {
@@ -298,12 +369,55 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : null}
 
+      {selectedVisible.length > 0 ? (
+        <div className="ops-notice ops-notice--info amm-bulkbar">
+          <strong>Đã chọn {selectedVisible.length} món</strong>
+          <div className="ops-inline-actions">
+            <button className="ops-btn ops-btn--sm" type="button" onClick={() => void handleBulkAvailability(true)}>
+              Bật bán
+            </button>
+            <button className="ops-btn ops-btn--sm" type="button" onClick={() => void handleBulkAvailability(false)}>
+              Ngừng bán
+            </button>
+            <button className="ops-btn ops-btn--danger ops-btn--sm" type="button" onClick={() => void handleBulkDelete()}>
+              Xoá
+            </button>
+            <button className="ops-btn ops-btn--ghost ops-btn--sm" type="button" onClick={() => setSelected(new Set())}>
+              Bỏ chọn
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {filtered.length > 0 ? (
+        <label className="amm-selectall">
+          <input
+            type="checkbox"
+            checked={selectedVisible.length === filtered.length}
+            onChange={(e) =>
+              setSelected(e.target.checked ? new Set(filtered.map((i) => i.id)) : new Set())
+            }
+          />
+          {/* Nói rõ "đang hiện": nếu bộ lọc đang bật thì đây KHÔNG phải toàn bộ thực đơn, và một
+              thao tác hàng loạt tưởng là trên 91 món mà thật ra trên 6 món là chuyện khác hẳn. */}
+          Chọn tất cả {filtered.length} món đang hiện
+        </label>
+      ) : null}
+
       {/* Lưới thẻ món cùng bố cục với trang thực đơn khách hàng. */}
       <div className="amm-grid">
         {filtered.map((item, index) => {
           const imageUrl = toDisplayImageUrl(resolveMenuImage(item.name, item.imageUrl, index));
           return (
             <article key={item.id} className={`amm-card${item.isAvailable ? "" : " is-off"}`}>
+              <label className="amm-select" title={`Chọn ${item.name}`}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.id)}
+                  onChange={() => toggleSelected(item.id)}
+                />
+                <span className="sr-only">Chọn {item.name}</span>
+              </label>
               <div className="amm-image-wrap">
                 {imageUrl ? (
                   <img className="amm-image" src={imageUrl} alt={item.name} loading="lazy" />

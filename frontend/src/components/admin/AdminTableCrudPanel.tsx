@@ -4,6 +4,7 @@ import { ApiError } from "@cmc/api-client";
 import { api } from "../../services/apiClient";
 import { Plus, RefreshCw } from "lucide-react";
 import "../operations/operations.css";
+import { useOpsConfirm } from "../operations/OpsConfirmProvider";
 
 type TableForm = {
   tableCode: string;
@@ -29,6 +30,7 @@ function translateError(error: unknown, fallback: string) {
 }
 
 export function AdminTableCrudPanel() {
+  const confirm = useOpsConfirm();
   const [tables, setTables] = useState<AdminTable[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +116,13 @@ export function AdminTableCrudPanel() {
   }
 
   async function handleRotateQr(table: AdminTable) {
-    if (!confirm(`Tạo lại QR cho bàn ${table.tableCode}? Link cũ sẽ không còn hiệu lực.`)) return;
+    if (!(await confirm({
+      title: `Tạo lại QR cho bàn ${table.tableCode}?`,
+      message: "Mã QR đang dán trên bàn sẽ ngừng hoạt động ngay. Phải in và dán mã mới.",
+      confirmLabel: "Tạo mã mới",
+      danger: true,
+      requireText: table.tableCode,
+    }))) return;
     setBusyCode(table.tableCode);
     setNotice("");
     try {

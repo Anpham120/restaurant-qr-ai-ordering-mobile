@@ -14,8 +14,10 @@ import { useOpsAssistance } from "../operations/OpsAssistanceProvider";
 import { Armchair } from "lucide-react";
 import "../operations/operations.css";
 import "./floor-map.css";
+import { useOpsConfirm } from "../operations/OpsConfirmProvider";
 
 export function AdminTableSessionMonitor({ embedded = false }: { embedded?: boolean }) {
+  const confirm = useOpsConfirm();
   const [searchParams] = useSearchParams();
   const { recentAssistance } = useOpsAssistance();
   const [tables, setTables] = useState<AdminTable[]>([]);
@@ -84,7 +86,12 @@ export function AdminTableSessionMonitor({ embedded = false }: { embedded?: bool
   }, [rows, searchParams]);
 
   async function handleCloseSession(sessionId: string, tableCode: string) {
-    if (!confirm(`Đóng phiên bàn ${tableCode}? Khách sẽ phải quét QR lại để đặt món.`)) return;
+    if (!(await confirm({
+      title: `Đóng phiên bàn ${tableCode}?`,
+      message: "Khách đang ngồi sẽ phải quét QR lại để đặt tiếp.",
+      confirmLabel: "Đóng phiên",
+      danger: true,
+    }))) return;
     setClosingId(sessionId);
     try {
       await api.tables.closeSession(sessionId);
