@@ -1,0 +1,81 @@
+# CI cho ứng dụng Flutter (fork cá nhân — môn Lập trình ứng dụng di động, §9).
+#
+# File MỚI, cố ý không đụng `ci.yml` gốc: workflow đó đang phục vụ điểm môn INFO2005 của 4 người
+# khác (§8.1).
+name: ci-mobile
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/ci-mobile.yml'
+  # KHÔNG lọc `paths` cho `pull_request`, cùng lý do đã ghi ở `ci-java.yml`: nếu sau này
+  # `mobile-build` được đặt làm required check, một PR không đụng `mobile/` sẽ treo PENDING
+  # vĩnh viễn vì GitHub coi check bắt buộc không chạy là chưa xong, không phải là bỏ qua.
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mobile-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHIM PHIÊN BẢN, không dùng `channel: stable`.
+      #
+      # Lý do là một lần đỏ thật ở PR #125, không phải đề phòng lý thuyết. Bốn gói `matcher`,
+      # `meta`, `test_api`, `vector_math` KHÔNG đến từ pub.dev — chính SDK Flutter ghim chúng.
+      # Nên khi `stable` nhích từ 3.44.0 (bản sinh ra lockfile) lên 3.47.1, bước sau đỏ ngay:
+      #
+      #     Unable to satisfy `pubspec.yaml` using `pubspec.lock`.
+      #     > vector_math 2.4.2 (was 2.2.0)
+      #
+      # `channel: stable` là mục tiêu DI ĐỘNG, còn `--enforce-lockfile` đòi mục tiêu cố định —
+      # hai thứ không thể cùng đúng. Bỏ `--enforce-lockfile` sẽ làm CI xanh trở lại nhưng biến
+      # lockfile thành đồ trang trí: mỗi lần chạy có thể giải ra phiên bản khác mà không ai đổi
+      # một dòng nào trong repo.
+      #
+      # Ghim ở đây nghĩa là nâng Flutter trở thành MỘT COMMIT CÓ CHỦ Ý sửa cả hai nơi cùng lúc.
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Phải khớp SDK đã sinh `mobile/pubspec.lock`. Đổi số này thì chạy lại
+          # `flutter pub get` và commit lockfile mới trong cùng commit.
+          flutter-version: 3.47.1
+          channel: stable
+          cache: true
+
+      # `pubspec.lock` được commit (đây là ứng dụng, không phải thư viện). `--enforce-lockfile`
+      # bắt CI dùng ĐÚNG các phiên bản trong lock thay vì tự giải lại phụ thuộc.
+      #
+      # Không có cờ này thì một bản vá của thư viện bên thứ ba có thể làm CI đỏ (hoặc tệ hơn:
+      # xanh với mã khác) mà không ai đổi một dòng nào trong repo — và cổng chặn xanh hôm nay
+      # không nói được gì về bản build ngày mai.
+      - name: Cài phụ thuộc đúng theo lockfile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Kiểm định dạng mã
+        run: dart format --output=none --set-exit-if-changed .
+
+      # `--fatal-infos`: mức `info` của Dart bao gồm cả cảnh báo lint thật (biến không dùng,
+      # await bị quên). Để mặc định thì chúng chỉ in ra rồi trôi qua, và cổng này thành trang trí.
+      - name: Phân tích tĩnh
+        run: flutter analyze --fatal-infos
+
+      - name: Chạy test
+        run: flutter test
+
+      # Build APK debug — đủ để chứng minh mã biên dịch được cho Android thật. Không build
+      # release: cần khoá ký, và khoá ký không được nằm trong repo.
+      - name: Build APK (debug)
+        run: flutter build apk --debug

@@ -1,0 +1,17 @@
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Token nằm trong các lớp này. `avoid_print` bật để không ai vô tình `print(session)` —
+    # log của Flutter đi thẳng vào logcat, nơi mọi app khác trên máy đọc được (Android < 4.1)
+    # hoặc `adb logcat` đọc được bất cứ lúc nào.
+    avoid_print: true
