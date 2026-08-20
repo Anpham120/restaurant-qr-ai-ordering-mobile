@@ -59,14 +59,20 @@ export function AdminTableCrudPanel() {
     event.preventDefault();
     setNotice("");
     try {
-      await api.tables.createAdmin({
+      const created = await api.tables.createAdmin({
         tableCode: form.tableCode.trim() || null,
         displayName: form.displayName.trim(),
       });
+      // Chèn theo THỨ TỰ chứ không nối vào cuối: máy chủ trả danh sách sắp theo mã bàn
+      // (`findAllByOrderByTableCodeAsc`), nên nối vào cuối sẽ khiến bàn mới nhảy chỗ ngay lần tải
+      // sau — người dùng thấy nó "tự di chuyển" mà không hiểu vì sao.
+      //
+      // Máy chủ tự sinh mã bàn khi để trống, nên `created.tableCode` là thứ duy nhất đáng tin để
+      // sắp — không dùng được giá trị trong form.
+      setTables((prev) => [...prev, created].sort((a, b) => a.tableCode.localeCompare(b.tableCode)));
       setShowForm(false);
       setForm(EMPTY_FORM);
       setNotice("Đã thêm bàn mới.");
-      await load();
     } catch (err) {
       setNotice(translateError(err, "Không thêm được bàn."));
     }
@@ -76,10 +82,16 @@ export function AdminTableCrudPanel() {
     setBusyCode(tableCode);
     setNotice("");
     try {
-      await api.tables.updateAdmin(tableCode, { displayName: editName.trim() });
+      // Vá bằng CHÍNH phản hồi của máy chủ thay vì gọi lại `load()`.
+      //
+      // `load()` kéo lại toàn bộ danh sách bàn cho một lần sửa tên: bảng nhấp nháy, và trong lúc
+      // đó người dùng nhìn dữ liệu cũ. Endpoint đã trả về `AdminTable` sau khi sửa, nên dùng nó
+      // vừa nhanh hơn vừa CHÍNH XÁC hơn việc tự dựng lại đối tượng từ giá trị vừa gõ — máy chủ có
+      // thể chuẩn hoá tên, và `updatedAt` chỉ nó mới biết.
+      const updated = await api.tables.updateAdmin(tableCode, { displayName: editName.trim() });
+      setTables((prev) => prev.map((t) => (t.tableCode === tableCode ? updated : t)));
       setEditingCode(null);
       setNotice(`Đã cập nhật bàn ${tableCode}.`);
-      await load();
     } catch (err) {
       setNotice(translateError(err, "Không cập nhật được bàn."));
     } finally {
@@ -91,9 +103,9 @@ export function AdminTableCrudPanel() {
     setBusyCode(table.tableCode);
     setNotice("");
     try {
-      await api.tables.updateAdmin(table.tableCode, { isActive: !table.isActive });
+      const updated = await api.tables.updateAdmin(table.tableCode, { isActive: !table.isActive });
+      setTables((prev) => prev.map((t) => (t.tableCode === table.tableCode ? updated : t)));
       setNotice(table.isActive ? `Đã tắt bàn ${table.tableCode}.` : `Đã bật lại bàn ${table.tableCode}.`);
-      await load();
     } catch (err) {
       setNotice(translateError(err, "Không đổi trạng thái bàn."));
     } finally {
@@ -106,9 +118,11 @@ export function AdminTableCrudPanel() {
     setBusyCode(table.tableCode);
     setNotice("");
     try {
-      await api.tables.rotateQr(table.tableCode);
+      // Ở đây phản hồi là BẮT BUỘC chứ không chỉ tiện: mã QR mới do máy chủ sinh, giao diện
+      // không có cách nào tự biết. Đoán rồi hiển thị sẽ cho nhân viên một mã QR sai để dán lên bàn.
+      const updated = await api.tables.rotateQr(table.tableCode);
+      setTables((prev) => prev.map((t) => (t.tableCode === table.tableCode ? updated : t)));
       setNotice(`Đã tạo lại QR cho bàn ${table.tableCode}.`);
-      await load();
     } catch (err) {
       setNotice(translateError(err, "Không tạo lại được QR."));
     } finally {

@@ -169,22 +169,29 @@ export function AdminUserManager() {
     setNotice("");
     try {
       if (editingUser) {
-        await api.users.update(editingUser.userId, {
+        // Vá bằng phản hồi của máy chủ thay vì `load()`: một lần sửa tên không đáng kéo lại cả
+        // danh sách tài khoản, và trong lúc kéo thì bảng hiện dữ liệu cũ.
+        const updated = await api.users.update(editingUser.userId, {
           fullName: form.fullName.trim(),
           email: form.email.trim(),
           role: form.role,
         });
+        setUsers((prev) => prev.map((u) => (u.userId === updated.userId ? updated : u)));
         setNotice(`Đã cập nhật tài khoản ${form.email.trim()}.`);
       } else {
-        await api.users.create({
+        const created = await api.users.create({
           ...form,
           fullName: form.fullName.trim(),
           email: form.email.trim(),
         });
+        // Nối vào CUỐI, và đây là chỗ cần nói rõ: `GET /api/users` gọi `findAll()` KHÔNG có
+        // `ORDER BY`, nên thứ tự do Postgres quyết và không có vị trí nào là "đúng". Nối vào cuối
+        // không tệ hơn bất kỳ lựa chọn nào khác — nhưng nó cũng có nghĩa là danh sách có thể tự
+        // xáo lại giữa hai lần tải, và đó là chuyện của backend chứ không sửa được ở đây.
+        setUsers((prev) => [...prev, created]);
         setNotice(`Đã tạo tài khoản ${ROLE_LABELS[form.role] ?? form.role} cho ${form.email.trim()}.`);
       }
       closeForm();
-      await load();
     } catch (err) {
       setNotice(translateError(err, editingUser ? "Cập nhật tài khoản thất bại." : "Tạo tài khoản thất bại."));
     } finally {
@@ -198,8 +205,10 @@ export function AdminUserManager() {
     setNotice("");
     try {
       await api.users.delete(user.userId);
+      // `delete` trả về rỗng nên không có gì để vá vào — bỏ đúng dòng vừa xoá là đủ, và đó cũng là
+      // thứ duy nhất thay đổi.
+      setUsers((prev) => prev.filter((u) => u.userId !== user.userId));
       setNotice(`Đã xóa tài khoản ${user.email}.`);
-      await load();
     } catch (err) {
       setNotice(translateError(err, "Xóa tài khoản thất bại."));
     } finally {

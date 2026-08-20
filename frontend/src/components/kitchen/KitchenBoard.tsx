@@ -429,14 +429,28 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
       const eligibleItems = order.items.filter((item) =>
         plan.eligibleItemStatuses.some((status) => status === item.status),
       );
-      for (const item of eligibleItems) {
-        await updateOrderItemStatus(order.orderCode, item.orderItemId, plan.nextItemStatus);
-      }
 
-      if (plan.nextItemStatus === "Preparing") {
-        setNotice(`${order.orderCode}: đã bắt đầu nấu ${eligibleItems.length} món`);
+      // SONG SONG, không tuần tự. Bản trước dùng `for ... await`, nên một đơn 6 món là 6 lượt gọi
+      // nối đuôi nhau — bếp bấm một nút rồi đứng nhìn. Thứ tự giữa các món không mang ý nghĩa gì
+      // (mỗi món là một dòng độc lập), nên chờ lần lượt là chờ vô ích.
+      //
+      // `allSettled` chứ không `all`: với `all`, một món hỏng sẽ ném ngay trong khi những món khác
+      // VẪN ĐANG CHẠY và phần lớn sẽ thành công — rồi giao diện báo "Cập nhật thất bại" cho một
+      // thao tác đã làm được 5/6. Nói sai như thế khiến bếp bấm lại và làm rối trạng thái.
+      const ketQua = await Promise.allSettled(
+        eligibleItems.map((item) =>
+          updateOrderItemStatus(order.orderCode, item.orderItemId, plan.nextItemStatus),
+        ),
+      );
+      const hong = ketQua.filter((r) => r.status === "rejected").length;
+      const xong = eligibleItems.length - hong;
+
+      if (hong > 0) {
+        setNotice(`${order.orderCode}: ${xong}/${eligibleItems.length} món cập nhật được, ${hong} món lỗi.`);
+      } else if (plan.nextItemStatus === "Preparing") {
+        setNotice(`${order.orderCode}: đã bắt đầu nấu ${xong} món`);
       } else {
-        setNotice(`${order.orderCode}: ${eligibleItems.length} món đã sẵn sàng`);
+        setNotice(`${order.orderCode}: ${xong} món đã sẵn sàng`);
       }
     } catch {
       setNotice("Cập nhật thất bại. Thử lại.");
