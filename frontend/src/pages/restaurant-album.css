@@ -17,7 +17,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(90, 58, 48, 0.5) 0%, rgba(90, 58, 48, 0.82) 100%),
-    url('/album-images/02-khong-gian-tang-1.png') center / cover no-repeat;
+    url('/album-images/02-khong-gian-tang-1.webp') center / cover no-repeat;
   filter: grayscale(0.25) contrast(0.92);
 }
 

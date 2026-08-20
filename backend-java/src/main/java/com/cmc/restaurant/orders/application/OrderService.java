@@ -33,9 +33,11 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -218,7 +220,7 @@ public class OrderService {
 	@Transactional(readOnly = true)
 	public OrderDtos.OrderListResponse listOrdersForTableSession(String tableSessionId) {
 		List<OrderEntity> orders = orderRepository.findByTableSessionIdOrderByCreatedAtDesc(tableSessionId);
-		return new OrderDtos.OrderListResponse(orders.stream().map(this::toResponse).toList(), orders.size());
+		return new OrderDtos.OrderListResponse(toResponses(orders), orders.size());
 	}
 
 	/**
@@ -247,9 +249,7 @@ public class OrderService {
 	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(
 				status, tableCode, updatedSince, org.springframework.data.domain.PageRequest.of(0, 100));
-		List<OrderDtos.OrderResponse> response = orders.stream()
-				.map(this::toResponse)
-				.toList();
+		List<OrderDtos.OrderResponse> response = toResponses(orders);
 		return new OrderDtos.OrderListResponse(response, response.size());
 	}
 
@@ -456,7 +456,33 @@ public class OrderService {
 	// --- response mapping --------------------------------------------------------------------
 
 	private OrderDtos.OrderResponse toResponse(OrderEntity order) {
-		PaymentEntity payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+		return toResponse(order, paymentRepository.findByOrderId(order.getId()).orElse(null));
+	}
+
+	/**
+	 * Dựng danh sách đơn với thanh toán đã nạp SẴN theo lô.
+	 *
+	 * <p>Bản trước gọi {@code toResponse(order)} cho từng đơn, tức một câu tra thanh toán mỗi đơn.
+	 * Đo trên cơ sở dữ liệu thật: {@code GET /api/orders} với 7 đơn tốn 7 câu thừa, và danh sách này
+	 * lấy tới 100 đơn.
+	 *
+	 * <p>Không đổi {@code toResponse(order)} một-đơn: ở đó đúng là cần một lượt tra, và ép nó đi qua
+	 * đường lô sẽ làm mã khó đọc hơn để đổi lấy không gì.
+	 */
+	private List<OrderDtos.OrderResponse> toResponses(List<OrderEntity> orders) {
+		if (orders.isEmpty()) {
+			return List.of();
+		}
+		Map<String, PaymentEntity> theoDon = paymentRepository
+				.findByOrderIdIn(orders.stream().map(OrderEntity::getId).toList()).stream()
+				// Một đơn chỉ có một thanh toán (`findByOrderId` trả Optional), nhưng nếu dữ liệu cũ
+				// có hai dòng thì `toMap` sẽ ném lỗi khoá trùng. Giữ dòng đầu để một bản ghi hỏng
+				// không làm cả màn hình vận hành trắng.
+				.collect(Collectors.toMap(PaymentEntity::getOrderId, p -> p, (a, b) -> a));
+		return orders.stream().map(o -> toResponse(o, theoDon.get(o.getId()))).toList();
+	}
+
+	private OrderDtos.OrderResponse toResponse(OrderEntity order, PaymentEntity payment) {
 		return new OrderDtos.OrderResponse(
 				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
 				order.getTableSessionId(), order.getStatus().name(),

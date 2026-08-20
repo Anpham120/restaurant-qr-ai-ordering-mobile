@@ -41,12 +41,12 @@ bản Java **kém hơn**.
 | Endpoint | 85 |
 | Module | 13 — `auth`, `cart`, `chat`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`, `reports`, `shared`, `tables` |
 | Tệp nguồn `.java` | 185 |
-| Dòng mã nguồn | 13.406 |
+| Dòng mã nguồn | 13.463 |
 | Tệp test | 12 |
 | Dòng mã test | 1.372 |
 | Phương thức `@Test` | 91 |
 | Quy tắc ArchUnit | 3 |
-| Migration Flyway | 7 tệp, 1.520 dòng SQL |
+| Migration Flyway | 8 tệp, 1.537 dòng SQL |
 
 > Bảng này SINH TỪ MÃ (`docs/build_bao_cao_lap_trinh_nang_cao.py`), có cổng `--check` ở CI.
 > Quy tắc ArchUnit khai bằng trường `ArchRule` chứ không phải `@Test`, nên chúng KHÔNG nằm

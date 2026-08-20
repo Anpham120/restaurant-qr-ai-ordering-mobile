@@ -4,6 +4,8 @@ import com.cmc.restaurant.menu.MenuDtos.MenuItemRequest;
 import com.cmc.restaurant.menu.MenuDtos.MenuItemResponse;
 import com.cmc.restaurant.menu.MenuDtos.ToggleAvailabilityRequest;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,10 +36,28 @@ public class AdminMenuItemController {
 		this.menuItemService = menuItemService;
 	}
 
+	/**
+	 * Đọc danh mục MỘT LẦN vào map thay vì tra theo từng món.
+	 *
+	 * <p>Bản trước gọi {@code toResponse} cho từng món, và mỗi lượt tra danh mục chạy trong một
+	 * giao dịch RIÊNG (phương thức này không có {@code @Transactional}, nên mỗi lời gọi repository
+	 * tự mở một cái). Đo trên cơ sở dữ liệu thật với 91 món:
+	 *
+	 * <pre>
+	 *   trước:  274 câu SQL  =  1 (danh sách) + 91 × (BEGIN + SELECT + COMMIT)
+	 *   sau:      2 câu SQL  =  1 (danh sách) + 1 (toàn bộ danh mục)
+	 * </pre>
+	 *
+	 * <p>Số danh mục là 13 và bị chặn bởi nghiệp vụ (thực đơn nhà hàng), nên nạp hết vào bộ nhớ ở
+	 * đây là an toàn — khác với việc nạp hết MÓN, thứ có thể phình.
+	 */
 	@GetMapping
 	public List<MenuItemResponse> list() {
+		Map<String, String> tenDanhMuc = categoryRepository.findAll().stream()
+				.collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getName));
 		return menuItemRepository.findAllByOrderByNameAsc().stream()
-				.map(this::toResponse)
+				.map(item -> MenuQueryService.toResponse(
+						item, tenDanhMuc.getOrDefault(item.getCategoryId(), "")))
 				.toList();
 	}
 

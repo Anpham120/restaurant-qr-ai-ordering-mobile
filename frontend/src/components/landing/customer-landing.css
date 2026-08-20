@@ -640,7 +640,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(249, 244, 237, 0.92) 0%, rgba(249, 244, 237, 0.85) 50%, rgba(249, 244, 237, 0.92) 100%),
-    url('/album-images/03-goc-am-cung.png') center / cover no-repeat;
+    url('/album-images/03-goc-am-cung.webp') center / cover no-repeat;
   opacity: 0.6;
   pointer-events: none;
 }
@@ -913,7 +913,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(249, 244, 237, 0.93) 0%, rgba(249, 244, 237, 0.87) 50%, rgba(249, 244, 237, 0.93) 100%),
-    url('/album-images/01-ngoai-canh-nha-hang.png') center / cover no-repeat;
+    url('/album-images/01-ngoai-canh-nha-hang.webp') center / cover no-repeat;
   opacity: 0.5;
   pointer-events: none;
   z-index: 0;
@@ -994,7 +994,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(249, 244, 237, 0.93) 0%, rgba(249, 244, 237, 0.88) 50%, rgba(249, 244, 237, 0.93) 100%),
-    url('/album-images/02-khong-gian-tang-1.png') center / cover no-repeat;
+    url('/album-images/02-khong-gian-tang-1.webp') center / cover no-repeat;
   opacity: 0.5;
   pointer-events: none;
   z-index: 0;
@@ -1012,7 +1012,7 @@
 .landing-section.alt-bg::before {
   background:
     linear-gradient(180deg, rgba(237, 228, 213, 0.93) 0%, rgba(237, 228, 213, 0.88) 50%, rgba(237, 228, 213, 0.93) 100%),
-    url('/album-images/08-chi-tiet-trang-tri.png') center / cover no-repeat;
+    url('/album-images/08-chi-tiet-trang-tri.webp') center / cover no-repeat;
 }
 
 .landing-section-heading {
@@ -2796,7 +2796,7 @@
   inset: 0;
   background:
     linear-gradient(180deg, rgba(90, 58, 48, 0.85) 0%, rgba(61, 43, 31, 0.88) 100%),
-    url('/album-images/06-phong-vip.png') center / cover no-repeat;
+    url('/album-images/06-phong-vip.webp') center / cover no-repeat;
   z-index: 0;
 }
 
