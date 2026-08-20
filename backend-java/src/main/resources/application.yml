@@ -1,5 +1,15 @@
 server:
   port: ${BACKEND_JAVA_PORT:8081}
+  # Tin `X-Forwarded-*` khi chạy sau nginx — tương đương `app.UseForwardedHeaders()` của bản .NET.
+  #
+  # `deploy/scripts/write-nginx-config.sh` CÓ đặt `X-Forwarded-For` và `X-Forwarded-Proto`, nhưng
+  # Spring mặc định bỏ qua chúng. Không bật thì mọi yêu cầu đi qua proxy đều mang IP của nginx và
+  # scheme `http`, kể cả khi khách vào bằng https.
+  #
+  # Tác động ở hệ thống này HẸP, nói rõ để không ai tưởng đây là bản vá lớn: mọi header `Location`
+  # đều là URI tương đối và backend không đặt cookie nào, nên thứ thật sự sai là IP khách trong log.
+  # Vẫn đáng bật, vì log sai IP là thứ chỉ phát hiện được khi đang cần tra một sự cố.
+  forward-headers-strategy: framework
 
 spring:
   application:
