@@ -8,6 +8,7 @@ import type {
 import { api } from "../../services/apiClient";
 import { Star, X } from "lucide-react";
 import "../../components/operations/operations.css";
+import { useOpsConfirm } from "../../components/operations/OpsConfirmProvider";
 
 const EMPTY_MEMBER: LoyaltyMemberRequest = { phoneNumber: "", fullName: "", points: 0 };
 const EMPTY_REWARD: LoyaltyRewardRequest = { name: "", description: "", pointsRequired: 10, isActive: true };
@@ -17,6 +18,7 @@ function formatVnd(value: number): string {
 }
 
 export function AdminLoyaltyPage() {
+  const confirm = useOpsConfirm();
   const [members, setMembers] = useState<LoyaltyMember[]>([]);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +76,12 @@ export function AdminLoyaltyPage() {
   }
 
   async function deleteMember(id: string) {
-    if (!confirm("Xóa thành viên này?")) return;
+    if (!(await confirm({
+      title: "Xoá thành viên này?",
+      message: "Điểm tích luỹ của khách sẽ mất và không khôi phục được.",
+      confirmLabel: "Xoá thành viên",
+      danger: true,
+    }))) return;
     try {
       await api.loyalty.deleteMember(id);
       await load();
@@ -113,7 +120,12 @@ export function AdminLoyaltyPage() {
   }
 
   async function deleteReward(id: string) {
-    if (!confirm("Xóa phần thưởng này?")) return;
+    if (!(await confirm({
+      title: "Xoá phần thưởng này?",
+      message: "Khách sẽ không đổi điểm lấy phần thưởng này được nữa.",
+      confirmLabel: "Xoá phần thưởng",
+      danger: true,
+    }))) return;
     try {
       await api.loyalty.deleteReward(id);
       await load();

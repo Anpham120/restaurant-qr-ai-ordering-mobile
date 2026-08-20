@@ -1397,3 +1397,10 @@
     display: none;
   }
 }
+
+/* Hộp xác nhận dùng chung (#23) — thay `confirm()` của trình duyệt. */
+.ops-confirm-message {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+  color: var(--ops-text-muted, #4a5568);
+}

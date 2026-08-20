@@ -31,6 +31,7 @@ import { KitchenPage } from "../../../src/pages/KitchenPage";
 import { CounterHubPage } from "../../../src/pages/counter/CounterHubPage";
 import { OpsNavBadgesProvider, useOpsNavBadges } from "../../../src/components/operations/OpsNavBadgesProvider";
 import { OpsToastProvider } from "../../../src/components/operations/OpsToastProvider";
+import { OpsConfirmProvider } from "../../../src/components/operations/OpsConfirmProvider";
 import { OpsRealtimeProvider } from "../../../src/components/operations/OpsRealtimeProvider";
 import { OpsAssistanceProvider } from "../../../src/components/operations/OpsAssistanceProvider";
 import { OpsErrorBoundary } from "../../../src/components/operations/OpsErrorBoundary";
@@ -151,9 +152,11 @@ const router = createBrowserRouter([
       <ProtectedRoute allowedRoles={["Admin", "CounterStaff", "Staff", "Kitchen"]}>
         <OpsNavBadgesProvider>
           <OpsToastProvider>
-            <OpsErrorBoundary scope="ops-shell">
-              <RoleAwareOpsShell />
-            </OpsErrorBoundary>
+            <OpsConfirmProvider>
+              <OpsErrorBoundary scope="ops-shell">
+                <RoleAwareOpsShell />
+              </OpsErrorBoundary>
+            </OpsConfirmProvider>
           </OpsToastProvider>
         </OpsNavBadgesProvider>
       </ProtectedRoute>

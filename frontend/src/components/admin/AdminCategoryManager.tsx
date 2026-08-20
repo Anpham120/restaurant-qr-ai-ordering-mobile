@@ -3,10 +3,12 @@ import type { AdminCategory, AdminCategoryRequest } from "@cmc/shared-types";
 import { api } from "../../services/apiClient";
 import { Folder, X } from "lucide-react";
 import "../operations/operations.css";
+import { useOpsConfirm } from "../operations/OpsConfirmProvider";
 
 const EMPTY: AdminCategoryRequest = { name: "", displayOrder: 0, isActive: true };
 
 export function AdminCategoryManager({ embedded = false }: { embedded?: boolean }) {
+  const confirm = useOpsConfirm();
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,7 +65,12 @@ export function AdminCategoryManager({ embedded = false }: { embedded?: boolean 
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Xóa danh mục này?")) return;
+    if (!(await confirm({
+      title: "Xoá danh mục này?",
+      message: "Món thuộc danh mục sẽ không còn được nhóm theo nó nữa.",
+      confirmLabel: "Xoá danh mục",
+      danger: true,
+    }))) return;
     try {
       await api.categories.delete(id);
       setNotice("Đã xóa.");
