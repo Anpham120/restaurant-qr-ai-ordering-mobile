@@ -327,7 +327,7 @@ TV4  PHIÊN & TÍCH HỢP
       v
 TV5  ĐÁNH GIÁ
           161 ca · 178 lượt phiên · 103 lượt golden
-          100 câu hai chiều · 21 cổng CI
+          100 câu hai chiều · 22 cổng CI
 ```
 
 ## Bảng phân công
@@ -399,7 +399,7 @@ phải đợi người khác thêm cụm từ vựng tương ứng.
 2. Thước đo và **bộ dò lỗ** — chỗ đo sai trước khi hệ thống sai
 3. **Golden 103 lượt** qua chuỗi gọi thật: QR → backend → AI → thẻ giỏ → giỏ hàng
 4. **Bộ hai chiều 100 câu** — chứng minh vì sao cần cả hai lớp
-5. **21 cổng CI**, và cổng deploy đối chiếu bằng chứng với cấu hình
+5. **22 cổng CI**, và cổng deploy đối chiếu bằng chứng với cấu hình
 
 > **Nghiệm thu:** 161/161 ca; 178/178 lượt phiên;
 > 103/103 lượt golden; mọi cổng xanh; deploy bị chặn nếu bằng chứng đo không
