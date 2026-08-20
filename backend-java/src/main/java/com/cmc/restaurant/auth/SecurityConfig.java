@@ -70,6 +70,12 @@ public class SecurityConfig {
 						// Xác thực bằng token phiên chat bên trong service, giống hai đường đã có.
 						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/messages/stream").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/chat/sessions/*/messages").permitAll()
+						// Ba đường còn lại của khách trong khung chat — cũng gác bằng token phiên chat.
+						// KHÔNG có /api/admin/chat/feedback ở đây: nó đọc phản hồi của mọi bàn nên phải
+						// đi qua đăng nhập quản trị như mọi endpoint quản trị khác.
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/recommendations").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/feedback").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/chat/sessions/*/assistance").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

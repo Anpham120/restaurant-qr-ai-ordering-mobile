@@ -1,14 +1,19 @@
 package com.cmc.restaurant.chat;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-/** Mirrors the two customer-facing routes of {@code ChatEndpoints.cs} that a proxy needs. History,
- * recommendations, feedback and assistance stay on .NET — see PR description. */
+/** Mirrors toàn bộ nhóm khách của {@code ChatEndpoints.cs} (.NET) — #14, #95. Quyền quản trị nằm
+ * ở {@link AdminChatController} vì hai lớp có chế độ bảo vệ ngược nhau. */
 @RestController
 public class ChatController {
 
@@ -27,7 +32,7 @@ public class ChatController {
 	}
 
 	@GetMapping("/api/chat/sessions/{chatSessionId}/messages")
-	public ChatDtos.ChatMessageListResponse listMessages(
+	public ChatDtos.ChatHistoryResponse listMessages(
 			@PathVariable String chatSessionId, HttpServletRequest request) {
 		return chatService.listMessages(chatSessionId, request.getHeader(ChatSessionCapability.HEADER));
 	}
@@ -39,8 +44,8 @@ public class ChatController {
 	 * trạng thái đã gửi đi, không còn trả 400 hay 401 được nữa.
 	 */
 	@PostMapping(value = "/api/chat/sessions/{chatSessionId}/messages/stream",
-			produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-	public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> streamMessage(
+			produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public ResponseEntity<StreamingResponseBody> streamMessage(
 			@PathVariable String chatSessionId,
 			@RequestBody(required = false) ChatDtos.SendChatMessageRequest body,
 			HttpServletRequest request) {
@@ -48,7 +53,7 @@ public class ChatController {
 				chatSessionId, body == null ? null : body.content(),
 				request.getHeader(ChatSessionCapability.HEADER));
 
-		return org.springframework.http.ResponseEntity.ok()
+		return ResponseEntity.ok()
 				.header("Cache-Control", "no-cache")
 				// Nginx đệm phản hồi theo mặc định, và đệm một luồng SSE nghĩa là khách không thấy gì
 				// cho tới khi luồng đóng. Bản .NET đặt đúng header này vì cùng lý do.
@@ -62,5 +67,33 @@ public class ChatController {
 			@RequestBody(required = false) ChatDtos.SendChatMessageRequest body,
 			HttpServletRequest request) {
 		return chatService.sendMessage(chatSessionId, body, request.getHeader(ChatSessionCapability.HEADER));
+	}
+
+	@PostMapping("/api/chat/sessions/{chatSessionId}/recommendations")
+	public List<ChatDtos.ChatRecommendationResponse> updateRecommendation(
+			@PathVariable String chatSessionId,
+			@RequestBody(required = false) ChatDtos.UpdateRecommendationRequest body,
+			HttpServletRequest request) {
+		return chatService.updateRecommendation(
+				chatSessionId, body, request.getHeader(ChatSessionCapability.HEADER));
+	}
+
+	@PostMapping("/api/chat/sessions/{chatSessionId}/feedback")
+	public Map<String, Object> submitFeedback(
+			@PathVariable String chatSessionId,
+			@RequestBody(required = false) ChatDtos.ChatFeedbackRequest body,
+			HttpServletRequest request) {
+		chatService.submitFeedback(chatSessionId, body, request.getHeader(ChatSessionCapability.HEADER));
+		return Map.of("ok", true);
+	}
+
+	@PostMapping("/api/chat/sessions/{chatSessionId}/assistance")
+	public Map<String, Object> requestAssistance(
+			@PathVariable String chatSessionId,
+			@RequestBody(required = false) ChatDtos.AssistanceRequestBody body,
+			HttpServletRequest request) {
+		String tableCode = chatService.requestAssistance(
+				chatSessionId, body, request.getHeader(ChatSessionCapability.HEADER));
+		return Map.of("ok", true, "tableCode", tableCode);
 	}
 }

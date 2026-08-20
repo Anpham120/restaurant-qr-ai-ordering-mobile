@@ -61,7 +61,13 @@ NHOM_RE = re.compile(r'@RequestMapping\(\s*"([^"]*)"\s*\)')
 
 # Chú giải cấp phương thức. Nhóm 2 là đường dẫn và CÓ THỂ VẮNG: `@PostMapping` trần nghĩa là dùng
 # đúng tiền tố của lớp.
-MAP_RE = re.compile(r'@(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*"([^"]*)"\s*\))?')
+#
+# Nhận cả dạng `@PostMapping(value = "...", produces = ...)`. Bản đầu chỉ nhận chuỗi đứng ngay sau
+# dấu mở ngoặc, nên endpoint SSE của chat — endpoint duy nhất phải khai `produces` — bị đếm thiếu.
+# Một cái gate dựng ra để phát hiện endpoint thiếu mà lại tự giấu mất một endpoint thì tệ hơn không
+# có gate, vì nó còn khiến người đọc tin là đã đủ.
+MAP_RE = re.compile(
+    r'@(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*(?:value\s*=\s*)?"([^"]*)")?')
 
 
 def quet() -> dict[str, list[tuple[str, str, str]]]:

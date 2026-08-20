@@ -33,9 +33,9 @@ public class ChatStreamService {
 
 	private static final int MAX_QUESTION_LENGTH = 2000;
 
-	/** Câu dự phòng lấy nguyên văn từ bản .NET — khách đang ngồi tại bàn, phải đọc được gì đó. */
-	private static final String FALLBACK_TEXT =
-			"Xin lỗi, hệ thống hơi chậm. Bạn thử lại sau giây lát nhé.";
+	/** Câu dự phòng lấy nguyên văn từ bản .NET — khách đang ngồi tại bàn, phải đọc được gì đó.
+	 * Dùng chung với đường không-stream để một sự cố không hiện ra hai kiểu. */
+	private static final String FALLBACK_TEXT = AiChatClient.FALLBACK_TEXT;
 
 	private final ChatSessionRepository chatSessionRepository;
 	private final ChatMessageRepository chatMessageRepository;

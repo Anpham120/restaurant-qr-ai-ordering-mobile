@@ -1,7 +1,6 @@
 package com.cmc.restaurant.chat;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -82,10 +81,16 @@ public class AiChatClient {
 	}
 
 	/** Mirrors the fallback in {@code ai/app/service.py}: the customer is sitting at a table, so an
-	 * outage must still produce a sentence they can act on, not an error screen. */
-	public static ChatDtos.SendChatMessageResponse fallback() {
-		return new ChatDtos.SendChatMessageResponse(
-				"Mình chưa tra được thông tin này. Bạn hỏi nhân viên giúp mình nhé.",
-				List.of(), List.of("internal_error"), true, false);
-	}
+	 * outage must still produce a sentence they can act on, not an error screen.
+	 *
+	 * <p>Là hằng chứ không phải một phản hồi dựng sẵn, vì câu này phải được LƯU như mọi câu trả lời
+	 * khác (#95) — trả về mà không lưu thì khách tải lại trang sẽ thấy câu hỏi của mình không có ai
+	 * đáp.
+	 *
+	 * <p>Cả hai đường chat dùng CHUNG hằng này. Trước đây đường thường trả một câu khác kèm cờ
+	 * {@code internal_error}, còn đường SSE trả câu của bản .NET kèm {@code AI_PROVIDER_UNAVAILABLE}
+	 * — nghĩa là cùng một sự cố hiện ra hai kiểu tuỳ đường nào chạy trước, và {@code internal_error}
+	 * còn không nằm trong tập cờ {@code ChatGuardrailFlag} mà frontend khai. */
+	public static final String FALLBACK_TEXT =
+			"Xin lỗi, hệ thống hơi chậm. Bạn thử lại sau giây lát nhé.";
 }

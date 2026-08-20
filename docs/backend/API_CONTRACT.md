@@ -11,7 +11,7 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**78 endpoint** trong **12 module**, đọc trực tiếp từ
+**84 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
@@ -42,12 +42,18 @@
 | `GET` | `/api/table-sessions/{tableSessionId}/cart` | `cart/CartController.java` |
 | `POST` | `/api/table-sessions/{tableSessionId}/cart/items` | `cart/CartController.java` |
 
-### chat (2)
+### chat (8)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
+| `GET` | `/api/admin/chat/feedback` | `chat/AdminChatController.java` |
 | `POST` | `/api/chat/sessions` | `chat/ChatController.java` |
+| `POST` | `/api/chat/sessions/{chatSessionId}/assistance` | `chat/ChatController.java` |
+| `POST` | `/api/chat/sessions/{chatSessionId}/feedback` | `chat/ChatController.java` |
+| `GET` | `/api/chat/sessions/{chatSessionId}/messages` | `chat/ChatController.java` |
 | `POST` | `/api/chat/sessions/{chatSessionId}/messages` | `chat/ChatController.java` |
+| `POST` | `/api/chat/sessions/{chatSessionId}/messages/stream` | `chat/ChatController.java` |
+| `POST` | `/api/chat/sessions/{chatSessionId}/recommendations` | `chat/ChatController.java` |
 
 ### counter (4)
 
