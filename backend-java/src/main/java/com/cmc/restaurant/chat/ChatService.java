@@ -63,27 +63,59 @@ public class ChatService {
 		this.realtimeNotifier = realtimeNotifier;
 	}
 
+	/**
+	 * Mở phiên chat. Cả hai trường của yêu cầu đều tuỳ chọn — mirror {@code ChatEndpoints.cs}.
+	 *
+	 * <p>Không truyền {@code tableSessionId} thì tạo phiên ĐỘC LẬP, không gắn bàn. Mọi cột liên quan
+	 * tới bàn trong {@code chat_sessions} đều nullable từ V1, nên đây là trạng thái schema đã lường
+	 * trước chứ không phải lách.
+	 */
 	@Transactional
 	public ChatDtos.OpenChatSessionResponse openSession(ChatDtos.OpenChatSessionRequest request) {
-		if (request == null || request.tableSessionId() == null || request.tableSessionId().isBlank()) {
-			throw ApiException.badRequest("TABLE_SESSION_REQUIRED", "A table session is required to start a chat.");
+		OffsetDateTime now = OffsetDateTime.now();
+		String tableSessionId = trimToNull(request == null ? null : request.tableSessionId());
+		String tableCode = trimToNull(request == null ? null : request.tableCode());
+
+		Optional<ChatSessionEntity> existing = Optional.empty();
+		String restaurantTableId = null;
+
+		if (tableSessionId != null) {
+			TableSessionEntity tableSession = tableSessionRepository.findById(tableSessionId)
+					.orElseThrow(() -> ApiException.notFound(
+							"TABLE_SESSION_NOT_FOUND", "Table session was not found."));
+
+			// Phiên bàn TỒN TẠI nhưng đã đóng/hết hạn là chuyện khác với phiên bàn không tồn tại:
+			// cái đầu nghĩa là "quét lại QR đi", cái sau nghĩa là "id sai". Bản .NET tách 410 và 404
+			// đúng theo nghĩa đó, nên frontend nói được câu khác nhau cho hai tình huống khác nhau.
+			if (tableSession.getStatus() != TableSessionStatus.Open
+					|| !tableSession.getExpiresAt().isAfter(now)) {
+				throw new ApiException(HttpStatus.GONE, "TABLE_SESSION_INACTIVE",
+						"Table session is closed or expired. Please scan QR again.");
+			}
+			if (tableCode != null && !tableCode.equalsIgnoreCase(tableSession.getTableCode())) {
+				throw ApiException.badRequest(
+						"CHAT_TABLE_MISMATCH", "Table code does not match the table session.");
+			}
+
+			restaurantTableId = tableSession.getRestaurantTableId();
+			tableCode = tableSession.getTableCode();
+			// One open chat per table session, so a customer reopening the panel keeps their memory
+			// instead of silently starting over.
+			//
+			// KHÁC bản .NET một chỗ có chủ đích: nó dùng lại phiên chat mới nhất bất kể đã đóng hay
+			// chưa, nên khách có thể nhận lại một phiên mà `sendMessage` sẽ từ chối bằng
+			// CHAT_SESSION_CLOSED. Lọc `closed=false` ở đây khiến phiên đã đóng sinh phiên mới, tức
+			// khách luôn nhận về một phiên dùng được.
+			existing = chatSessionRepository.findByTableSessionIdAndClosedFalse(tableSession.getId())
+					.stream().findFirst();
 		}
 
-		OffsetDateTime now = OffsetDateTime.now();
-		TableSessionEntity tableSession = tableSessionRepository.findById(request.tableSessionId().trim())
-				.filter(s -> s.getStatus() == TableSessionStatus.Open)
-				.filter(s -> s.getExpiresAt().isAfter(now))
-				.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
-						"Table session has expired. Please scan QR again."));
-
-		// One open chat per table session, so a customer reopening the panel keeps their memory
-		// instead of silently starting over.
-		Optional<ChatSessionEntity> existing = chatSessionRepository
-				.findByTableSessionIdAndClosedFalse(tableSession.getId()).stream().findFirst();
+		final String finalTableId = restaurantTableId;
+		final String finalTableCode = tableCode;
+		final String finalTableSessionId = tableSessionId;
 		ChatSessionEntity session = existing.orElseGet(() -> chatSessionRepository.save(new ChatSessionEntity(
 				"chat_" + UUID.randomUUID().toString().replace("-", ""),
-				tableSession.getRestaurantTableId(), tableSession.getTableCode(),
-				tableSession.getId(), now)));
+				finalTableId, finalTableCode, finalTableSessionId, now)));
 
 		// Trả kèm hội thoại cũ: khách mở lại panel là thấy ngay chỗ mình đang nói dở, không phải
 		// chờ thêm một lượt gọi lịch sử nữa mới hiện ra.
@@ -257,6 +289,10 @@ public class ChatService {
 	}
 
 	// --- helper -----------------------------------------------------------------------------------
+
+	private static String trimToNull(String s) {
+		return s == null || s.isBlank() ? null : s.trim();
+	}
 
 	/** Mọi endpoint của khách đều qua đây: phiên phải tồn tại VÀ token phải hợp lệ. Gộp lại một chỗ
 	 * để không endpoint nào lỡ quên một trong hai vế. */

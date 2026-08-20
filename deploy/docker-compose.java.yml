@@ -36,7 +36,11 @@ x-api-environment: &api-environment
   PAYMENTS_CASSO_SECURETOKEN: ${PAYMENTS_CASSO_SECURETOKEN:-}
   AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8001}
   AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
-  BACKEND_AI_TIMEOUT_SECONDS: ${BACKEND_AI_TIMEOUT_SECONDS:-12}
+  # 50 giây, và phải LỚN HƠN `LLM_TIMEOUT_SECONDS` (30) của dịch vụ AI: dịch vụ phải hết hạn
+  # TRƯỚC backend thì backend mới nhận được câu thoái hoá của nó, thay vì tự hết hạn rồi trả lỗi
+  # cho khách đang ngồi ở bàn. Giá trị cũ ở đây là 12 — tức ĐẢO NGƯỢC quan hệ, và bản .NET có test
+  # canh đúng chỗ này (`DeploymentConfigurationTests`) trong khi bản Java thì không.
+  BACKEND_AI_TIMEOUT_SECONDS: ${BACKEND_AI_TIMEOUT_SECONDS:-50}
 
 services:
   postgres:
@@ -106,9 +110,31 @@ services:
       context: ..
       dockerfile: ai/Dockerfile
     restart: unless-stopped
+    # Khối biến giữ ĐÚNG danh sách của `docker-compose.yml` (bản .NET), vì cùng một ảnh dịch vụ AI
+    # đọc cùng những biến đó. Trước đây khối này chỉ có hai biến, và hệ quả lộ ra ngay khi
+    # `golden-e2e` chuyển sang stack Java: câu thử `/ready` đỏ với `model_base_url_set: False`, tức
+    # dịch vụ chạy mà KHÔNG biết gọi mô hình ở đâu.
+    #
+    # CỐ Ý KHÔNG đặt `AI_SERVICE_HOST`. Bản .NET đặt `127.0.0.1` vì nó dùng `network_mode: host`;
+    # chép sang đây thì dịch vụ chỉ nghe loopback TRONG container, và cả backend lẫn cổng đã publish
+    # đều không với tới. Để trống thì `ai/Dockerfile` cấp `0.0.0.0` — đúng thứ mạng bridge cần.
     environment:
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
       AI_SERVICE_PORT: 8001
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:20128/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-cx/gpt-5.6-luna-review}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      AI_ENABLE_GENERATION: ${AI_ENABLE_GENERATION:-1}
+      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-4}
+    mem_limit: 3g
+    # Publish CHỈ trên loopback (#58). Bản .NET dùng `network_mode: host` nên dịch vụ AI vốn đã ở
+    # trên host; stack Java dùng bridge nên nếu không publish thì `wait_for_stack.py` và
+    # `run_deploy_probes.py` — hai script chạy trên máy CI, không phải trong container — không với
+    # tới được. Ràng vào 127.0.0.1 chứ không phải 0.0.0.0: dịch vụ này chỉ để backend gọi, không
+    # phải để lộ ra mạng, và nó chỉ có một lớp gác là AI_INTERNAL_TOKEN.
+    ports:
+      - "127.0.0.1:${AI_SERVICE_PORT:-8001}:8001"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=3); exit(0 if b'ready' in r.read() else 1)\""]
       interval: 30s
