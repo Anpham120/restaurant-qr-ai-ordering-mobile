@@ -469,35 +469,32 @@ def merge_seed_tags(
 
 
 def seed_tags_differ(menu: dict) -> bool:
-    """Seed SQL có khác bộ nhãn đã hợp nhất không — dùng cho chế độ `--check`."""
-    by_name = {m["name"]: m for m in menu["items"]}
-    source = SEED_PATH.read_text(encoding="utf-8-sig")
-    for match in SEED_ITEM_RE.finditer(source):
-        item = by_name.get(seed_name(match))
-        if item is None:
-            continue
-        if [t for t in match.group("tags").split(",") if t] != sorted(item["tags"]):
+    """Nhãn của cơ sở dữ liệu có khác bộ nhãn đã hợp nhất không — dùng cho `--check`.
+
+    Đọc TRẠNG THÁI HIỆU LỰC (V2 cộng mọi migration cập nhật nhãn sau nó), không đọc riêng V2.
+
+    Vì sao quan trọng: sau khi `build_tag_migration.py` sinh một migration cập nhật nhãn, nội
+    dung V2 vẫn giữ nhãn CŨ mãi mãi — đó là bản chất của migration. Nếu hàm này chỉ đọc V2 thì
+    nó sẽ báo "lệch" vĩnh viễn, và người ta sẽ học cách bỏ qua nó. Một cổng luôn đỏ cũng vô
+    dụng như một cổng luôn xanh.
+
+    Dùng chung đúng một hàm đọc với `build_tag_migration.py`: hai cổng đọc hai nguồn khác nhau
+    thì sớm muộn sẽ nói ngược nhau, và người ta sẽ tin cái đang xanh.
+    """
+    hieu_luc = _doc_nhan_hieu_luc()
+    for item in menu["items"]:
+        dang_co = hieu_luc.get(item["name"])
+        if dang_co is not None and dang_co != sorted(item["tags"]):
             return True
     return False
 
 
-def write_seed_tags() -> int:
-    """KHÔNG còn ghi vào tệp seed — chỉ báo có lệch hay không (#59).
+def _doc_nhan_hieu_luc() -> dict[str, list[str]]:
+    """Nạp muộn để `build_tag_dictionary` vẫn chạy được khi ai đó chạy nó một mình."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from build_tag_migration import doc_nhan_hieu_luc  # noqa: E402
 
-    Bản trước ghi thẳng nhãn mới vào `RestaurantMenuSeed.cs`. Với bản Java thì không làm
-    được nữa, và lý do đáng đọc: seed nay là `V2__seed_official_menu_and_tables.sql`, một
-    **migration Flyway ĐÃ CHẠY**. Flyway lưu checksum của từng migration đã áp dụng; sửa nội
-    dung nó nghĩa là mọi cơ sở dữ liệu đang chạy sẽ từ chối khởi động với lỗi checksum. Tức
-    "sửa nhãn" sẽ làm hỏng đúng những môi trường đang có dữ liệu thật.
-
-    Cách đúng là sinh một migration MỚI (`V8__...sql`) cập nhật nhãn — chính là việc mà
-    `build_tag_migration.py` từng làm cho EF Core và đã bị gỡ cùng bản .NET. Bản Flyway của
-    nó chưa có; ghi thành issue riêng thay vì lặng lẽ sửa migration cũ.
-
-    Trong lúc đó, phép kiểm vẫn còn nguyên: `--check` gọi `seed_tags_differ`, nên lệch giữa
-    hai nguồn vẫn đỏ ở CI — chỉ là phải sửa bằng tay, có ý thức, thay vì để công cụ sửa hộ.
-    """
-    return 0
+    return doc_nhan_hieu_luc()
 
 
 def relabel(menu: dict, dictionary: dict) -> tuple[dict, list[str], list[str]]:
@@ -620,12 +617,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"\nĐã ghi {DICT_PATH.relative_to(REPO_ROOT)}")
     print(f"Đã ghi {MENU_PATH.relative_to(REPO_ROOT)}")
-    # KHÔNG ghi SEED_PATH: xem chú thích của `write_seed_tags`.
+    # KHÔNG ghi vào seed: nó là migration Flyway ĐÃ CHẠY, sửa nội dung sẽ làm mọi cơ sở dữ liệu
+    # đang có dữ liệu từ chối khởi động (lỗi checksum). Cách đúng là sinh một migration MỚI, và
+    # `build_tag_migration.py` làm đúng việc đó — nên ở đây chỉ chỉ đường sang nó.
     if seed_tags_differ(menu):
         print(
-            f"\nCẢNH BÁO: {SEED_PATH.relative_to(REPO_ROOT)} lệch bộ nhãn vừa hợp nhất."
-            "\n  Đó là migration Flyway ĐÃ CHẠY — không sửa tự động được (checksum)."
-            "\n  Phải thêm một migration MỚI cập nhật nhãn."
+            "\nNhãn của cơ sở dữ liệu lệch bộ nhãn vừa hợp nhất."
+            "\n  Chạy: python ai/scripts/build_tag_migration.py"
         )
     return 1 if problems else 0
 
