@@ -176,6 +176,7 @@ public class ChatStreamService {
 			String content = ai.content() == null || ai.content().isBlank() ? streamed.trim() : ai.content();
 			List<ChatDtos.SuggestedCartActionResponse> actions = ChatService.toCartActions(ai.suggestedCartActions());
 			ChatMessageEntity assistant = persistAssistant(userMessage.getChatSessionId(), content, actions);
+			persistSessionState(userMessage.getChatSessionId(), ai);
 
 			return objectMapper.writeValueAsString(Map.of(
 					"userMessage", toWire(userMessage),
@@ -187,6 +188,33 @@ public class ChatStreamService {
 			log.warn("Could not parse the AI final frame; sending the streamed text instead.", e);
 			return upstreamData;
 		}
+	}
+
+	/**
+	 * Ghi bộ nhớ hội thoại mà dịch vụ AI trả về — ĐƯỜNG NÀY TRƯỚC ĐÂY KHÔNG LÀM.
+	 *
+	 * <p>Hậu quả không nhỏ và rất khó thấy: đường không-stream lưu {@code session_updates}, đường SSE
+	 * thì không, mà SSE mới là đường khách thật đi ({@code ChatbotPage.tsx} gọi stream trước). Nên
+	 * mỗi lượt trên đường chính đều bắt đầu lại từ đầu: "cho mình xem thêm vài món" trả lời như câu
+	 * hỏi đầu tiên vì backend không nhớ đã liệt kê những gì.
+	 *
+	 * <p>Từng endpoint đều trả 200, từng câu trả lời đọc riêng đều hợp lý — chỉ khi hỏi NHIỀU LƯỢT
+	 * liên tiếp mới lộ. `run_golden_e2e.py` bắt được đúng vì nó hỏi theo hội thoại, không theo lượt.
+	 *
+	 * <p>Chỉ ghi đè khi dịch vụ thực sự trả về trạng thái mới — cùng quy tắc với
+	 * {@code ChatService.sendMessage}: một lượt suy giảm không được phép xoá thông tin dị ứng khách
+	 * đã khai từ trước.
+	 */
+	private void persistSessionState(String chatSessionId, ChatDtos.AiChatResponse ai) {
+		Map<String, Object> updated = ai.sessionUpdates() == null ? null : ai.sessionUpdates().sessionState();
+		if (updated == null) {
+			return;
+		}
+		chatSessionRepository.findById(chatSessionId).ifPresent(session -> {
+			session.setSessionState(updated);
+			session.setUpdatedAt(OffsetDateTime.now());
+			chatSessionRepository.save(session);
+		});
 	}
 
 	private Map<String, Object> toWire(ChatMessageEntity message) {

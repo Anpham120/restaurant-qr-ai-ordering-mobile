@@ -25,7 +25,15 @@ public final class ChatDtos {
 
 	// --- customer-facing -----------------------------------------------------------------------
 
-	public record OpenChatSessionRequest(String tableSessionId) {
+	/**
+	 * CẢ HAI trường đều tuỳ chọn, đúng {@code CreateChatSessionRequest} của bản .NET.
+	 *
+	 * <p>Không có {@code tableSessionId} nghĩa là một phiên chat ĐỘC LẬP, không gắn bàn nào — khách
+	 * hỏi menu trên trang chủ trước khi tới quán là đúng trường hợp đó. Bản Java trước đây bắt buộc
+	 * trường này và trả 400, nên `run_golden_e2e.py` (gửi `{}` cho mỗi hội thoại để có bộ nhớ trắng)
+	 * không mở nổi phiên nào.
+	 */
+	public record OpenChatSessionRequest(String tableSessionId, String tableCode) {
 	}
 
 	/**
