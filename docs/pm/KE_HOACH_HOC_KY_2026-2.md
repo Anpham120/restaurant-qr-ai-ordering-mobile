@@ -120,15 +120,20 @@ Trích nguyên văn từ báo cáo nhóm (Bảng 43, §5.3), giữ số thứ t�
 - **Mục tiêu:** một bản backend Java Spring Boot phục vụ luồng dine-in lõi, cộng ba nghiệp vụ hoàn
   thiện (#3, #10, #11) và một đợt cải tiến UX có mục tiêu cho 3 luồng vận hành, chạy được với
   frontend React hiện có mà không sửa API contract của các endpoint đã port.
-- **Ngoài phạm vi học kỳ này:** Loyalty/Promotions ở backend Java (ở lại .NET), Counter shift,
-  Reports, AI/Chat (giữ Python), multi-tenant, thiết kế lại giao diện trực quan (đã xác nhận UI
-  hiện tại ổn, chỉ tối ưu UX).
+- **Ngoài phạm vi học kỳ này:** ~~Loyalty/Promotions ở backend Java (ở lại .NET), Counter shift,
+  Reports,~~ AI/Chat **giữ dịch vụ Python** (backend Java chỉ proxy), multi-tenant, thiết kế lại
+  giao diện trực quan (đã xác nhận UI hiện tại ổn, chỉ tối ưu UX).
+  > Sửa 2026-08-20 (#88): bốn module gạch ngang đã port hết — lý do ở §5.1. Phần AI/Chat vẫn đúng
+  > như viết ban đầu: RAG ở lại Python, Java chỉ chuyển tiếp.
 - **Ràng buộc:** 5 cộng tác viên (§1.1) nhưng **trách nhiệm 4 môn học kỳ này là cá nhân**, không có
   ngân sách hạ tầng ngoài máy cá nhân + 1 tài khoản ngân hàng cá nhân (cho webhook Casso). Không
   dùng VPS production của nhóm gốc.
-- **Tiêu chí xong (Definition of Done) cấp dự án:** `dotnet test` cũ và bộ test Java mới cùng xanh
-  trên cùng một tập kịch bản nghiệp vụ; Docker Compose khởi động được bản Java thay cho bản .NET
-  trong biến thể riêng; app Flutter chạy được tầng Lõi (M1) tối thiểu.
+- **Tiêu chí xong (Definition of Done) cấp dự án:** ~~`dotnet test` cũ và~~ bộ test Java xanh trên
+  cùng một tập kịch bản nghiệp vụ; Docker Compose khởi động được bản Java thay cho bản .NET trong
+  biến thể riêng; app Flutter chạy được tầng Lõi (M1) tối thiểu.
+  > Sửa 2026-08-20 (#58/#59): `dotnet test` không còn là tiêu chí vì `backend/` đã bị xoá. Nó đã
+  > làm xong việc của nó — mọi issue port đều so hành vi với bản .NET **trước khi** xoá, và
+  > `docs/pm/BAO_CAO_SO_KHOP_NET_JAVA.md` giữ lại kết quả so khớp đó.
 
 ### 4.1a Quy trình Git
 
@@ -218,7 +223,22 @@ thời gian nằm trong §9.10, chạy song song theo lịch môn Lập trình d
 
 ## 5. Kế hoạch chuyển đổi ASP.NET → Java Spring Boot
 
-### 5.1 Định phạm vi — 7/17 module
+### 5.1 Định phạm vi — ~~7/17 module~~ → TOÀN BỘ (sửa 2026-08-20, #58/#88)
+
+> **Quyết định đã đổi.** Bảng dưới là phạm vi ban đầu, giữ lại để đọc được lý do lúc đó. Thực tế:
+> **toàn bộ 17 module đã port**, backend Java hiện có **85 endpoint** (`docs/backend/API_CONTRACT.md`,
+> sinh từ mã).
+>
+> Vì sao phải đổi: bốn module định "để lại bản .NET" (Loyalty, Promotions, Counter, Reports) nghe
+> như tách được, nhưng frontend gọi cả bốn từ cùng một `apiClient` với **một** `API_BASE_URL`. Giữ
+> chúng ở .NET nghĩa là phải chạy hai backend song song sau một reverse proxy định tuyến theo đường
+> dẫn — một hạ tầng mới, chỉ để tránh port bốn module CRUD. Rà thật (#88) cho ra **40 endpoint
+> thiếu, 38 trong số đó frontend đang gọi**; tức "để lại .NET" không phải là giảm việc mà là dời
+> việc sang chỗ khó hơn.
+>
+> Kết quả: #89–#97 port nốt, #58 chuyển CI sang stack Java, #59 xoá `backend/`.
+
+Phạm vi ban đầu (đã vượt):
 
 Port theo thứ tự phụ thuộc, dừng lại nếu hết thời gian — mỗi module port xong là một hệ thống
 chạy được, không phải "dở dang không demo được":
@@ -483,12 +503,12 @@ AI bền vững ở §9.8.
 
 | Pha | Nội dung | Phụ thuộc |
 |---|---|---|
-| **M1** | Đăng nhập, mở phiên có gắn `MemberId`, xem menu, xem đơn + trạng thái realtime (chỉ đọc), điểm/ưu đãi, khuyến mãi độc quyền | Không phụ thuộc tiến độ Java — gọi được ngay vào bản .NET hiện có |
+| **M1** | Đăng nhập, mở phiên có gắn `MemberId`, xem menu, xem đơn + trạng thái realtime (chỉ đọc), điểm/ưu đãi, khuyến mãi độc quyền | Không phụ thuộc tiến độ Java — bốn module M1 cần đã port xong (§9.9) |
 | **M2** | Giỏ hàng, tạo đơn, thanh toán COD/VietQR (tự động nếu Casso đã xong), chat AI trong phiên, ước lượng thời gian + huỷ món | Phụ thuộc Orders/Payments/Realtime port xong (§5 tuần 5–11) |
 | **M3** | Lịch sử đơn nhiều lần ghé, đặt lại món cũ, đổi điểm lấy ưu đãi, hồ sơ AI bền vững | Phụ thuộc M1 (đã có `MemberId`) + M2 (đã có Order gắn định danh) |
 
 M1 tách biệt tiến độ Java hoàn toàn — có thể làm và demo được ngay cả khi §5 chưa xong module nào,
-vì M1 chỉ cần Auth + Loyalty + Promotions + Menu, toàn bộ đã có sẵn trên bản .NET.
+vì M1 chỉ cần Auth + Loyalty + Promotions + Menu, toàn bộ đã có trên bản Java (§9.9).
 
 ### 9.7 Vì sao "tự động điền SĐT" là tính năng lõi, không phải điểm/ưu đãi
 
@@ -523,13 +543,20 @@ trình di động — việc của Flutter chỉ là hiển thị ("Món tôi ha
 
 ### 9.9 Gọi vào backend nào
 
-Theo module, không phải theo toàn bộ backend:
-
-- Auth, Menu, Tables, Orders, Payments, Realtime → gọi bản đang chạy tại thời điểm đó (**.NET
-  trước khi §5 port xong module tương ứng, chuyển sang Java sau** — API contract không đổi nên
-  Flutter không cần sửa gì khi chuyển).
-- Loyalty, Promotions, hồ sơ AI bền vững → **luôn gọi bản .NET**, vì các module này cố tình để lại
-  .NET (§5.1), không nằm trong lộ trình port Java.
+> **Sửa 2026-08-20 (#58/#88).** Mục này từng chia theo module vì §5.1 định để Loyalty/Promotions
+> sống trên .NET. Quyết định đó đã đổi: **mọi module đều đã có bản Java**, và `backend/` (.NET) bị
+> xoá ở #59.
+>
+> Nên câu trả lời giờ chỉ có một dòng: **Flutter gọi backend Java, tất cả các module.**
+>
+> Điều này thực ra làm §9 dễ hơn chứ không khó hơn. Bản chia theo module buộc app phải biết module
+> nào ở đâu — tức một bảng định tuyến trong client, thứ sẽ sai âm thầm mỗi lần một module được port
+> xong mà không ai sửa app. Giờ app chỉ cần **một** `API_BASE_URL`, giống hệt `ordering-web`.
+>
+> Mốc **M1** không bị ảnh hưởng: nó cần Auth + Loyalty + Promotions + Menu, cả bốn đều đã có trên
+> Java (`/api/auth/*`, `/api/admin/loyalty/*`, `/api/loyalty/lookup`, `/api/promotions/validate`,
+> `/api/menu`). Trước đây M1 "không phụ thuộc tiến độ Java" vì gọi .NET; giờ nó không phụ thuộc vì
+> phần Java cần cho nó **đã xong**.
 
 ### 9.10 WBS theo pha
 

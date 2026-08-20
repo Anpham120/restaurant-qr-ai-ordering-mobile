@@ -59,42 +59,16 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-  backend-test:
-    name: backend-test
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_POSTGRES_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=postgres;Username=postgres;Password=postgres
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Restore backend
-        run: dotnet restore backend/RestaurantQrAiOrdering.sln
-
-      - name: Build backend
-        run: dotnet build backend/RestaurantQrAiOrdering.sln --configuration Release --no-restore
-
-      - name: Run backend regression tests
-        run: dotnet test backend/RestaurantQrAiOrdering.sln --configuration Release --no-restore
+  # Job `backend-test` (.NET) ĐÃ GỠ — #58.
+  #
+  # Backend đã chuyển hẳn sang Java, và `ci-java.yml` đã chạy đúng phần việc đó: build, Checkstyle,
+  # test domain + kiến trúc (ArchUnit), và test tích hợp bằng Testcontainers trên Postgres thật.
+  # Giữ lại job .NET ở đây sẽ tốn thêm một runner để kiểm một backend sắp bị xoá (#59), và tệ hơn:
+  # nó khiến bảng check trông như thể hệ thống vẫn có hai backend được bảo chứng.
+  #
+  # Đã kiểm trước khi gỡ: check BẮT BUỘC của nhánh `develop` là `backend-java-build`, KHÔNG phải
+  # `backend-test`. Gỡ một job đang là required check sẽ làm mọi PR treo PENDING vĩnh viễn — GitHub
+  # coi check bắt buộc không chạy là chưa xong, không phải là bỏ qua.
 
   # Phần AI đang được dựng lại trên nhánh `rebuild/**` (xem ai/README.md).  Bốn bước cũ
   # ở job này gọi ai/app, ai/tests, retrieval_benchmark.py và ci_golden_gates.py — đều đã
@@ -351,7 +325,7 @@ jobs:
   golden-e2e:
     name: golden-e2e
     runs-on: ubuntu-latest
-    # Dựng stack THẬT rồi hỏi như khách: QR -> phiên bàn -> phiên chat -> backend .NET ->
+    # Dựng stack THẬT rồi hỏi như khách: QR -> phiên bàn -> phiên chat -> backend Java ->
     # dịch vụ AI -> câu trả lời -> thẻ giỏ -> giỏ hàng thật.
     #
     # Vì sao job này tồn tại: mọi tập khác dừng ở một chặng khác nhau của chuỗi gọi, và cả
@@ -374,23 +348,28 @@ jobs:
       DEPLOY_ENV: ci
       COMPOSE_PROJECT_NAME: cmc-restaurant-golden
       FRONTEND_PORT: "8080"
-      BACKEND_PORT: "5000"
+      # Backend Java nghe 8081, không phải 5000 của bản .NET (#58).
+      # `deploy/docker-compose.java.yml` publish theo BACKEND_JAVA_PORT.
+      BACKEND_JAVA_PORT: "8081"
       POSTGRES_PORT: "5432"
       POSTGRES_DB: restaurant_qr_golden
       POSTGRES_USER: restaurant_user
       POSTGRES_PASSWORD: ci-postgres-placeholder
       FRONTEND_SERVER_NAMES: cmcrestaurant.app
       API_SERVER_NAME: api.cmcrestaurant.app
-      PUBLIC_API_BASE_URL: http://127.0.0.1:5000/api
+      PUBLIC_API_BASE_URL: http://127.0.0.1:8081/api
       PUBLIC_ORDERING_BASE_URL: http://127.0.0.1:8080
       PUBLIC_MARKETING_BASE_URL: http://127.0.0.1:8080
       JWT_SIGNING_KEY: ci-placeholder-signing-key-change-me
       CORS_ALLOWED_ORIGINS: http://127.0.0.1:8080
-      PAYMENTS__VIETQR__BANKID: "970436"
-      PAYMENTS__VIETQR__ACCOUNTNUMBER: "ci-placeholder-account"
-      PAYMENTS__VIETQR__ACCOUNTNAME: CMC CI
-      CHAT_AI_PROVIDER: python-rag
-      AI_SERVICE_URL: http://127.0.0.1:8001
+      # Tên biến theo convention Spring Boot, không phải hai gạch dưới của .NET (#58).
+      PAYMENTS_VIETQR_BANKID: "970436"
+      PAYMENTS_VIETQR_ACCOUNTNUMBER: "ci-placeholder-account"
+      PAYMENTS_VIETQR_ACCOUNTNAME: CMC CI
+      # Stack Java dùng mạng bridge, nên backend gọi dịch vụ AI qua TÊN DỊCH VỤ. Bản .NET dùng
+      # `network_mode: host` nên nó gọi được 127.0.0.1 — chép nguyên sang đây thì backend gọi vào
+      # chính container của nó và chat rơi vào câu dự phòng mà golden vẫn xanh.
+      AI_SERVICE_URL: http://ai-service:8001
       AI_SERVICE_PORT: "8001"
       AI_INTERNAL_TOKEN: ci-internal-token-placeholder
       LLM_BASE_URL: http://127.0.0.1:20128/v1
@@ -409,22 +388,22 @@ jobs:
 
       - name: Di trú cơ sở dữ liệu
         run: |
-          docker compose -f deploy/docker-compose.yml --profile migrate run --rm migrate
+          docker compose -f deploy/docker-compose.java.yml --profile migrate run --rm migrate
 
       - name: Dựng postgres, dịch vụ AI, backend
         run: |
-          docker compose -f deploy/docker-compose.yml up -d --build postgres ai-service api
+          docker compose -f deploy/docker-compose.java.yml up -d --build postgres ai-service api
 
       - name: Chờ backend và dịch vụ AI sẵn sàng
-        run: python ai/evaluation/wait_for_stack.py
+        run: python ai/evaluation/wait_for_stack.py --api http://127.0.0.1:8081
 
       - name: Golden đầu-cuối — hỏi như khách thật
         run: |
-          QR=$(docker compose -f deploy/docker-compose.yml exec -T postgres \
+          QR=$(docker compose -f deploy/docker-compose.java.yml exec -T postgres \
             psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
             -c "select qr_token from restaurant_tables order by table_code limit 1;" | tr -d '\r')
           test -n "$QR" || { echo "không lấy được mã QR — cơ sở dữ liệu chưa seed bàn nào"; exit 1; }
-          GOLDEN_QR_TOKEN="$QR" python ai/evaluation/run_golden_e2e.py --chi-tiet
+          GOLDEN_QR_TOKEN="$QR" python ai/evaluation/run_golden_e2e.py --api http://127.0.0.1:8081 --chi-tiet
 
       # Ba câu thử của phép kiểm sức khỏe deploy, chạy Ở ĐÂY thay vì chờ tới staging.
       #
@@ -444,12 +423,12 @@ jobs:
       - name: Log khi đỏ
         if: failure()
         run: |
-          docker compose -f deploy/docker-compose.yml logs --tail 200 api
-          docker compose -f deploy/docker-compose.yml logs --tail 100 ai-service
+          docker compose -f deploy/docker-compose.java.yml logs --tail 200 api
+          docker compose -f deploy/docker-compose.java.yml logs --tail 100 ai-service
 
       - name: Hạ stack
         if: always()
-        run: docker compose -f deploy/docker-compose.yml down -v
+        run: docker compose -f deploy/docker-compose.java.yml down -v
 
   docker-compose-config:
     name: docker-compose-config
@@ -458,7 +437,7 @@ jobs:
       DEPLOY_ENV: ci
       COMPOSE_PROJECT_NAME: cmc-restaurant-ci
       FRONTEND_PORT: "8080"
-      BACKEND_PORT: "5000"
+      BACKEND_JAVA_PORT: "8081"
       POSTGRES_PORT: "5432"
       POSTGRES_DB: restaurant_qr_ci
       POSTGRES_USER: restaurant_user
@@ -470,10 +449,9 @@ jobs:
       PUBLIC_MARKETING_BASE_URL: https://cmcrestaurant.app
       JWT_SIGNING_KEY: ci-placeholder-signing-key-change-me
       CORS_ALLOWED_ORIGINS: https://cmcrestaurant.app;https://order.cmcrestaurant.app;https://admin.cmcrestaurant.app;https://staff.cmcrestaurant.app;https://kitchen.cmcrestaurant.app
-      PAYMENTS__VIETQR__BANKID: "970436"
-      PAYMENTS__VIETQR__ACCOUNTNUMBER: "ci-placeholder-account"
-      PAYMENTS__VIETQR__ACCOUNTNAME: CMC CI
-      CHAT_AI_PROVIDER: python-rag
+      PAYMENTS_VIETQR_BANKID: "970436"
+      PAYMENTS_VIETQR_ACCOUNTNUMBER: "ci-placeholder-account"
+      PAYMENTS_VIETQR_ACCOUNTNAME: CMC CI
       AI_SERVICE_URL: http://127.0.0.1:8001
       AI_SERVICE_PORT: "8001"
       AI_INTERNAL_TOKEN: ci-internal-token-placeholder
@@ -485,4 +463,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Docker Compose config
-        run: docker compose -f deploy/docker-compose.yml config
+        run: docker compose -f deploy/docker-compose.java.yml config
