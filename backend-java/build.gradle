@@ -61,6 +61,14 @@ tasks.named('test') {
 	// `test`: khi hai loại còn chung một task, cờ `continue-on-error` đặt cho bộ Testcontainers
 	// (chưa từng chạy được ở sandbox) vô hiệu hoá luôn 82 test domain vốn không cần Docker.
 	filter { excludeTestsMatching 'com.cmc.restaurant.RestaurantApplicationTests' }
+
+	// `DeploymentConfigurationTest` đọc tệp compose, không đọc mã Java. Không khai nó là input thì
+	// Gradle coi task `test` là UP-TO-DATE khi chỉ tệp compose đổi, và phép canh bất biến hết hạn
+	// KHÔNG chạy lại — tức nó im lặng đúng lúc cần lên tiếng. Đã dựng lại: đảo giá trị trong compose
+	// rồi chạy `test` cho ra "UP-TO-DATE", phải `--rerun-tasks` mới thấy đỏ.
+	inputs.file(rootProject.file('../deploy/docker-compose.java.yml'))
+			.withPropertyName('composeJava')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 tasks.register('integrationTest', Test) {
