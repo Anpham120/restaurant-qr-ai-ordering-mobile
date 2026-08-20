@@ -6,8 +6,8 @@
     "luot_do": []
   },
   "dieu_kien": {
-    "ngay": "2026-08-20",
-    "api": "http://api95:8081",
+    "ngay": "2026-08-09",
+    "api": "http://127.0.0.1:5000",
     "ready": {
       "ready": true,
       "menu_items": 91,
@@ -15,13 +15,13 @@
       "knowledge_docs": 60,
       "knowledge_chunks": 213,
       "verbatim_topics": 24,
-      "model": null,
-      "model_configured": false,
-      "model_base_url_set": false,
-      "model_key_set": false,
-      "retriever": "bm25",
+      "model": "cx/gpt-5.6-luna-review",
+      "model_configured": true,
+      "model_base_url_set": true,
+      "model_key_set": true,
+      "retriever": "embedding",
       "retriever_chunks": 182,
-      "retriever_vectors_from_cache": null,
+      "retriever_vectors_from_cache": true,
       "generation_enabled": false,
       "memory_version": "v3"
     },
