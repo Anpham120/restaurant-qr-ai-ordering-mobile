@@ -33,7 +33,13 @@ jobs:
       fail-fast: false
       matrix:
         language:
-          - csharp
+          # `csharp` ĐÃ GỠ cùng `backend/` (#59) — không còn tệp .cs nào để quét, và CodeQL báo lỗi
+          # chứ không bỏ qua khi một ngôn ngữ trong ma trận không có mã.
+          #
+          # `java-kotlin` KHÔNG thay vào chỗ đó ở PR này, có chủ đích: quét Java cần bước build
+          # (CodeQL phải biên dịch), tức thêm một lần `gradle build` nữa vào mỗi PR bên cạnh
+          # `backend-java-build` đã có. Đó là một quyết định về chi phí CI, đáng bàn riêng chứ
+          # không ghép vào một PR xoá — ghi thành issue.
           - javascript-typescript
           - python
     steps:

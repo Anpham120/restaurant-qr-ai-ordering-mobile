@@ -49,19 +49,28 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 DICT_PATH = REPO_ROOT / "data" / "menu-tags.json"
+# Seed chuyển từ `RestaurantMenuSeed.cs` (.NET, đã xoá ở #59) sang migration Flyway của bản Java.
 SEED_PATH = (
     REPO_ROOT
-    / "backend"
+    / "backend-java"
     / "src"
-    / "RestaurantQrAiOrdering.Api"
-    / "Data"
-    / "RestaurantMenuSeed.cs"
+    / "main"
+    / "resources"
+    / "db"
+    / "migration"
+    / "V2__seed_official_menu_and_tables.sql"
 )
 
-# Mẫu đọc một món trong tệp seed C#.
+# Mẫu đọc một món trong seed SQL:
+#   INSERT INTO public.menu_items (...) VALUES ('m_004', 'cat_appetizer', 'Tên', 'mô tả',
+#     55000.00, '/menu-images/...', true, '{tag:a,tag:b}', ...);
+#
+# Nhãn là mảng Postgres `'{a,b}'` — phân tách bằng dấu phẩy, KHÔNG có dấu nháy quanh từng nhãn
+# như danh sách chuỗi của C#. Mọi chỗ đọc nhãn bên dưới đổi theo.
 SEED_ITEM_RE = re.compile(
-    r'Item\((?P<num>\d+),\s*"(?P<cat>[^"]+)",\s*"(?P<name>[^"]+)",\s*(?P<price>\d+),'
-    r'\s*"(?P<desc>[^"]*)",\s*"(?P<slug>[^"]+)",\s*seededAt,\s*\[(?P<tags>[^\]]*)\]\)'
+    r"INSERT INTO public\.menu_items[^;]*?VALUES \('(?P<id>[^']+)', '(?P<cat>[^']+)', "
+    r"'(?P<name>(?:[^']|'')+)', '(?P<desc>(?:[^']|'')*)', (?P<price>\d+)\.\d+, "
+    r"'(?P<slug>[^']*)', \w+, '\{(?P<tags>[^}]*)\}'"
 )
 
 # Mỗi nhóm: tên nhóm -> {khóa cũ: (giá trị mới, nhãn tiếng Việt)}.
@@ -360,16 +369,21 @@ def read_seed_tags(dictionary: dict) -> dict[str, list[str]]:
     source = SEED_PATH.read_text(encoding="utf-8-sig")
     out: dict[str, list[str]] = {}
     for match in SEED_ITEM_RE.finditer(source):
-        tags = re.findall(r'"([^"]+)"', match.group("tags"))
-        out[match.group("name")] = [resolve[t] for t in tags if t in resolve]
+        tags = [t for t in match.group("tags").split(",") if t]
+        out[seed_name(match)] = [resolve[t] for t in tags if t in resolve]
     return out
+
+
+def seed_name(match: re.Match[str]) -> str:
+    """SQL thoát dấu nháy đơn bằng cách nhân đôi nó; trả lại dạng người đọc để so với JSON."""
+    return match.group("name").replace("''", "'")
 
 
 def read_seed_categories() -> dict[str, str]:
     """Tên món -> mã danh mục trong cơ sở dữ liệu."""
     source = SEED_PATH.read_text(encoding="utf-8-sig")
     return {
-        match.group("name"): match.group("cat")
+        seed_name(match): match.group("cat")
         for match in SEED_ITEM_RE.finditer(source)
     }
 
@@ -455,49 +469,35 @@ def merge_seed_tags(
 
 
 def seed_tags_differ(menu: dict) -> bool:
-    """Tệp seed C# có khác bộ nhãn đã hợp nhất không — dùng cho chế độ `--check`."""
+    """Seed SQL có khác bộ nhãn đã hợp nhất không — dùng cho chế độ `--check`."""
     by_name = {m["name"]: m for m in menu["items"]}
     source = SEED_PATH.read_text(encoding="utf-8-sig")
     for match in SEED_ITEM_RE.finditer(source):
-        item = by_name.get(match.group("name"))
+        item = by_name.get(seed_name(match))
         if item is None:
             continue
-        want = ", ".join(f'"{t}"' for t in item["tags"])
-        if match.group("tags") != want:
+        if [t for t in match.group("tags").split(",") if t] != sorted(item["tags"]):
             return True
     return False
 
 
-def write_seed_tags(menu: dict) -> int:
-    """Ghi nhãn đã hợp nhất trở lại tệp seed C#, để khách và AI thấy cùng một thứ.
+def write_seed_tags() -> int:
+    """KHÔNG còn ghi vào tệp seed — chỉ báo có lệch hay không (#59).
 
-    Chỉ thay phần trong dấu ngoặc vuông của mỗi lệnh `Item(...)`; mọi thứ khác trong
-    tệp giữ nguyên từng ký tự. Sửa hẹp như vậy để một tệp seed 91 dòng không bị sinh
-    lại toàn bộ, và để diff đọc được.
+    Bản trước ghi thẳng nhãn mới vào `RestaurantMenuSeed.cs`. Với bản Java thì không làm
+    được nữa, và lý do đáng đọc: seed nay là `V2__seed_official_menu_and_tables.sql`, một
+    **migration Flyway ĐÃ CHẠY**. Flyway lưu checksum của từng migration đã áp dụng; sửa nội
+    dung nó nghĩa là mọi cơ sở dữ liệu đang chạy sẽ từ chối khởi động với lỗi checksum. Tức
+    "sửa nhãn" sẽ làm hỏng đúng những môi trường đang có dữ liệu thật.
+
+    Cách đúng là sinh một migration MỚI (`V8__...sql`) cập nhật nhãn — chính là việc mà
+    `build_tag_migration.py` từng làm cho EF Core và đã bị gỡ cùng bản .NET. Bản Flyway của
+    nó chưa có; ghi thành issue riêng thay vì lặng lẽ sửa migration cũ.
+
+    Trong lúc đó, phép kiểm vẫn còn nguyên: `--check` gọi `seed_tags_differ`, nên lệch giữa
+    hai nguồn vẫn đỏ ở CI — chỉ là phải sửa bằng tay, có ý thức, thay vì để công cụ sửa hộ.
     """
-    by_name = {m["name"]: m for m in menu["items"]}
-    source = SEED_PATH.read_text(encoding="utf-8-sig")
-    changed = 0
-
-    def replace(match: re.Match[str]) -> str:
-        nonlocal changed
-        item = by_name.get(match.group("name"))
-        if item is None:
-            return match.group(0)
-        new_block = ", ".join(f'"{t}"' for t in item["tags"])
-        old_block = match.group("tags")
-        if old_block == new_block:
-            return match.group(0)
-        changed += 1
-        start, end = match.span("tags")
-        text = match.group(0)
-        offset = match.start()
-        return text[: start - offset] + new_block + text[end - offset :]
-
-    updated = SEED_ITEM_RE.sub(replace, source)
-    if changed:
-        SEED_PATH.write_text(updated, encoding="utf-8")
-    return changed
+    return 0
 
 
 def relabel(menu: dict, dictionary: dict) -> tuple[dict, list[str], list[str]]:
@@ -618,10 +618,15 @@ def main(argv: list[str] | None = None) -> int:
     MENU_PATH.write_text(
         json.dumps(menu, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    seed_changed = write_seed_tags(menu)
     print(f"\nĐã ghi {DICT_PATH.relative_to(REPO_ROOT)}")
     print(f"Đã ghi {MENU_PATH.relative_to(REPO_ROOT)}")
-    print(f"Đã ghi {SEED_PATH.relative_to(REPO_ROOT)} ({seed_changed}/91 món đổi nhãn)")
+    # KHÔNG ghi SEED_PATH: xem chú thích của `write_seed_tags`.
+    if seed_tags_differ(menu):
+        print(
+            f"\nCẢNH BÁO: {SEED_PATH.relative_to(REPO_ROOT)} lệch bộ nhãn vừa hợp nhất."
+            "\n  Đó là migration Flyway ĐÃ CHẠY — không sửa tự động được (checksum)."
+            "\n  Phải thêm một migration MỚI cập nhật nhãn."
+        )
     return 1 if problems else 0
 
 
