@@ -78,3 +78,101 @@ describe.runIf(HUB)("cổng SUBSCRIBE của backend thật sự chặn", () => {
     expect(nhan.length, "không được nhận sự kiện nào của bàn").toBe(0);
   }, 30000);
 });
+
+/**
+ * Ba đường còn lại của cùng một bản port.
+ *
+ * Bản port SignalR -> STOMP đổi ngữ nghĩa khác nhau ở từng đích, nên chứng minh một đường chạy
+ * KHÔNG chứng minh ba đường kia chạy:
+ *
+ *   /topic/orders.operations   SignalR tự thêm nhân viên vào nhóm ở phía SERVER; STOMP không có
+ *                              khái niệm đó, nên `connect()` phải tự đăng ký. Đây là hành vi
+ *                              client tự dựng lại — sai thì bếp và quầy không nhận được gì.
+ *   /topic/order.<mã đơn>      khách theo dõi đơn bằng token cấp lúc tạo đơn.
+ */
+describe.runIf(HUB && API && process.env.LIVE_STAFF_TOKEN)("nhóm vận hành", () => {
+  it("nhân viên nhận order.created mà KHÔNG phải gọi watch gì thêm", async () => {
+    const nhan: unknown[] = [];
+    const trangThai: string[] = [];
+    const client = createOrderHubClient({
+      hubUrl: HUB,
+      accessTokenFactory: () => process.env.LIVE_STAFF_TOKEN ?? "",
+      handlers: { onOrderCreated: (e) => nhan.push(e), onStatusChanged: (s) => trangThai.push(s) },
+    });
+
+    await client.connect();
+    for (let i = 0; i < 150 && !trangThai.includes("connected"); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(trangThai, `trạng thái: ${trangThai.join(",")}`).toContain("connected");
+    await new Promise((r) => setTimeout(r, 500));
+
+    const dat = await taoDon();
+    for (let i = 0; i < 150 && nhan.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await client.disconnect();
+    expect(dat.orderCode, "phải tạo được đơn").toBeTruthy();
+    expect(nhan.length, "bếp phải nhận được đơn mới").toBeGreaterThan(0);
+  }, 45000);
+});
+
+describe.runIf(HUB && API && process.env.LIVE_QR_TOKEN)("khách theo dõi đơn của mình", () => {
+  it("nhận order.statusChanged trên /topic/order.<mã đơn>", async () => {
+    const dat = await taoDon();
+    const nhan: unknown[] = [];
+    const trangThai: string[] = [];
+    const client = createOrderHubClient({
+      hubUrl: HUB,
+      handlers: { onOrderStatusChanged: (e) => nhan.push(e), onStatusChanged: (s) => trangThai.push(s) },
+    });
+
+    await client.connect();
+    for (let i = 0; i < 150 && !trangThai.includes("connected"); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await client.watchOrder(dat.orderCode, dat.orderToken);
+    await new Promise((r) => setTimeout(r, 500));
+
+    // Nhân viên đổi trạng thái đơn — sự kiện phải tới đúng đích của đơn đó.
+    const res = await fetch(`${API}/api/orders/${dat.orderCode}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.LIVE_STAFF_TOKEN ?? ""}`,
+      },
+      body: JSON.stringify({ status: "Confirmed" }),
+    });
+    expect(res.status, await res.text().catch(() => "")).toBe(200);
+
+    for (let i = 0; i < 150 && nhan.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await client.disconnect();
+    expect(nhan.length, "khách phải thấy đơn đổi trạng thái").toBeGreaterThan(0);
+  }, 45000);
+});
+
+/** Mở phiên bàn rồi tạo một đơn thật, trả về mã đơn và token khách. */
+async function taoDon(): Promise<{ orderCode: string; orderToken: string }> {
+  const qr = process.env.LIVE_QR_TOKEN!;
+  const tc = process.env.LIVE_TABLE_CODE!;
+  const s = await (await fetch(`${API}/api/table-sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ qrToken: qr, tableCode: tc }),
+  })).json();
+  const o = await (await fetch(`${API}/api/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Table-Session-Token": s.tableSessionToken,
+      "Idempotency-Key": `rt-${Date.now()}-${Math.random()}`,
+    },
+    body: JSON.stringify({
+      tableSessionId: s.sessionId, orderType: "DineIn", tableCode: tc, qrToken: qr,
+      items: [{ menuItemId: "m_001", quantity: 1 }],
+    }),
+  })).json();
+  return { orderCode: o.orderCode, orderToken: o.customerAccessToken };
+}
