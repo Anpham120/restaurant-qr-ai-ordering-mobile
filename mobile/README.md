@@ -591,3 +591,67 @@ khách — thứ §9.8 đã cảnh báo riêng:
 
 > *"đây là lớp cá nhân hoá tiện lợi, **không thay thế** cơ chế chặn cứng theo nhãn dị nguyên của
 > món (hạn chế #7 — mới phủ 44/91 món)"*
+
+## Test app kiểu gì
+
+Ba mức, theo thứ tự rẻ → đắt.
+
+### Mức 1 — chạy 198 ca kiểm, không cài gì (≈33 giây)
+
+Không cần Flutter trên máy. SDK nằm trong Docker volume:
+
+```bash
+docker volume create flutter-sdk && docker volume create pub-cache
+# lần đầu: clone SDK vào volume (~880 MB)
+docker run --rm -v flutter-sdk:/sdk debian:bookworm-slim sh -c \
+  'apt-get update -qq && apt-get install -y -qq git curl unzip xz-utils zip libglu1-mesa && \
+   git clone --depth 1 -b stable https://github.com/flutter/flutter.git /sdk/flutter'
+
+# từ đó về sau:
+docker run --rm -v "$PWD/mobile:/app" -v flutter-sdk:/sdk -v pub-cache:/root/.pub-cache \
+  -w /app ghcr.io/cirruslabs/flutter:stable \
+  sh -c 'export PATH=/sdk/flutter/bin:$PATH; flutter test'
+```
+
+Kiểm được: luật hết hạn token, khoá idempotency, nhóm thực đơn, nhãn trạng thái, và widget test
+cho các màn hình chính.
+
+**Không kiểm được:** giao diện thật, ảnh có tải không, app có nói chuyện được với backend không.
+
+### Mức 2 — cài lên điện thoại thật
+
+APK dựng ở CI và **giữ lại 14 ngày** dưới dạng artifact.
+
+1. Mở tab **Actions** của repo → chọn lần chạy bất kỳ đã xanh → tải **`app-debug-apk`**.
+2. Chép APK vào điện thoại, bật *"Cài từ nguồn không xác định"*, cài.
+3. Mở app → màn hình **Máy chủ** hiện ra ngay lần đầu → gõ IP LAN của máy chạy backend
+   (Windows: `ipconfig`; macOS/Linux: `ifconfig`), ví dụ `192.168.1.5`.
+4. Bấm **Kiểm tra kết nối** — nó gọi thật `GET /api/health`.
+
+Điện thoại và máy chủ **phải cùng một wifi**. Ô địa chỉ ảnh tự đi theo ô API (cổng 8080), sửa
+được nếu triển khai khác.
+
+> Vì sao cần màn hình này thay vì `--dart-define`: `--dart-define` là **compile-time**. APK dựng ở
+> CI mang sẵn `10.0.2.2` — địa chỉ chỉ có nghĩa **bên trong máy ảo Android**. Muốn mỗi lần đổi
+> mạng lại dựng một APK riêng thì phải có máy dựng được APK, thứ mà máy phát triển của dự án này
+> không có.
+
+Đổi máy chủ sẽ **thoát phiên bàn và đăng nhập**: token do máy chủ cũ cấp không dùng được ở máy
+chủ mới, và giữ lại chỉ tạo ra một loạt 401 khó hiểu.
+
+### Mức 3 — máy ảo Android
+
+Cần cài trên Windows: Android Studio + emulator + Flutter SDK (~5–6 GB). Emulator chạy native nên
+không bị giới hạn RAM của Docker. Địa chỉ mặc định `10.0.2.2:8081` đúng sẵn cho máy ảo.
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8081 \
+            --dart-define=IMAGE_BASE_URL=http://10.0.2.2:8080
+```
+
+### Backend phải chạy trước
+
+```bash
+cd deploy && docker compose -f docker-compose.java.yml -p cmc-restaurant-java-local up -d
+curl http://localhost:8081/api/health     # {"status":"ok"}
+```
