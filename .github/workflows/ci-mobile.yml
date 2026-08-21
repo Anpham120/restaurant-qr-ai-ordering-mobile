@@ -79,3 +79,42 @@ jobs:
       # release: cần khoá ký, và khoá ký không được nằm trong repo.
       - name: Build APK (debug)
         run: flutter build apk --debug
+
+  # iOS phải có runner riêng: dựng iOS bắt buộc macOS + Xcode, không có cách nào chạy trên
+  # ubuntu. Đây KHÔNG phải giới hạn của Flutter — mã Dart giống hệt nhau; chỉ khâu biên dịch
+  # cuối và CocoaPods là của Apple.
+  #
+  # Trước đây tôi ghi "CI chỉ dựng Android" như thể đó là sự thật cố định. Nó không cố định:
+  # repo này PUBLIC, mà runner macOS của GitHub miễn phí cho repo public. Lý do duy nhất iOS
+  # chưa có cổng chặn là chưa ai thêm job — không phải vì không làm được.
+  #
+  # Tách job thay vì thêm bước vào `mobile-build`: hai runner khác hệ điều hành, và gộp lại
+  # nghĩa là mỗi PR phải chờ macOS ngay cả khi chỉ cần biết Android còn dựng được.
+  mobile-build-ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Phải khớp job Android và `mobile/pubspec.lock` — xem ghi chú ở trên.
+          flutter-version: 3.47.1
+          channel: stable
+          cache: true
+
+      - name: Cài phụ thuộc đúng theo lockfile
+        run: flutter pub get --enforce-lockfile
+
+      # `--no-codesign`: dựng để CHỨNG MINH MÃ BIÊN DỊCH ĐƯỢC, không phải để phát hành.
+      #
+      # Ký cần chứng chỉ Apple Developer, và chứng chỉ đó không được nằm trong repo — cùng lý do
+      # job Android chỉ dựng bản debug. Bỏ khâu ký vẫn chạy trọn phần dễ hỏng nhất: CocoaPods
+      # phân giải pod của `flutter_secure_storage`, rồi Xcode biên dịch toàn bộ mã Dart + Swift.
+      #
+      # KHÔNG đặt `continue-on-error`. Một cổng không chặn được thì không phải cổng.
+      - name: Build iOS (không ký)
+        run: flutter build ios --debug --no-codesign

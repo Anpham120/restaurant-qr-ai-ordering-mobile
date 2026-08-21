@@ -66,3 +66,25 @@ nơi thì token đã chết và khách nhận 401 giữa lúc đang đặt món.
 
 Đăng ký tài khoản trong app (`POST /api/auth/register` đã có ở backend, app chưa có màn hình),
 làm mới token, và toàn bộ M1 mục 2–4 (phiên bàn gắn `MemberId`, điểm thưởng, menu) — #26–#28.
+
+## Cổng chặn trên CI
+
+`ci-mobile.yml` có hai job, cả hai đều chặn được merge (không job nào có `continue-on-error`):
+
+| Job | Máy | Kiểm gì |
+|---|---|---|
+| `mobile-build` | `ubuntu-latest` | `pub get --enforce-lockfile`, `dart format --set-exit-if-changed`, `flutter analyze --fatal-infos`, `flutter test`, `flutter build apk --debug` |
+| `mobile-build-ios` | `macos-latest` | `pub get --enforce-lockfile`, `flutter build ios --debug --no-codesign` |
+
+**Vì sao iOS cần máy riêng:** dựng iOS bắt buộc macOS + Xcode. Đây *không* phải giới hạn của Dart
+hay Flutter — mã Dart giống hệt nhau ở cả hai nền tảng; chỉ khâu biên dịch cuối và CocoaPods là
+của Apple. Runner macOS của GitHub miễn phí cho repo public, mà repo này public.
+
+`--no-codesign` vì ký cần chứng chỉ Apple Developer, và chứng chỉ không được nằm trong repo —
+cùng lý do job Android chỉ dựng bản debug. Bỏ khâu ký vẫn chạy trọn phần dễ hỏng nhất: CocoaPods
+phân giải pod của `flutter_secure_storage`, rồi Xcode biên dịch toàn bộ mã Dart + Swift.
+
+**Flutter được ghim ở 3.47.1** ở cả hai job. `channel: stable` là mục tiêu di động còn
+`--enforce-lockfile` đòi mục tiêu cố định; bốn gói `matcher`, `meta`, `test_api`, `vector_math`
+do chính SDK ghim, nên đổi SDK là đổi phiên bản và lockfile hết khớp. Nâng Flutter phải là một
+commit sửa cả hai nơi cùng lúc.
