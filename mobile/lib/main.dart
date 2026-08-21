@@ -9,6 +9,8 @@ import 'core/tables/table_session.dart';
 import 'core/tables/table_session_api.dart';
 import 'core/tables/table_session_repository.dart';
 import 'core/cart/cart_api.dart';
+import 'core/cau_hinh/cau_hinh.dart';
+import 'core/cau_hinh/cau_hinh_store.dart';
 import 'core/chat/chat_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
@@ -20,6 +22,7 @@ import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
 import 'core/promotions/promotion_api.dart';
 import 'ui/cart_screen.dart';
+import 'ui/server_settings_screen.dart';
 import 'ui/chat_screen.dart';
 import 'ui/login_screen.dart';
 import 'ui/history_screen.dart';
@@ -55,63 +58,35 @@ const String imageBaseUrl = String.fromEnvironment(
   defaultValue: 'http://10.0.2.2:8080',
 );
 
-void main() {
-  final auth = AuthRepository(
-    api: HttpAuthApi(baseUrl: apiBaseUrl),
-    store: SecureTokenStore(),
-  );
+Future<void> main() async {
+  // Đọc cấu hình TRƯỚC khi dựng bất kỳ client nào: mọi client cần địa chỉ máy chủ, và địa chỉ đó
+  // do người dùng nhập chứ không còn cố định lúc biên dịch.
+  WidgetsFlutterBinding.ensureInitialized();
+  final store = CauHinhStore();
+  final daLuu = await store.doc();
   runApp(RestaurantApp(
-    auth: auth,
-    ban: TableSessionRepository(
-      api: HttpTableSessionApi(baseUrl: apiBaseUrl),
-      store: SecureTableSessionStore(),
-      auth: auth,
-    ),
-    menuApi: HttpMenuApi(baseUrl: apiBaseUrl),
-    cartApi: HttpCartApi(baseUrl: apiBaseUrl),
-    chatApi: HttpChatApi(baseUrl: apiBaseUrl),
-    createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
-    invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
-    tokenStore: OrderTokenStore(),
-    historyApi: HttpOrderHistoryApi(baseUrl: apiBaseUrl),
-    favouriteApi: HttpFavouriteApi(baseUrl: apiBaseUrl),
-    orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
-    promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
-    loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
+    store: store,
+    // Chưa lưu gì thì dùng giá trị --dart-define. Máy ảo Android chạy được ngay; điện thoại thật
+    // sẽ thấy màn hình nhập địa chỉ.
+    cauHinhBanDau: daLuu ??
+        const CauHinhMayChu(apiBaseUrl: apiBaseUrl, imageBaseUrl: imageBaseUrl),
+    daCoCauHinh: daLuu != null,
   ));
 }
 
 class RestaurantApp extends StatefulWidget {
   const RestaurantApp({
     super.key,
-    required this.auth,
-    required this.ban,
-    required this.menuApi,
-    required this.cartApi,
-    required this.chatApi,
-    required this.createOrderApi,
-    required this.invoiceApi,
-    required this.tokenStore,
-    required this.historyApi,
-    required this.favouriteApi,
-    required this.orderApi,
-    required this.promotionApi,
-    required this.loyaltyApi,
+    required this.store,
+    required this.cauHinhBanDau,
+    required this.daCoCauHinh,
   });
 
-  final AuthRepository auth;
-  final TableSessionRepository ban;
-  final MenuApi menuApi;
-  final CartApi cartApi;
-  final ChatApi chatApi;
-  final CreateOrderApi createOrderApi;
-  final InvoiceApi invoiceApi;
-  final OrderTokenStore tokenStore;
-  final OrderHistoryApi historyApi;
-  final FavouriteApi favouriteApi;
-  final OrderApi orderApi;
-  final PromotionApi promotionApi;
-  final LoyaltyApi loyaltyApi;
+  final CauHinhStore store;
+  final CauHinhMayChu cauHinhBanDau;
+
+  /// Đã từng lưu cấu hình chưa. Chưa thì mở thẳng màn hình nhập địa chỉ.
+  final bool daCoCauHinh;
 
   @override
   State<RestaurantApp> createState() => _RestaurantAppState();
@@ -123,17 +98,82 @@ class _RestaurantAppState extends State<RestaurantApp> {
   String? _soDienThoai;
   bool _dangKhoiPhuc = true;
 
+  late CauHinhMayChu _cauHinh;
+  late bool _canNhapCauHinh;
+
+  late AuthRepository _auth;
+  late TableSessionRepository _ban;
+  late MenuApi _menuApi;
+  late CartApi _cartApi;
+  late ChatApi _chatApi;
+  late CreateOrderApi _createOrderApi;
+  late InvoiceApi _invoiceApi;
+  late OrderHistoryApi _historyApi;
+  late FavouriteApi _favouriteApi;
+  late OrderApi _orderApi;
+  late PromotionApi _promotionApi;
+  late LoyaltyApi _loyaltyApi;
+  final OrderTokenStore _tokenStore = OrderTokenStore();
+
   @override
   void initState() {
     super.initState();
+    _cauHinh = widget.cauHinhBanDau;
+    _canNhapCauHinh = !widget.daCoCauHinh;
+    _dungClient();
     _khoiPhuc();
+  }
+
+  /// Dựng lại toàn bộ client theo địa chỉ hiện tại.
+  ///
+  /// Client giữ `baseUrl` bên trong nên đổi máy chủ bắt buộc phải dựng lại chúng — sửa một biến
+  /// toàn cục sẽ không chạm tới những client đã tạo, và app sẽ nửa nói chuyện với máy cũ nửa với
+  /// máy mới.
+  void _dungClient() {
+    final api = _cauHinh.apiBaseUrl;
+    _auth = AuthRepository(
+        api: HttpAuthApi(baseUrl: api), store: SecureTokenStore());
+    _ban = TableSessionRepository(
+      api: HttpTableSessionApi(baseUrl: api),
+      store: SecureTableSessionStore(),
+      auth: _auth,
+    );
+    _menuApi = HttpMenuApi(baseUrl: api);
+    _cartApi = HttpCartApi(baseUrl: api);
+    _chatApi = HttpChatApi(baseUrl: api);
+    _createOrderApi = HttpCreateOrderApi(baseUrl: api);
+    _invoiceApi = HttpInvoiceApi(baseUrl: api);
+    _historyApi = HttpOrderHistoryApi(baseUrl: api);
+    _favouriteApi = HttpFavouriteApi(baseUrl: api);
+    _orderApi = HttpOrderApi(baseUrl: api);
+    _promotionApi = HttpPromotionApi(baseUrl: api);
+    _loyaltyApi = HttpLoyaltyApi(baseUrl: api);
+  }
+
+  /// Lưu địa chỉ mới và bắt đầu lại từ đầu.
+  ///
+  /// XOÁ phiên bàn và phiên đăng nhập: token do máy chủ CŨ cấp không có nghĩa gì ở máy chủ mới, và
+  /// giữ lại chỉ tạo ra một loạt 401 khó hiểu. Màn hình cài đặt đã nói trước điều này.
+  Future<void> _luuCauHinh(CauHinhMayChu moi) async {
+    await widget.store.luu(moi);
+    await _auth.dangXuat();
+    await _ban.roiBan();
+    await _tokenStore.xoaHet();
+    if (!mounted) return;
+    setState(() {
+      _cauHinh = moi;
+      _canNhapCauHinh = false;
+      _dangNhap = null;
+      _phienBan = null;
+      _soDienThoai = null;
+      _dungClient();
+    });
   }
 
   Future<void> _khoiPhuc() async {
     // Khôi phục SONG SONG: hai phiên độc lập nhau. Khách có thể đang ngồi ở bàn mà token đăng
     // nhập đã hết hạn, hoặc ngược lại — nối tiếp chỉ làm màn hình chờ lâu gấp đôi.
-    final ketQua =
-        await Future.wait([widget.auth.khoiPhuc(), widget.ban.khoiPhuc()]);
+    final ketQua = await Future.wait([_auth.khoiPhuc(), _ban.khoiPhuc()]);
     if (!mounted) return;
     setState(() {
       _dangNhap = ketQua[0] as AuthSession?;
@@ -157,7 +197,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
       return;
     }
     try {
-      final kq = await widget.loyaltyApi.cuaToi(ses.accessToken);
+      final kq = await _loyaltyApi.cuaToi(ses.accessToken);
       if (!mounted) return;
       setState(() => _soDienThoai = kq.linked ? kq.phoneNumber : null);
     } catch (_) {
@@ -177,6 +217,15 @@ class _RestaurantAppState extends State<RestaurantApp> {
   }
 
   Widget _manHinh() {
+    // Chưa có địa chỉ máy chủ thì KHÔNG có gì để hiện: mọi màn hình khác đều bắt đầu bằng một
+    // lời gọi mạng. Bắt nhập trước là trung thực hơn một màn hình trống kèm lỗi.
+    if (_canNhapCauHinh) {
+      return ServerSettingsScreen(
+        hienTai: _cauHinh,
+        batBuoc: true,
+        onLuu: _luuCauHinh,
+      );
+    }
     if (_dangKhoiPhuc) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -184,7 +233,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
     // đăng nhập chỉ đổi lấy việc đơn được gắn tài khoản (§9.4).
     if (_phienBan == null) {
       return OpenTableScreen(
-        repository: widget.ban,
+        repository: _ban,
         dangNhapVoi: _dangNhap,
         onMoPhienXong: (session) => setState(() => _phienBan = session),
       );
@@ -193,26 +242,36 @@ class _RestaurantAppState extends State<RestaurantApp> {
       phienBan: _phienBan!,
       dangNhap: _dangNhap,
       soDienThoai: _soDienThoai,
-      menuApi: widget.menuApi,
-      cartApi: widget.cartApi,
-      chatApi: widget.chatApi,
-      createOrderApi: widget.createOrderApi,
-      invoiceApi: widget.invoiceApi,
-      tokenStore: widget.tokenStore,
-      historyApi: widget.historyApi,
-      favouriteApi: widget.favouriteApi,
-      orderApi: widget.orderApi,
-      promotionApi: widget.promotionApi,
-      loyaltyApi: widget.loyaltyApi,
+      menuApi: _menuApi,
+      cartApi: _cartApi,
+      chatApi: _chatApi,
+      createOrderApi: _createOrderApi,
+      invoiceApi: _invoiceApi,
+      tokenStore: _tokenStore,
+      historyApi: _historyApi,
+      favouriteApi: _favouriteApi,
+      orderApi: _orderApi,
+      promotionApi: _promotionApi,
+      loyaltyApi: _loyaltyApi,
+      cauHinh: _cauHinh,
+      onMoCaiDat: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ServerSettingsScreen(
+          hienTai: _cauHinh,
+          onLuu: (moi) async {
+            await _luuCauHinh(moi);
+            if (mounted) Navigator.of(context).pop();
+          },
+        ),
+      )),
       onRoiBan: () async {
-        await widget.ban.roiBan();
+        await _ban.roiBan();
         // Token đơn của bàn cũ không dùng được nữa — không có lý do giữ.
-        await widget.tokenStore.xoaHet();
+        await _tokenStore.xoaHet();
         if (mounted) setState(() => _phienBan = null);
       },
       onDangNhap: () => Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => LoginScreen(
-          repository: widget.auth,
+          repository: _auth,
           onDangNhapXong: (session) {
             setState(() => _dangNhap = session);
             _taiSoDienThoai();
@@ -221,7 +280,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
         ),
       )),
       onDangXuat: () async {
-        await widget.auth.dangXuat();
+        await _auth.dangXuat();
         if (mounted) {
           setState(() {
             _dangNhap = null;
@@ -254,6 +313,8 @@ class _KhungChinh extends StatefulWidget {
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
+    required this.cauHinh,
+    required this.onMoCaiDat,
     required this.onRoiBan,
     required this.onDangNhap,
     required this.onDangXuat,
@@ -276,6 +337,8 @@ class _KhungChinh extends StatefulWidget {
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
+  final CauHinhMayChu cauHinh;
+  final VoidCallback onMoCaiDat;
   final Future<void> Function() onRoiBan;
   final VoidCallback onDangNhap;
   final Future<void> Function() onDangXuat;
@@ -339,6 +402,8 @@ class _KhungChinhState extends State<_KhungChinh> {
           quantity,
         ),
         loyaltyApi: widget.loyaltyApi,
+        cauHinh: widget.cauHinh,
+        onMoCaiDat: widget.onMoCaiDat,
         onRoiBan: widget.onRoiBan,
         onDangNhap: widget.onDangNhap,
         onDangXuat: widget.onDangXuat,
@@ -374,6 +439,8 @@ class _TabTaiKhoan extends StatelessWidget {
     required this.favouriteApi,
     required this.themVaoGio,
     required this.loyaltyApi,
+    required this.cauHinh,
+    required this.onMoCaiDat,
     required this.onRoiBan,
     required this.onDangNhap,
     required this.onDangXuat,
@@ -387,6 +454,8 @@ class _TabTaiKhoan extends StatelessWidget {
   final FavouriteApi favouriteApi;
   final Future<void> Function(String menuItemId, int quantity) themVaoGio;
   final LoyaltyApi loyaltyApi;
+  final CauHinhMayChu cauHinh;
+  final VoidCallback onMoCaiDat;
   final Future<void> Function() onRoiBan;
   final VoidCallback onDangNhap;
   final Future<void> Function() onDangXuat;
@@ -404,6 +473,15 @@ class _TabTaiKhoan extends StatelessWidget {
             subtitle: Text(phienBan.tableDisplayName),
             trailing:
                 TextButton(onPressed: onRoiBan, child: const Text('Rời bàn')),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dns),
+            title: const Text('Máy chủ'),
+            // Hiện địa chỉ đang dùng chứ không chỉ chữ "Cài đặt": khi app không gọi được gì, câu
+            // hỏi đầu tiên luôn là "nó đang trỏ vào đâu", và câu trả lời phải ở ngay đây.
+            subtitle: Text(cauHinh.apiBaseUrl),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onMoCaiDat,
           ),
           ListTile(
             leading: const Icon(Icons.payments),
