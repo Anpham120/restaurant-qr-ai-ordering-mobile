@@ -352,3 +352,64 @@ Khoá **theo từng món**, không theo cả đơn: đo thật, huỷ được m
 
 Token sai và đơn không tồn tại **trả cùng một mã** — cố ý, vì mã đơn tăng dần nên xác nhận
 "ORD-1002 có thật" đã là rò rỉ. Câu thông báo của app phải phủ được cả hai nghĩa.
+
+## Trợ lý AI: gợi ý là NÚT BẤM, không phải hành động
+
+Backend chỉ chuyển tiếp gợi ý có `requiresCustomerConfirmation == true` — `ChatService
+.toCartActions` lọc thẳng, nên **mọi** gợi ý app nhận được đều là "hỏi khách".
+
+App tôn trọng đúng điều đó: món gợi ý hiện thành thẻ có nút **Thêm**, và nút đó gọi đúng API giỏ
+hàng như khi khách tự chọn món. Tự thêm là **tiêu tiền của khách theo lời một mô hình ngôn ngữ**.
+
+Màn hình còn nói thẳng: *"Bấm để thêm vào giỏ — trợ lý không tự thêm gì cả."* Không có dòng đó,
+một danh sách món kèm nút bấm rất dễ đọc như "đã chọn giúp bạn".
+
+### 9,8 giây cho một câu trả lời
+
+Đo trên hệ thống đang chạy:
+
+```
+POST /api/chat/sessions/{id}/messages   → HTTP 200 · 9.81s
+6 gợi ý giỏ, tất cả requiresCustomerConfirmation=true
+```
+
+Hệ quả thiết kế:
+
+- **Thời gian chờ 60 giây**, không phải 5–10. Đặt ngắn sẽ giết đúng những câu trả lời hợp lệ;
+  không đặt gì thì `package:http` treo vô hạn khi dịch vụ AI chết.
+- **Nói rõ đang chờ**: *"Trợ lý đang xem thực đơn…"* thay vì một vòng quay im lặng — 10 giây im
+  lặng đọc như app treo.
+
+### `charset=utf-8` là bắt buộc
+
+Thiếu nó, câu hỏi tiếng Việt có dấu bị đọc sai byte:
+
+```
+400  HttpMessageNotReadableException: JSON parse error: Invalid UTF-8 middle byte 0x69
+```
+
+Gặp thật khi đo bằng curl. Có phép kiểm chốt header này.
+
+### Chặn câu rỗng ở app
+
+Backend trả `CHAT_MESSAGE_EMPTY`, nhưng **một lượt hỏng vẫn tính vào hạn mức 10 tin/phút**. Chặn ở
+app giữ hạn mức lại cho câu hỏi thật.
+
+### Giới hạn tốc độ không phải "lỗi"
+
+`CHAT_RATE_LIMITED` → *"Bạn hỏi hơi nhanh. Chờ một chút rồi hỏi tiếp nhé."* Khách không làm gì
+sai. Có phép kiểm chặn cả việc câu thông báo chứa chữ "lỗi".
+
+Tương tự, `AI_PROVIDER_UNAVAILABLE` chỉ ra **lối thoát có thật** (xem thực đơn, gọi nhân viên) chứ
+không bảo "thử lại" — trợ lý chết thì thử lại cũng chết.
+
+### Dùng đường không streaming
+
+Web dùng SSE làm đường chính (#95) để chữ hiện dần. App dùng đường thường: nó là API hạng nhất,
+kiểm được bằng `MockClient`, và không phải phân tích khung SSE trong Dart. Đánh đổi thật: khách
+nhìn vòng quay thay vì thấy chữ chạy.
+
+### Phiên dùng lại thì giữ nguyên lịch sử
+
+`reused: true` nghĩa là bàn đã có phiên chat và backend dùng lại nó. App **không** xoá màn hình
+rồi chào lại từ đầu — khách quay lại giữa cuộc trò chuyện của chính mình.

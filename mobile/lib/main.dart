@@ -9,6 +9,7 @@ import 'core/tables/table_session.dart';
 import 'core/tables/table_session_api.dart';
 import 'core/tables/table_session_repository.dart';
 import 'core/cart/cart_api.dart';
+import 'core/chat/chat_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
 import 'core/orders/order_token_store.dart';
@@ -17,6 +18,7 @@ import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
 import 'core/promotions/promotion_api.dart';
 import 'ui/cart_screen.dart';
+import 'ui/chat_screen.dart';
 import 'ui/login_screen.dart';
 import 'ui/loyalty_screen.dart';
 import 'ui/menu_screen.dart';
@@ -64,6 +66,7 @@ void main() {
     ),
     menuApi: HttpMenuApi(baseUrl: apiBaseUrl),
     cartApi: HttpCartApi(baseUrl: apiBaseUrl),
+    chatApi: HttpChatApi(baseUrl: apiBaseUrl),
     createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
     invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
     tokenStore: OrderTokenStore(),
@@ -80,6 +83,7 @@ class RestaurantApp extends StatefulWidget {
     required this.ban,
     required this.menuApi,
     required this.cartApi,
+    required this.chatApi,
     required this.createOrderApi,
     required this.invoiceApi,
     required this.tokenStore,
@@ -92,6 +96,7 @@ class RestaurantApp extends StatefulWidget {
   final TableSessionRepository ban;
   final MenuApi menuApi;
   final CartApi cartApi;
+  final ChatApi chatApi;
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
@@ -181,6 +186,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
       soDienThoai: _soDienThoai,
       menuApi: widget.menuApi,
       cartApi: widget.cartApi,
+      chatApi: widget.chatApi,
       createOrderApi: widget.createOrderApi,
       invoiceApi: widget.invoiceApi,
       tokenStore: widget.tokenStore,
@@ -228,6 +234,7 @@ class _KhungChinh extends StatefulWidget {
     required this.soDienThoai,
     required this.menuApi,
     required this.cartApi,
+    required this.chatApi,
     required this.createOrderApi,
     required this.invoiceApi,
     required this.tokenStore,
@@ -247,6 +254,7 @@ class _KhungChinh extends StatefulWidget {
 
   final MenuApi menuApi;
   final CartApi cartApi;
+  final ChatApi chatApi;
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
@@ -288,6 +296,18 @@ class _KhungChinhState extends State<_KhungChinh> {
         api: widget.orderApi,
         phienBan: widget.phienBan,
         tokenStore: widget.tokenStore,
+      ),
+      ChatScreen(
+        api: widget.chatApi,
+        phienBan: widget.phienBan,
+        // Trợ lý KHÔNG tự thêm gì. Nó chỉ gọi lại hàm này khi khách bấm "Thêm", và hàm này đi
+        // qua đúng API giỏ hàng như khi khách tự chọn món.
+        onThemVaoGio: (menuItemId, quantity) => widget.cartApi.doiSoLuong(
+          widget.phienBan.sessionId,
+          widget.phienBan.tableSessionToken,
+          menuItemId,
+          quantity,
+        ),
       ),
       PromotionsScreen(api: widget.promotionApi),
       _TabTaiKhoan(
