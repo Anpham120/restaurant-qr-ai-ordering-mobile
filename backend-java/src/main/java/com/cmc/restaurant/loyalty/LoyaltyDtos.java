@@ -28,6 +28,22 @@ public final class LoyaltyDtos {
 			boolean linked, String phoneNumber, int points, List<RewardResponse> availableRewards) {
 	}
 
+	/** Ưu đãi khách muốn đổi. */
+	public record RedeemRequest(String rewardId) {
+	}
+
+	/**
+	 * Kết quả một lần đổi điểm.
+	 *
+	 * <p>Trả kèm {@code soDuMoi} chứ không bắt app gọi thêm một lượt: sau khi tiêu điểm, con số
+	 * khách muốn thấy ngay là số dư còn lại. Bắt gọi lần hai tạo ra một khoảng thời gian mà màn
+	 * hình còn hiện số dư CŨ.
+	 */
+	public record RedeemResponse(
+			String redemptionId, String rewardId, String rewardName, int pointsSpent,
+			OffsetDateTime redeemedAt, MyLoyaltyResponse soDuMoi) {
+	}
+
 	/** Số điện thoại khách muốn nối vào tài khoản. */
 	public record LinkPhoneRequest(String phone) {
 	}

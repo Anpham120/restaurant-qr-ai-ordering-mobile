@@ -1,6 +1,9 @@
 package com.cmc.restaurant.loyalty;
 
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
+import com.cmc.restaurant.shared.ApiException;
+import com.cmc.restaurant.shared.RequestIdempotency;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,6 +47,32 @@ public class LoyaltyController {
 			@AuthenticationPrincipal AuthenticatedPrincipal principal,
 			@RequestBody(required = false) LoyaltyDtos.LinkPhoneRequest request) {
 		return myLoyaltyService.linkPhone(principal.userId(), request == null ? null : request.phone());
+	}
+
+	/**
+	 * Đổi điểm lấy ưu đãi (#34).
+	 *
+	 * <p>BẮT BUỘC {@code Idempotency-Key}, cùng lý do với {@code POST /api/orders}: bấm hai lần
+	 * lúc mạng chập chờn ở đây tiêu điểm THẬT của khách. Thiếu header là 400, không phải im lặng
+	 * cho qua.
+	 */
+	@PostMapping("/api/loyalty/me/redeem")
+	@PreAuthorize("hasRole('Customer')")
+	public LoyaltyDtos.RedeemResponse redeem(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@RequestBody(required = false) LoyaltyDtos.RedeemRequest request,
+			HttpServletRequest httpRequest) {
+		String key = RequestIdempotency.readValid(httpRequest);
+		if (key == null) {
+			boolean coHeader = httpRequest.getHeader(RequestIdempotency.HEADER_NAME) != null;
+			throw ApiException.badRequest(
+					coHeader ? "IDEMPOTENCY_KEY_INVALID" : "IDEMPOTENCY_KEY_REQUIRED",
+					"A valid Idempotency-Key header is required.");
+		}
+		if (request == null || request.rewardId() == null || request.rewardId().isBlank()) {
+			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
+		}
+		return myLoyaltyService.redeem(principal.userId(), request.rewardId().trim(), key);
 	}
 
 	@GetMapping("/api/loyalty/lookup")
