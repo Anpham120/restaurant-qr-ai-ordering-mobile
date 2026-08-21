@@ -38,13 +38,13 @@ bản Java **kém hơn**.
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.3.4 |
-| Endpoint | 90 |
+| Endpoint | 91 |
 | Module | 13 — `auth`, `cart`, `chat`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`, `reports`, `shared`, `tables` |
 | Tệp nguồn `.java` | 188 |
-| Dòng mã nguồn | 14.060 |
-| Tệp test | 17 |
-| Dòng mã test | 2.178 |
-| Phương thức `@Test` | 126 |
+| Dòng mã nguồn | 14.149 |
+| Tệp test | 18 |
+| Dòng mã test | 2.366 |
+| Phương thức `@Test` | 134 |
 | Quy tắc ArchUnit | 3 |
 | Migration Flyway | 10 tệp, 1.588 dòng SQL |
 

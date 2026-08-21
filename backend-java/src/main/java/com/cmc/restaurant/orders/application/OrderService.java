@@ -258,6 +258,23 @@ public class OrderService {
 		return new OrderDtos.OrderListResponse(toResponses(orders), orders.size());
 	}
 
+	/**
+	 * Món khách hay gọi nhất, qua nhiều lần ghé (#35).
+	 *
+	 * <p>Cùng luật uỷ quyền với {@link #listOrdersForMember}: không nhận tham số định danh nào,
+	 * {@code memberId} đến từ JWT.
+	 */
+	public OrderDtos.FavouriteItemListResponse listFavouriteItemsForMember(String memberId) {
+		return new OrderDtos.FavouriteItemListResponse(
+				orderRepository.findTopItemsForMember(memberId, GIOI_HAN_MON_HAY_GOI).stream()
+						.map(r -> new OrderDtos.FavouriteItemResponse(
+								r.getMenuItemId(), r.getMenuItemName(), r.getSoLan(), r.getTongSoLuong()))
+						.toList());
+	}
+
+	/** Số món "hay gọi" trả về — đủ để gợi lại thói quen, không đủ để thành một thực đơn thứ hai. */
+	private static final int GIOI_HAN_MON_HAY_GOI = 10;
+
 	/** Số đơn tối đa trả về cho màn hình lịch sử — khách quen có thể có hàng trăm. */
 	private static final int GIOI_HAN_LICH_SU = 50;
 
