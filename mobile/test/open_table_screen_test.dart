@@ -79,6 +79,7 @@ final phienBan = TableSession(
   isExpired: false,
   tableSessionToken: 'tst',
   resumeState: 'FreshStart',
+  qrToken: 'cmc-table-t01-qr',
 );
 
 final phienDangNhap = AuthSession(

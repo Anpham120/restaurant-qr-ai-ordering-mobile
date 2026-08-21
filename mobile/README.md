@@ -182,3 +182,69 @@ Nhãn trạng thái là chỗ dễ nói sai nhất với khách, nên tách thà
 
 Màn hình này **không có nút huỷ món và không có nút thanh toán** — hai việc đó ở #31 và #30. Dựng
 sẵn nút rồi để nó không làm gì là cách chắc chắn để khách bấm và tưởng đã huỷ được món.
+
+## Giỏ hàng và đặt món: hai cơ chế khác nhau, đừng nhầm
+
+| | Giỏ hàng | Tạo đơn |
+|---|---|---|
+| Thân | `{menuItemId, delta}` — **cộng dồn** | `{menuItemId, quantity}` — **tuyệt đối** |
+| Gửi lại có an toàn không | **KHÔNG** | **Có**, nhờ `Idempotency-Key` |
+
+Đo trên hệ thống đang chạy:
+
+```
+POST .../cart/items {"menuItemId":"m_004","delta":2}   → itemCount=2
+POST .../cart/items {"menuItemId":"m_004","delta":2}   → itemCount=4   ← cộng dồn
+```
+
+Nên `HttpCartApi` **không tự gửi lại** khi lỗi mạng, và không có chỗ nào để bật lại. Khi một lời
+gọi hỏng mà không rõ máy chủ đã nhận hay chưa, việc đúng là **đọc lại giỏ** (`GET`) và hiện sự
+thật — chứ không đoán rồi gửi thêm một delta nữa.
+
+Cùng lý do, màn hình giỏ **không cập nhật lạc quan**. Ở màn vận hành (#19) cập nhật lạc quan là
+đúng vì thao tác idempotent; ở đây nếu đoán sai thì con số lệch hẳn với máy chủ và khách sẽ bấm
+thêm để "sửa", làm lệch thêm.
+
+### `Idempotency-Key` gắn với NỘI DUNG GIỎ, không gắn với lần bấm
+
+`POST /api/orders` **bắt buộc** có header này. Hai cách làm sai đều có hậu quả thật:
+
+- **sinh khoá mới mỗi lần gửi** → mạng chập chờn, khách bấm lại, bếp nhận **hai đơn giống hệt**.
+  Đó đúng là tình huống header này sinh ra để chặn;
+- **giữ nguyên khoá sau khi giỏ đổi** → `409 IDEMPOTENCY_KEY_REUSED`, khách nhận lỗi khó hiểu cho
+  việc họ làm hoàn toàn đúng.
+
+Đo thật:
+
+```
+POST /api/orders  khoá K, giỏ 4 phần  → 201  ORD-1016
+POST /api/orders  khoá K, giỏ 4 phần  → 201  ORD-1016   ← cùng đơn, không tạo đơn thứ hai
+POST /api/orders  khoá K, giỏ 1 phần  → 409  IDEMPOTENCY_KEY_REUSED
+thiếu hẳn header                      → 400  IDEMPOTENCY_KEY_REQUIRED
+bảng orders                           → 1 dòng
+```
+
+Lần gửi lại trả **201**, không phải 200 — client nhận cả hai, nhưng con số đo được là 201.
+
+Khoá được **quên sau khi đơn tạo xong**: khách gọi thêm đúng món cũ là chuyện rất thường, và giữ
+khoá cũ sẽ khiến backend trả lại chính đơn cũ — khách thấy "thành công" mà bếp không nhận gì thêm.
+
+### Đơn tại bàn đòi cả `tableCode` lẫn `qrToken`
+
+Chỉ gửi `tableSessionId` là **không đủ**, dù nó đã xác định đúng một cái bàn:
+
+```
+thiếu tableCode → 400 DINE_IN_TABLE_REQUIRED
+thiếu qrToken   → 400 QR_TOKEN_INVALID
+```
+
+Nên app **cất lại mã QR** cùng phiên bàn. Backend không trả nó về, app tự giữ thứ chính mình đã
+gửi — và phải cất xuống máy, vì khách mở lại app rồi mới đặt món là luồng bình thường.
+
+### Tự điền số điện thoại
+
+§9.7 gọi đây là **tính năng lõi của app**, không phải điểm thưởng: khách gõ tay dễ sai, không kiểm
+định dạng, không tra trùng. App đã có số đã liên kết (#27) nên bỏ hẳn bước gõ.
+
+Chỉ gửi khi **thật sự có** — gửi chuỗi rỗng khác hẳn không gửi, backend sẽ coi đó là một số và tạo
+hồ sơ tích điểm rác.
