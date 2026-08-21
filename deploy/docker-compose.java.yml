@@ -164,7 +164,19 @@ services:
     depends_on:
       - api
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+      # KHÔNG neo vào 127.0.0.1 — ảnh món phải với tới được từ điện thoại.
+      #
+      # Đo trên máy phát triển: gọi http://<IP-LAN>:8081/api/health trả {"status":"ok"} (api neo
+      # 0.0.0.0), nhưng http://<IP-LAN>:8080/menu-images/... trả "Unable to connect" vì cổng này
+      # neo 127.0.0.1 — tức chỉ chính máy đó gọi được.
+      #
+      # Hệ quả trên app di động: thực đơn tải được nhưng MỌI Ô ẢNH TRỐNG, và không có lỗi nào để
+      # lần theo. §9.10 cần kiểm thử trên thiết bị thật, nên đây là điều kiện tiên quyết.
+      #
+      # Đánh đổi phải biết: giao diện web (gồm cả trang vận hành) mở ra toàn mạng LAN. Đây là
+      # compose CỤC BỘ cho phát triển — bản triển khai thật đứng sau nginx, không dùng file này.
+      # Trên wifi lạ hoặc quán cà phê, cân nhắc tắt stack khi không dùng.
+      - "${FRONTEND_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 30s
