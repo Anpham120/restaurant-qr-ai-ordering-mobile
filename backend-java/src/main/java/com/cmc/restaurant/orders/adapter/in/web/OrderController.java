@@ -67,6 +67,23 @@ public class OrderController {
 		return orderService.getOrder(orderCode, token, isOperator);
 	}
 
+	/**
+	 * Lịch sử đơn của chính khách, qua nhiều lần ghé (#33, §9.10 M3 mục 9).
+	 *
+	 * <p>Đặt TRƯỚC {@code GET /api/orders} có chủ ý về mặt đọc hiểu, nhưng không phụ thuộc thứ tự:
+	 * {@code /api/orders/mine} là đường dẫn cố định nên Spring khớp nó trước {@code /api/orders}
+	 * bất kể thứ tự khai báo.
+	 *
+	 * <p>Chỉ vai {@code Customer}: nhân viên đã có {@code GET /api/orders} mạnh hơn, và mỗi lối
+	 * vào cùng một dữ liệu là một chỗ phải canh.
+	 */
+	@GetMapping("/api/orders/mine")
+	@PreAuthorize("hasRole('Customer')")
+	public OrderDtos.OrderListResponse listMyOrders(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+		return orderService.listOrdersForMember(principal.userId());
+	}
+
 	@GetMapping("/api/orders")
 	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'Admin')")
 	public OrderDtos.OrderListResponse listOrders(

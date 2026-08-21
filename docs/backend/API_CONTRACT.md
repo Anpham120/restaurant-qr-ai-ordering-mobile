@@ -11,11 +11,11 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**88 endpoint** trong **12 module**, đọc trực tiếp từ
+**89 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/88 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/89 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
@@ -100,12 +100,13 @@
 | `PATCH` | `/api/kitchen/menu-items/{menuItemId}/availability` | `menu/KitchenMenuController.java` |
 | `GET` | `/api/menu` | `menu/MenuController.java` |
 
-### orders (6)
+### orders (7)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
 | `GET` | `/api/orders` | `orders/adapter/in/web/OrderController.java` |
 | `POST` | `/api/orders` | `orders/adapter/in/web/OrderController.java` |
+| `GET` | `/api/orders/mine` | `orders/adapter/in/web/OrderController.java` |
 | `GET` | `/api/orders/{orderCode}` | `orders/adapter/in/web/OrderController.java` |
 | `POST` | `/api/orders/{orderCode}/items/{orderItemId}/cancel` | `orders/adapter/in/web/OrderController.java` |
 | `PATCH` | `/api/orders/{orderCode}/items/{orderItemId}/status` | `orders/adapter/in/web/OrderController.java` |

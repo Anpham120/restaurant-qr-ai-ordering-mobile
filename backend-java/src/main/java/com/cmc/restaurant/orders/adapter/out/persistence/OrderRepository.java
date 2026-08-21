@@ -15,6 +15,35 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 
+	/**
+	 * Đơn của MỘT tài khoản khách qua nhiều lần ghé (§9.10 M3 mục 9, #33).
+	 *
+	 * <p>Không có cột {@code member_id} trên {@code orders}. Đường nối là
+	 * {@code orders → table_sessions.member_id}, thứ mà #26 dựng lên — và §9.4 đã nói trước rằng
+	 * chính nó mở khoá lịch sử đơn theo tài khoản.
+	 *
+	 * <p><b>Native SQL, và đây là một đánh đổi có ý thức.</b> Viết JPQL sẽ phải import
+	 * {@code TableSessionEntity} vào tầng persistence của Orders — tức Orders biết module Tables
+	 * lưu trữ bằng lớp nào. Cách còn lại là dựng một cổng mới chỉ để hỏi "phiên nào thuộc thành
+	 * viên này", tức ba tệp cho đúng một câu truy vấn.
+	 *
+	 * <p>Chọn native: nó ràng buộc Orders vào SCHEMA của Tables (tên bảng, tên cột), không ràng
+	 * buộc vào MÃ. ArchUnit không bắt được kiểu ràng buộc này — nên nó được ghi ra đây thay vì để
+	 * người sau tự phát hiện. Nếu {@code table_sessions.member_id} đổi tên, chỗ này hỏng lúc chạy
+	 * chứ không hỏng lúc biên dịch.
+	 *
+	 * <p>{@code LIMIT} bắt buộc: một khách quen có thể có hàng trăm đơn, và màn hình lịch sử
+	 * không có lý do tải hết.
+	 */
+	@Query(value = """
+			select o.* from orders o
+			join table_sessions s on s.id = o.table_session_id
+			where s.member_id = :memberId
+			order by o.created_at desc
+			limit :gioiHan
+			""", nativeQuery = true)
+	List<OrderEntity> findRecentForMember(String memberId, int gioiHan);
+
 	/** Mọi đơn của một phiên bàn, mới nhất trước (#96). */
 	List<OrderEntity> findByTableSessionIdOrderByCreatedAtDesc(String tableSessionId);
 

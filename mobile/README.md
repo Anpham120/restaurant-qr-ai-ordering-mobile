@@ -413,3 +413,65 @@ nhìn vòng quay thay vì thấy chữ chạy.
 
 `reused: true` nghĩa là bàn đã có phiên chat và backend dùng lại nó. App **không** xoá màn hình
 rồi chào lại từ đầu — khách quay lại giữa cuộc trò chuyện của chính mình.
+
+## Lịch sử đơn qua nhiều lần ghé (#33)
+
+`orders` **không có** cột `member_id`. Đường nối là `orders → table_sessions.member_id`, thứ mà
+#26 dựng lên — và §9.4 đã nói trước rằng chính nó mở khoá lịch sử đơn theo tài khoản.
+
+```
+GET /api/orders/mine   (JWT của khách)
+
+ORD-1019 · bàn T27 · 80.000đ  · 1x Bún bò Huế
+ORD-1018 · bàn T26 · 110.000đ · 2x Bánh cuốn Thanh Trì
+```
+
+Hai đơn, **hai bàn khác nhau** — đó là cả điểm của tính năng.
+
+| Ai gọi | Kết quả |
+|---|---|
+| Chưa đăng nhập | 401 |
+| Vai `Staff` | 403 |
+| Khách khác | 0 đơn |
+| Thêm `?memberId=` của người khác | **0 đơn** |
+
+Uỷ quyền bằng **JWT**, không phải token bàn: đây là dữ liệu của *tài khoản*, ngược hẳn với
+`GET /api/table-sessions/{id}/orders`.
+
+### Truy vấn native — một đánh đổi có ý thức
+
+JPQL sẽ phải import `TableSessionEntity` vào tầng persistence của Orders, tức Orders biết module
+Tables lưu trữ bằng lớp nào. Cách còn lại là dựng một cổng mới chỉ để hỏi *"phiên nào thuộc thành
+viên này"* — ba tệp cho đúng một câu truy vấn.
+
+Chọn native: nó ràng buộc Orders vào **schema** của Tables (tên bảng, tên cột), không ràng buộc
+vào **mã**. ArchUnit không bắt được kiểu ràng buộc này, nên nó được ghi thẳng vào Javadoc thay vì
+để người sau tự phát hiện.
+
+## Đặt lại món cũ: từng món một, và báo cả hai danh sách
+
+Thực đơn đổi giữa hai lần ghé là chuyện bình thường — món cũ có thể đã ngừng bán. **Dừng ở món
+đầu tiên hỏng** nghĩa là khách mất luôn những món vẫn còn, trong khi họ chỉ muốn gọi lại bữa cũ.
+
+Nên `datLaiDon` thêm từng món, không dừng khi một món hỏng, và trả về **cả** danh sách đã thêm
+**lẫn** danh sách không thêm được. Báo *"đã thêm vào giỏ"* rồi im lặng bỏ ba món là nói dối; khách
+chỉ phát hiện lúc nhìn hoá đơn.
+
+**Tuần tự, không song song** — có phép kiểm đếm số lời gọi chạy đồng thời. Giỏ hàng dùng DELTA và
+mọi lời gọi cùng sửa một giỏ; gửi song song là tự tạo tranh chấp trên đúng thứ không idempotent.
+
+**Bỏ qua món đã huỷ** ở đơn cũ: khách đã chủ động bỏ nó lần trước, thêm lại là làm ngược ý họ.
+
+## Cổng mới: biểu thức `@PreAuthorize`
+
+Spring Security phân giải chuỗi trong `@PreAuthorize` bằng SpEL **lúc chạy**. Một biểu thức hỏng
+như `hasRole(Customer)` (thiếu nháy) biên dịch sạch, Checkstyle sạch, và chỉ nổ ở request đầu tiên:
+
+```
+IllegalArgumentException: Failed to evaluate expression 'hasRole(Customer)'  → HTTP 500
+```
+
+Đã xảy ra **hai lần** trong repo này, cả hai vì shell nuốt mất dấu nháy đơn khi sinh mã, và cả hai
+chỉ phát hiện được nhờ gọi thật. `PreAuthorizeExpressionTest` quét mã nguồn và biến nó thành lỗi
+lúc build. Phép kiểm còn có một ca **kiểm chính biểu thức chính quy của nó** — một mẫu viết sai sẽ
+làm cổng luôn xanh và thành đồ trang trí.
