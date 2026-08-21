@@ -2,6 +2,7 @@ package com.cmc.restaurant.tables;
 
 import com.cmc.restaurant.tables.domain.TableSessionResumeState;
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
+import com.cmc.restaurant.auth.UserRole;
 import com.cmc.restaurant.auth.JwtProperties;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.tables.TableDtos.OpenTableSessionRequest;
@@ -119,6 +120,21 @@ public class TableSessionService {
 		}
 	}
 
+	/**
+	 * Gắn phiên bàn vào tài khoản khách, nếu request mang token của một khách đã đăng nhập (§9.4).
+	 *
+	 * <p>CHỈ role {@code Customer}. Đây không phải sự cẩn thận thừa: nhân viên quét QR để kiểm bàn
+	 * hoặc hỗ trợ khách là việc thường ngày, và trước bản sửa này một token {@code Staff} cũng được
+	 * gán làm chủ phiên — đo được trên backend đang chạy: mở phiên T02 bằng token Staff cho ra
+	 * {@code member_id} đúng bằng id của nhân viên đó. Hệ quả lộ ra ở #33/#35: lịch sử đơn và điểm
+	 * thưởng của cả bàn bị gán vào tài khoản nhân viên.
+	 *
+	 * <p>CHỈ gắn khi đang trống. Phiên bàn dùng CHUNG cho mọi người ngồi cùng bàn, nên ghi đè sẽ
+	 * khiến người đăng nhập sau cướp mất liên kết của người trước. Ai gắn trước thì giữ.
+	 *
+	 * <p>KHÔNG đụng vào phần mở/tiếp tục phiên. Chỗ đó có lịch sử race-condition thật (B73,
+	 * V51/V52); đây chỉ là một nhánh gán giá trị chạy sau khi phiên đã được chốt.
+	 */
 	private void attachMemberIdIfAuthenticated(TableSessionEntity session) {
 		if (session.getMemberId() != null) {
 			return;
@@ -126,7 +142,8 @@ public class TableSessionService {
 		Object principal = SecurityContextHolder.getContext().getAuthentication() == null
 				? null
 				: SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-		if (principal instanceof AuthenticatedPrincipal authenticated) {
+		if (principal instanceof AuthenticatedPrincipal authenticated
+				&& UserRole.CUSTOMER.equals(authenticated.role())) {
 			session.setMemberId(authenticated.userId());
 			sessionRepository.save(session);
 		}

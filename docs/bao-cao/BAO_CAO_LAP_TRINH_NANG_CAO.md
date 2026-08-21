@@ -41,10 +41,10 @@ bản Java **kém hơn**.
 | Endpoint | 85 |
 | Module | 13 — `auth`, `cart`, `chat`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`, `reports`, `shared`, `tables` |
 | Tệp nguồn `.java` | 185 |
-| Dòng mã nguồn | 13.463 |
-| Tệp test | 12 |
-| Dòng mã test | 1.372 |
-| Phương thức `@Test` | 91 |
+| Dòng mã nguồn | 13.480 |
+| Tệp test | 13 |
+| Dòng mã test | 1.541 |
+| Phương thức `@Test` | 98 |
 | Quy tắc ArchUnit | 3 |
 | Migration Flyway | 8 tệp, 1.537 dòng SQL |
 
