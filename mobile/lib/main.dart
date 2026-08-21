@@ -8,10 +8,13 @@ import 'core/tables/secure_table_session_store.dart';
 import 'core/tables/table_session.dart';
 import 'core/tables/table_session_api.dart';
 import 'core/tables/table_session_repository.dart';
+import 'core/cart/cart_api.dart';
 import 'core/loyalty/loyalty_api.dart';
+import 'core/orders/create_order_api.dart';
 import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
 import 'core/promotions/promotion_api.dart';
+import 'ui/cart_screen.dart';
 import 'ui/login_screen.dart';
 import 'ui/loyalty_screen.dart';
 import 'ui/menu_screen.dart';
@@ -57,6 +60,8 @@ void main() {
       auth: auth,
     ),
     menuApi: HttpMenuApi(baseUrl: apiBaseUrl),
+    cartApi: HttpCartApi(baseUrl: apiBaseUrl),
+    createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
     orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
     promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
     loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
@@ -69,6 +74,8 @@ class RestaurantApp extends StatefulWidget {
     required this.auth,
     required this.ban,
     required this.menuApi,
+    required this.cartApi,
+    required this.createOrderApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -77,6 +84,8 @@ class RestaurantApp extends StatefulWidget {
   final AuthRepository auth;
   final TableSessionRepository ban;
   final MenuApi menuApi;
+  final CartApi cartApi;
+  final CreateOrderApi createOrderApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -88,6 +97,7 @@ class RestaurantApp extends StatefulWidget {
 class _RestaurantAppState extends State<RestaurantApp> {
   AuthSession? _dangNhap;
   TableSession? _phienBan;
+  String? _soDienThoai;
   bool _dangKhoiPhuc = true;
 
   @override
@@ -107,6 +117,31 @@ class _RestaurantAppState extends State<RestaurantApp> {
       _phienBan = ketQua[1] as TableSession?;
       _dangKhoiPhuc = false;
     });
+    _taiSoDienThoai();
+  }
+
+  /// Lấy số đã liên kết để tự điền lúc đặt món (§9.7).
+  ///
+  /// Nuốt lỗi có chủ ý: đây là tiện ích, không phải điều kiện để dùng app. Mạng chập chờn thì
+  /// khách vẫn đặt được món, chỉ là đơn đó không tích điểm — chặn cả app vì một lời gọi phụ hỏng
+  /// là đánh đổi sai.
+  Future<void> _taiSoDienThoai() async {
+    final ses = _dangNhap;
+    if (ses == null) {
+      if (mounted) {
+        setState(() => _soDienThoai = null);
+      }
+      return;
+    }
+    try {
+      final kq = await widget.loyaltyApi.cuaToi(ses.accessToken);
+      if (!mounted) return;
+      setState(() => _soDienThoai = kq.linked ? kq.phoneNumber : null);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _soDienThoai = null);
+      }
+    }
   }
 
   @override
@@ -134,7 +169,10 @@ class _RestaurantAppState extends State<RestaurantApp> {
     return _KhungChinh(
       phienBan: _phienBan!,
       dangNhap: _dangNhap,
+      soDienThoai: _soDienThoai,
       menuApi: widget.menuApi,
+      cartApi: widget.cartApi,
+      createOrderApi: widget.createOrderApi,
       orderApi: widget.orderApi,
       promotionApi: widget.promotionApi,
       loyaltyApi: widget.loyaltyApi,
@@ -147,13 +185,19 @@ class _RestaurantAppState extends State<RestaurantApp> {
           repository: widget.auth,
           onDangNhapXong: (session) {
             setState(() => _dangNhap = session);
+            _taiSoDienThoai();
             Navigator.of(context).pop();
           },
         ),
       )),
       onDangXuat: () async {
         await widget.auth.dangXuat();
-        if (mounted) setState(() => _dangNhap = null);
+        if (mounted) {
+          setState(() {
+            _dangNhap = null;
+            _soDienThoai = null;
+          });
+        }
       },
     );
   }
@@ -168,7 +212,10 @@ class _KhungChinh extends StatefulWidget {
   const _KhungChinh({
     required this.phienBan,
     required this.dangNhap,
+    required this.soDienThoai,
     required this.menuApi,
+    required this.cartApi,
+    required this.createOrderApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -179,7 +226,13 @@ class _KhungChinh extends StatefulWidget {
 
   final TableSession phienBan;
   final AuthSession? dangNhap;
+
+  /// Số đã liên kết với tài khoản (#27) — tự điền lúc đặt món (§9.7).
+  final String? soDienThoai;
+
   final MenuApi menuApi;
+  final CartApi cartApi;
+  final CreateOrderApi createOrderApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -198,6 +251,18 @@ class _KhungChinhState extends State<_KhungChinh> {
   Widget build(BuildContext context) {
     final man = [
       MenuScreen(api: widget.menuApi, imageBaseUrl: imageBaseUrl),
+      CartScreen(
+        cartApi: widget.cartApi,
+        createOrderApi: widget.createOrderApi,
+        phienBan: widget.phienBan,
+        soDienThoai: widget.soDienThoai,
+        onDatXong: (don) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Đã gửi bếp — đơn ${don.orderCode}')),
+          );
+          setState(() => _tab = 2);
+        },
+      ),
       OrdersScreen(api: widget.orderApi, phienBan: widget.phienBan),
       PromotionsScreen(api: widget.promotionApi),
       _TabTaiKhoan(

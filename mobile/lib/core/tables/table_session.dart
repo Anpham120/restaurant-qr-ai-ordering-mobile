@@ -12,6 +12,7 @@ class TableSession {
     required this.isExpired,
     required this.tableSessionToken,
     required this.resumeState,
+    required this.qrToken,
   });
 
   final String sessionId;
@@ -33,6 +34,16 @@ class TableSession {
   /// vào lúc khó tái hiện nhất: khách quay lại giữa chừng một đơn đang nấu.
   final String resumeState;
 
+  /// Mã QR đã dùng để mở phiên này.
+  ///
+  /// KHÔNG có trong phản hồi của backend — app tự giữ lại thứ chính mình đã gửi. Cần nó vì
+  /// POST /api/orders đòi CẢ tableCode LẪN qrToken cho đơn tại bàn; thiếu là 400
+  /// DINE_IN_TABLE_REQUIRED hoặc QR_TOKEN_INVALID.
+  ///
+  /// Phải cất cùng phiên chứ không giữ trong bộ nhớ tạm: khách mở lại app rồi đặt món là luồng
+  /// bình thường, và lúc đó mã QR đã trôi mất nếu chỉ nằm ở màn hình vào bàn.
+  final String qrToken;
+
   bool conHieuLuc(DateTime now) =>
       !isExpired && expiresAt.toUtc().isAfter(now.toUtc());
 
@@ -51,6 +62,7 @@ class TableSession {
         isExpired: (json['isExpired'] as bool?) ?? false,
         tableSessionToken: json['tableSessionToken'] as String,
         resumeState: (json['resumeState'] as String?) ?? 'Unknown',
+        qrToken: (json['qrToken'] as String?) ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,5 +74,6 @@ class TableSession {
         'isExpired': isExpired,
         'tableSessionToken': tableSessionToken,
         'resumeState': resumeState,
+        'qrToken': qrToken,
       };
 }

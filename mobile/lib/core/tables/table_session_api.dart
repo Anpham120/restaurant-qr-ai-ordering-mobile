@@ -44,9 +44,11 @@ class HttpTableSessionApi implements TableSessionApi {
     }
 
     if (response.statusCode == 200) {
-      return TableSession.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
-      );
+      final body =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      // Backend KHÔNG trả lại qrToken. Nhét chính cái vừa gửi vào đây để phiên cất xuống máy có
+      // đủ thứ cần cho việc đặt món sau này — xem ghi chú ở TableSession.qrToken.
+      return TableSession.fromJson({...body, 'qrToken': qrToken});
     }
     throw _dichLoi(response);
   }

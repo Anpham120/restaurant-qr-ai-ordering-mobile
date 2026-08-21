@@ -72,6 +72,7 @@ TableSession phienBan({DateTime? hetHan, bool isExpired = false}) =>
       isExpired: isExpired,
       tableSessionToken: 'tst_bi_mat',
       resumeState: 'FreshStart',
+      qrToken: 'cmc-table-t01-qr',
     );
 
 AuthSession phienDangNhap({DateTime? hetHan}) => AuthSession(
