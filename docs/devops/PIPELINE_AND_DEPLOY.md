@@ -16,7 +16,7 @@
 
 ## Workflow và cổng chặn — SINH TỪ CẤU HÌNH
 
-**11 workflow**, **15 cổng `--check`** trong CI.
+**11 workflow**, **16 cổng `--check`** trong CI.
 
 | Workflow | Kích hoạt bởi |
 |---|---|
@@ -51,6 +51,7 @@ tệp dẫn xuất mà không chạy lại bộ sinh — lớp lỗi đã xảy 
 | `ai/scripts/build_tag_dictionary.py` |
 | `ai/scripts/build_tag_migration.py` |
 | `docs/build_api_inventory.py` |
+| `docs/build_bao_cao_lap_trinh_di_dong.py` |
 | `docs/build_bao_cao_lap_trinh_nang_cao.py` |
 | `docs/build_docs_index.py` |
 | `docs/build_system_facts.py` |

@@ -56,19 +56,27 @@ jobs:
         working-directory: backend-java
         run: ./gradlew --no-daemon test
 
-      # KHÔNG chặn merge, và đây là lần đầu bộ này thực sự chạy được.
+      # ĐÃ BỎ `continue-on-error` (#137). Điều kiện ghi ở chú thích cũ — "giữ cho tới khi thấy nó
+      # xanh ổn định" — đã được thoả, và bằng chứng mạnh hơn chính bước này.
       #
-      # Testcontainers KHÔNG chạy được trong sandbox phát triển của dự án (docker-java xung đột với
-      # Docker Engine API 1.55 ở máy đó), nên kiểm chứng từ #2 tới #14 làm bằng cách chạy JAR thật
-      # trên Postgres thật qua Docker. Runner GitHub có Docker chuẩn nên ở đây nó chạy được — giữ
-      # `continue-on-error` cho tới khi thấy nó xanh ổn định, rồi bỏ cờ.
+      # Lý do: bước `test` ở TRÊN loại trừ đúng một lớp (`RestaurantApplicationTests`), nên MỌI
+      # lớp test Testcontainers thêm từ #126 tới #137 đều chạy trong bước ĐÓ — một cổng luôn chặn
+      # merge. Đo trên hiện vật test-report của CI:
       #
-      # Trước đây cờ này đặt trên `test`, tức nó vô hiệu hoá luôn 82 test domain ở trên. Tách task
-      # trong build.gradle chính là để cờ chỉ còn phủ đúng phần cần Docker.
+      #     #126  TableSessionMemberLinkTest   6/0
+      #     #129  MyLoyaltyLinkTest           11/0
+      #     #136  RedeemConcurrencyTest        4/0
+      #     #137  MyOrderHistoryTest           7/0
+      #
+      # Tức Testcontainers đã dựng Postgres thật trên runner GitHub hàng chục lần, trong một cổng
+      # chặn, không lần nào hỏng. Giả thiết mà cờ này phòng ngừa — "Testcontainers có thể không
+      # chạy được ở đây" — đã bị bác bỏ bằng dữ liệu.
+      #
+      # Giữ cờ thêm nữa là giữ một bước KHÔNG BAO GIỜ chặn được gì: `RestaurantApplicationTests`
+      # có thể đỏ mà bảng check vẫn xanh, và không ai biết context Spring đã ngừng khởi động.
       - name: Integration test (Testcontainers)
         working-directory: backend-java
         run: ./gradlew --no-daemon integrationTest
-        continue-on-error: true
 
       - name: Upload test report
         if: always()
