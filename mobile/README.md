@@ -89,33 +89,39 @@ phân giải pod của `flutter_secure_storage`, rồi Xcode biên dịch toàn 
 do chính SDK ghim, nên đổi SDK là đổi phiên bản và lockfile hết khớp. Nâng Flutter phải là một
 commit sửa cả hai nơi cùng lúc.
 
-## Điểm thưởng: vì sao chưa có
+## Điểm thưởng: liên kết số điện thoại
 
-#27 yêu cầu một trang gồm **điểm thưởng + ưu đãi đủ điều kiện + khuyến mãi**. Mới làm được phần
-khuyến mãi. Phần điểm thưởng bị chặn bởi ba sự thật trong mã, không phải bởi thời gian:
+Điểm thưởng nằm ở `loyalty_members`, **khoá theo số điện thoại**. Tài khoản app trước đây không có
+gì nối sang đó, nên app không có cách nào biết điểm của khách.
 
-1. **`GET /api/loyalty/lookup` chỉ dành cho nhân viên, có chủ ý.** `LoyaltyController` ghi rõ lý do:
-   *"anyone able to call it could enumerate which phone numbers are customers and how much they
-   spend"*. Mở nó cho khách chính là mở lại đúng lỗ hổng mà câu đó dựng lên để chặn.
+Không thể dùng `GET /api/loyalty/lookup?phone=`: nó **chỉ dành cho nhân viên, có chủ ý**.
+`LoyaltyController` ghi rõ lý do — ai gọi được cũng đếm được số nào là khách và tiêu bao nhiêu.
 
-2. **Không có đường nối nào giữa tài khoản app và hồ sơ tích điểm.** `loyalty_members` khoá theo
-   `phone_number`; `users` không có cột số điện thoại nào. Sau #26, phiên bàn nối được với
-   `users.id` — nhưng điểm thưởng thì không.
+Cách làm: thêm `users.phone_number` (V9) và hai đường **không nhận số điện thoại từ request** ở
+chiều đọc:
 
-3. **Không có cách xác thực số điện thoại.** Hệ thống chưa tích hợp SMS/OTP. Mọi số khách tự khai
-   đều là số chưa kiểm.
+```
+GET  /api/loyalty/me         → điểm của CHÍNH tài khoản này (role Customer)
+POST /api/loyalty/me/phone   → nối số vào tài khoản
+```
 
-Hệ quả: bất kỳ endpoint nào cho khách tra điểm theo số họ tự khai đều cho phép đọc điểm của người
-khác — chỉ cần khai số của họ. Đó đúng là thứ mà §9.5 tưởng là *"dùng ngay"*.
+### Luật giữ cho tính năng không thành đường đọc điểm người khác
 
-**§9.5 của kế hoạch ghi sai ở điểm này.** Nó xếp *"Tra điểm + ưu đãi đủ điều kiện
-(`GET /api/loyalty/lookup?phone=`)"* vào cột **Dùng ngay**. Endpoint có tồn tại, nhưng không dùng
-được cho app.
+**Chỉ nối được số CHƯA có hồ sơ tích điểm.** Nếu cho khai số bất kỳ thì ai cũng khai số của người
+khác rồi đọc điểm của họ — đúng lỗ hổng mà `/lookup` dựng lên để chặn.
 
-Ba hướng đi, cần một quyết định trước khi làm:
+Ba đánh đổi, nói thẳng chứ không giấu:
 
-| Hướng | Được gì | Mất gì |
-|---|---|---|
-| Thêm `users.phone_number` + `GET /api/loyalty/me` | Làm được ngay, và mở đường cho §9.7 (tự điền SĐT lúc thanh toán) | Khách khai số của người khác là đọc được điểm của họ |
-| Như trên, nhưng chỉ cho liên kết khi số ĐÓ CHƯA có hồ sơ tích điểm | Không lộ điểm của ai | Khách cũ (đã có điểm) không tự liên kết được, phải nhờ quầy; và lời từ chối vẫn tiết lộ "số này là thành viên" |
-| Chờ có OTP | Đúng đắn hoàn toàn | Cần dịch vụ SMS — ngoài phạm vi môn học |
+| Đánh đổi | Vì sao chấp nhận |
+|---|---|
+| **Khách cũ tự liên kết không được.** Ai đã tiêu tiền ở quán thì đã có hồ sơ, phải nhờ quầy nối hộ. | Đây là cái giá của việc không lộ điểm. Câu thông báo trong app nói thẳng việc cần làm, không chỉ báo "số đã tồn tại". |
+| **Lời từ chối vẫn tiết lộ một bit:** "số này là thành viên". | Không đóng được nếu không xác thực số (OTP), mà hệ thống chưa có SMS. Giới hạn số lần thử theo tài khoản **không giúp gì** — ai cũng đăng ký tài khoản mới miễn phí, nên đó là màn kịch an ninh chứ không phải phòng thủ. |
+| **Còn một khe hẹp:** khai trước số của người *chưa từng đến quán*, chờ họ tới ăn rồi đọc điểm. | Cần biết trước số của đúng một người chưa từng là khách. Hẹp, nhưng có thật — chỉ OTP mới đóng được. |
+
+Phản hồi 409 **không chứa số điểm**: lời từ chối buộc phải lộ một bit, nhưng không được lộ thêm gì
+nữa — nhất là đúng thứ cần bảo vệ.
+
+`MyLoyaltyResponse` **không trả `lifetimeSpend`**: màn hình không dùng tới, và tổng chi tiêu nhạy
+hơn số điểm. Trường nào không cần thì không gửi.
+
+Nhân viên vẫn dùng `/api/loyalty/lookup` như cũ — không đổi gì ở đó.

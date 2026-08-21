@@ -20,6 +20,16 @@ public class UserEntity {
 	@Column(name = "full_name", nullable = false)
 	private String fullName;
 
+	/**
+	 * Số điện thoại đã liên kết với hồ sơ tích điểm (V9, §9.10 M1 mục 3).
+	 *
+	 * <p>Null với tài khoản chưa liên kết — đó là trạng thái bình thường, không phải thiếu dữ liệu.
+	 * Lưu ở dạng CHỈ CHỮ SỐ, đã qua {@code PhoneNumber.normalize}: cùng một khách gõ số khác nhau
+	 * mỗi lần ({@code 0901 234 567}, {@code +84901234567}), lưu nguyên văn sẽ nối nhầm hồ sơ.
+	 */
+	@Column(name = "phone_number")
+	private String phoneNumber;
+
 	@Column(name = "password_hash", nullable = false)
 	private String passwordHash;
 
@@ -80,6 +90,14 @@ public class UserEntity {
 
 	public void setPasswordHash(String passwordHash) {
 		this.passwordHash = passwordHash;
+	}
+
+	public String getPhoneNumber() {
+		return phoneNumber;
+	}
+
+	public void setPhoneNumber(String phoneNumber) {
+		this.phoneNumber = phoneNumber;
 	}
 
 	public String getRole() {

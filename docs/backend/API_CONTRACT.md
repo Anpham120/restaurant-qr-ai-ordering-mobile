@@ -11,11 +11,11 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**86 endpoint** trong **12 module**, đọc trực tiếp từ
+**88 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/86 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/88 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
@@ -64,7 +64,7 @@
 | `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `counter/CounterController.java` |
 | `POST` | `/api/counter/shifts/{shiftId}/close` | `counter/CounterController.java` |
 
-### loyalty (10)
+### loyalty (12)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -78,6 +78,8 @@
 | `DELETE` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
 | `PUT` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
 | `GET` | `/api/loyalty/lookup` | `loyalty/LoyaltyController.java` |
+| `GET` | `/api/loyalty/me` | `loyalty/LoyaltyController.java` |
+| `POST` | `/api/loyalty/me/phone` | `loyalty/LoyaltyController.java` |
 
 ### menu (14)
 
