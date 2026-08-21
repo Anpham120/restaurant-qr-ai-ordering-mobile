@@ -184,9 +184,26 @@ public class TableInvoicePaymentService {
 		payment.setUpdatedAt(now);
 		paymentRepository.save(payment);
 
-		VietQrProvider.VietQrPayload payload = method == PaymentMethod.VietQR
-				? vietQrProvider.createPayload(invoice.getInvoiceCode(), total)
-				: null;
+		// Thiếu cấu hình ngân hàng phải thành MỘT MÃ LỖI, không phải 500.
+		//
+		// `PaymentService` (đường thanh toán theo ĐƠN) đã bắt đúng ngoại lệ này và trả
+		// `400 VIETQR_CONFIG_MISSING`; đường theo HOÁ ĐƠN BÀN — chính là đường app di động dùng —
+		// thì không, nên nó lọt ra thành 500 không mã. Đo trên hệ thống đang chạy: chọn VietQR khi
+		// chưa cấu hình ngân hàng cho HTTP 500 với thân `{"status":500,"error":"Internal Server
+		// Error"}`, tức client không có gì để nói với khách ngoài con số 500.
+		//
+		// Dữ liệu thì KHÔNG hỏng: `@Transactional` cuộn ngược mọi thay đổi, nên hoá đơn vẫn
+		// `NotRequested` và giỏ vẫn thêm món được — đã kiểm sau hai lần 500. Nói rõ điều này để
+		// người sau không tưởng đây là lỗi mất dữ liệu và đi sửa nhầm chỗ.
+		VietQrProvider.VietQrPayload payload = null;
+		if (method == PaymentMethod.VietQR) {
+			try {
+				payload = vietQrProvider.createPayload(invoice.getInvoiceCode(), total);
+			} catch (IllegalStateException e) {
+				throw ApiException.badRequest(
+						"VIETQR_CONFIG_MISSING", "VietQR bank configuration is missing.");
+			}
+		}
 
 		transactionRepository.save(new PaymentTransactionEntity(
 				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(), method.name(),
