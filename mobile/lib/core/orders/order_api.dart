@@ -8,6 +8,12 @@ import 'order.dart';
 abstract class OrderApi {
   Future<List<CustomerOrder>> donCuaPhien(
       String sessionId, String tableSessionToken);
+
+  /// Khách tự huỷ một món của mình (hạn chế #11).
+  ///
+  /// Uỷ quyền bằng `X-Order-Token` của ĐÚNG đơn đó, không phải token bàn: người đặt mới là
+  /// người quyết định huỷ.
+  Future<void> huyMon(String orderCode, String orderItemId, String orderToken);
 }
 
 /// Gọi `GET /api/table-sessions/{id}/orders` — xem đơn CHỈ ĐỌC (§9.10 M1 mục 4).
@@ -17,7 +23,7 @@ abstract class OrderApi {
 /// lai đi cùng — đúng như hành vi ở web.
 ///
 /// Gửi kèm `Authorization` sẽ không làm gì cả, nhưng tạo ấn tượng sai rằng đăng nhập là điều kiện
-/// để xem đơn. Việc tạo/huỷ đơn nằm ở #29/#31.
+/// để xem đơn. Việc tạo đơn nằm ở #29.
 class HttpOrderApi implements OrderApi {
   HttpOrderApi({required this.baseUrl, http.Client? client})
       : _client = client ?? http.Client();
@@ -49,6 +55,23 @@ class HttpOrderApi implements OrderApi {
     throw _dichLoi(response);
   }
 
+  @override
+  Future<void> huyMon(
+      String orderCode, String orderItemId, String orderToken) async {
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$baseUrl/api/orders/$orderCode/items/$orderItemId/cancel'),
+        headers: {'X-Order-Token': orderToken},
+      );
+    } catch (_) {
+      throw const AuthException('NETWORK_ERROR',
+          'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+    }
+    if (response.statusCode == 200) return;
+    throw _dichLoi(response);
+  }
+
   AuthException _dichLoi(http.Response response) {
     String code = 'UNKNOWN';
     try {
@@ -71,6 +94,16 @@ class HttpOrderApi implements OrderApi {
       case 'TABLE_SESSION_NOT_FOUND':
         return const AuthException(
             'TABLE_SESSION_NOT_FOUND', 'Không tìm thấy phiên bàn này.');
+      case 'ORDER_ITEM_CANCEL_NOT_ALLOWED':
+        // Bếp đã bắt đầu nấu. Nói đúng lý do thay vì "không huỷ được": khách cần biết đây là
+        // giới hạn có thật chứ không phải app hỏng, và rằng nhân viên vẫn xử lý được.
+        return const AuthException('ORDER_ITEM_CANCEL_NOT_ALLOWED',
+            'Bếp đã bắt đầu nấu món này nên không tự huỷ được. Báo nhân viên giúp nhé.');
+      case 'ORDER_NOT_FOUND':
+        // Backend cố ý trả ORDER_NOT_FOUND cho cả trường hợp SAI TOKEN, để không lộ đơn nào tồn
+        // tại (mã đơn tăng dần). Nên câu này phải phủ được cả hai nghĩa.
+        return const AuthException('ORDER_NOT_FOUND',
+            'Không tìm thấy đơn này, hoặc máy bạn không có quyền huỷ nó.');
     }
 
     if (response.statusCode >= 500) {

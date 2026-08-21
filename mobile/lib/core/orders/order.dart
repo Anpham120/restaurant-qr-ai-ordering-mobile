@@ -1,24 +1,36 @@
 class OrderItem {
   const OrderItem({
+    required this.orderItemId,
     required this.name,
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
     required this.status,
+    this.estimatedReadyMinutesLow,
+    this.estimatedReadyMinutesHigh,
   });
 
+  final String orderItemId;
   final String name;
   final int quantity;
   final num unitPrice;
   final num lineTotal;
   final String status;
 
+  /// Ước lượng thời gian còn lại, dạng KHOẢNG. `null` khi backend chưa đủ mẫu (hạn chế #10) —
+  /// đó là trạng thái bình thường, xem [moTaUocLuong].
+  final int? estimatedReadyMinutesLow;
+  final int? estimatedReadyMinutesHigh;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
+        orderItemId: (json['orderItemId'] as String?) ?? '',
         name: json['name'] as String,
         quantity: (json['quantity'] as int?) ?? 0,
         unitPrice: (json['unitPrice'] as num?) ?? 0,
         lineTotal: (json['lineTotal'] as num?) ?? 0,
         status: (json['status'] as String?) ?? 'Pending',
+        estimatedReadyMinutesLow: json['estimatedReadyMinutesLow'] as int?,
+        estimatedReadyMinutesHigh: json['estimatedReadyMinutesHigh'] as int?,
       );
 }
 
@@ -106,3 +118,34 @@ String nhanTrangThaiMon(String status) {
 
 /// Đơn đã kết thúc chưa — dùng để tách phần "đang phục vụ" khỏi phần lịch sử.
 bool donDaXong(String status) => status == 'Completed' || status == 'Cancelled';
+
+/// Câu mô tả thời gian chờ, hoặc `null` khi backend không đưa ra ước lượng.
+///
+/// **Trả `null` là trạng thái BÌNH THƯỜNG, không phải lỗi.** Backend chỉ ước lượng khi món đã có
+/// từ 20 mẫu lịch sử trở lên (hạn chế #10); dưới ngưỡng đó nó trả `null` thay vì đoán. Đo trên hệ
+/// thống đang chạy: hiện chưa món nào đủ mẫu, nên mọi món đều `null`.
+///
+/// App **TUYỆT ĐỐI KHÔNG** được bịa câu thay thế kiểu "khoảng 15 phút". Cả ba điều kiện của #10
+/// (ngưỡng mẫu, hiện dạng khoảng, cộng độ sâu hàng đợi bếp) tồn tại vì nhóm gốc đã cố ý không làm
+/// tính năng này — "một ước lượng sai làm mất lòng tin hơn là không có ước lượng". Một con số bịa
+/// ở tầng app phá đúng ba điều kiện đó mà không ai thấy.
+String? moTaUocLuong(int? low, int? high) {
+  if (low == null || high == null) return null;
+  if (high <= low) return 'khoảng $low phút';
+  return '$low–$high phút';
+}
+
+/// Khách có tự huỷ được món này không (hạn chế #11).
+///
+/// Hai điều kiện, và cả hai đều bắt buộc:
+///
+/// - **Món phải đang `Pending`.** Backend chặt hơn đường của nhân viên có chủ ý: nhân viên vẫn
+///   huỷ được món `Preparing`, khách thì không, vì tới lúc đó bếp đã dùng nguyên liệu.
+/// - **App phải có `X-Order-Token` của ĐÚNG đơn đó.** Token này backend chỉ trả một lần, lúc tạo
+///   đơn. Đơn do máy khác trong bàn đặt thì máy này không có token, nên không huỷ hộ được — và
+///   đó là đúng: người đặt mới là người quyết định huỷ.
+///
+/// Khoá theo TỪNG MÓN, không theo cả đơn: khách huỷ được món chưa ai đụng tới ngay cả khi món
+/// khác cùng đơn đã lên bếp.
+bool chophepHuyMon(String trangThaiMon, {required bool coTokenDon}) =>
+    trangThaiMon == 'Pending' && coTokenDon;
