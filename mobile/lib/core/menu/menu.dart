@@ -120,3 +120,32 @@ String? urlAnh(String? imageUrl, String imageBaseUrl) {
       : imageBaseUrl;
   return duongDan.startsWith('/') ? '$base$duongDan' : '$base/$duongDan';
 }
+
+/// Bỏ dấu tiếng Việt để so khớp khi tìm món.
+///
+/// Bàn phím điện thoại thường không bật bộ gõ tiếng Việt, và khách gõ một tay khi đang ngồi ăn.
+/// Bắt gõ đúng dấu làm ô tìm kiếm vô dụng đúng lúc nó cần chạy: gõ "pho" phải ra "Phở bò".
+///
+/// `đ` phải xử lý riêng vì NFD KHÔNG tách nó — `đ` là ký tự Latin độc lập (U+0111), không phải
+/// `d` cộng dấu. Thiếu dòng đó thì gõ "dau hu" không tìm ra "Đậu hũ".
+String _boDau(String text) => text
+    .toLowerCase()
+    .replaceAll('đ', 'd')
+    .replaceAll(RegExp('[àáạảãâầấậẩẫăằắặẳẵ]'), 'a')
+    .replaceAll(RegExp('[èéẹẻẽêềếệểễ]'), 'e')
+    .replaceAll(RegExp('[ìíịỉĩ]'), 'i')
+    .replaceAll(RegExp('[òóọỏõôồốộổỗơờớợởỡ]'), 'o')
+    .replaceAll(RegExp('[ùúụủũưừứựửữ]'), 'u')
+    .replaceAll(RegExp('[ỳýỵỷỹ]'), 'y')
+    .trim();
+
+/// Lọc món theo từ khoá. Từ khoá rỗng trả nguyên danh sách.
+///
+/// GIỮ NGUYÊN thứ tự đầu vào — thứ tự đó là thứ tự quán muốn thực đơn hiện ra.
+List<MenuItem> locMonTheoTen(List<MenuItem> mon, String tuKhoa) {
+  final khoa = _boDau(tuKhoa);
+  if (khoa.isEmpty) return mon;
+  return mon
+      .where((m) => _boDau(m.name).contains(khoa))
+      .toList(growable: false);
+}

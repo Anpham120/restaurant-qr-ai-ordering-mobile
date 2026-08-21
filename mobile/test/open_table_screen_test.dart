@@ -136,7 +136,7 @@ void main() {
         dungMan(kho(BanApiGiaLap(phienBan)), xong: (s) => daVao = s));
 
     await tester.enterText(find.byType(TextField), 'cmc-table-t01-qr');
-    await tester.tap(find.byType(FilledButton));
+    await tester.tap(find.widgetWithText(FilledButton, 'Vào bàn'));
     await tester.pumpAndSettle();
 
     expect(daVao?.tableCode, 'T01');
@@ -150,7 +150,7 @@ void main() {
         xong: (s) => daVao = s));
 
     await tester.enterText(find.byType(TextField), 'sai');
-    await tester.tap(find.byType(FilledButton));
+    await tester.tap(find.widgetWithText(FilledButton, 'Vào bàn'));
     await tester.pumpAndSettle();
 
     expect(find.text('Mã QR không đúng hoặc bàn đã ngừng phục vụ.'),
@@ -166,11 +166,15 @@ void main() {
     await tester.pumpWidget(dungMan(kho(api)));
 
     await tester.enterText(find.byType(TextField), 'cmc-table-t01-qr');
-    await tester.tap(find.byType(FilledButton));
+    await tester.tap(find.widgetWithText(FilledButton, 'Vào bàn'));
     await tester.pump();
 
     expect(find.text('Đang mở bàn…'), findsOneWidget);
-    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+    expect(
+        tester
+            .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Đang mở bàn…'))
+            .onPressed,
         isNull);
 
     api.hoanThanh.complete(phienBan);

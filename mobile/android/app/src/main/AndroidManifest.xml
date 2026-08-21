@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Quét mã QR trên bàn (§9.10). Không có quyền này thì màn hình quét mở ra một khung đen và
+         khách không hiểu vì sao. App vẫn dùng được nếu khách từ chối: ô nhập mã bằng tay còn đó. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- KHÔNG bắt buộc phần cứng camera. Thiếu dòng này, Google Play ẩn app khỏi mọi thiết bị
+         không có camera — trong khi app chỉ MẤT một lối vào chứ không hỏng. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
         android:label="restaurant_mobile"
         android:name="${applicationName}"
