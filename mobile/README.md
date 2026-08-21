@@ -125,3 +125,60 @@ nữa — nhất là đúng thứ cần bảo vệ.
 hơn số điểm. Trường nào không cần thì không gửi.
 
 Nhân viên vẫn dùng `/api/loyalty/lookup` như cũ — không đổi gì ở đó.
+
+## Thực đơn và ảnh món
+
+`GET /api/menu` **công khai và không cần đang ở bàn** — đó là khác biệt thật giữa app và web QR:
+web chỉ mở thực đơn sau khi quét mã bàn, app cho xem trước ở nhà.
+
+Phản hồi trả **hai danh sách phẳng, tách rời** (`categories`, `items`), không lồng nhau — việc
+nhóm là của client. Ba luật trong `nhomTheoDanhMuc`, mỗi luật có phép kiểm:
+
+- giữ **nguyên thứ tự danh mục** máy chủ trả về (khai vị trước, tráng miệng sau — không phải thứ
+  tự bảng chữ cái);
+- **bỏ danh mục rỗng** (tiêu đề không có món nào bên dưới trông như lỗi tải);
+- **không đánh rơi món mồ côi** — món có `categoryId` không khớp danh mục nào vẫn hiện, gom vào
+  khối "Món khác". Lặng lẽ bỏ đi nghĩa là một món có thật biến mất vì lỗi dữ liệu ở chỗ khác, và
+  không ai thấy gì để sửa.
+
+Món **đang hết vẫn hiện**, chỉ đánh dấu. Lọc đi thì khách tưởng quán không bán món đó.
+
+### Ảnh món không do API phục vụ
+
+Đo trên hệ thống đang chạy:
+
+```
+GET :8081/menu-images/04-banh-cuon-thanh-tri.webp  → 401   (API Spring)
+GET :8080/menu-images/04-banh-cuon-thanh-tri.webp  → 200   (container web)
+```
+
+Nên app có **hai** base URL:
+
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://10.0.2.2:8081 \
+  --dart-define=IMAGE_BASE_URL=http://10.0.2.2:8080
+```
+
+Ghép nhầm ảnh vào base API thì thực đơn hiện ra trắng trơn **mà không có lỗi nào để lần theo** —
+widget ảnh chỉ lặng lẽ hiện ô trống.
+
+## Xem đơn chỉ đọc
+
+`GET /api/table-sessions/{id}/orders`, uỷ quyền bằng **`X-Table-Session-Token`, không phải JWT**.
+Đó là chủ ý của backend: đơn thuộc về cái **bàn**, không thuộc về tài khoản — ai đang ngồi ở bàn
+đều xem được, kể cả khách vãng lai đi cùng, đúng như web.
+
+Đo thật: token đúng → 200; token sai → 401 `TABLE_SESSION_TOKEN_INVALID`; không token → 401.
+
+Nhãn trạng thái là chỗ dễ nói sai nhất với khách, nên tách thành hàm thuần có phép kiểm:
+
+- `Ready` = *"Nấu xong, chờ mang ra"*, **không phải** "Hoàn tất" — dịch sai sẽ khiến khách tưởng
+  có thể đứng dậy đi về trong khi món còn ở bếp.
+- `Served` **chưa phải** đã xong: món đã ra bàn nhưng hoá đơn vẫn mở.
+- `Pending` ở cấp **món** là *chờ nấu*, khác hẳn `Pending` ở cấp thanh toán (*chờ thu tiền*).
+- Trạng thái **lạ trả nguyên văn**, không nuốt thành "Đang xử lý": backend có thể thêm trạng thái
+  mới trước khi app kịp cập nhật, và một câu chung chung sẽ giấu mất chuyện đó.
+
+Màn hình này **không có nút huỷ món và không có nút thanh toán** — hai việc đó ở #31 và #30. Dựng
+sẵn nút rồi để nó không làm gì là cách chắc chắn để khách bấm và tưởng đã huỷ được món.
