@@ -11,6 +11,7 @@ import 'core/tables/table_session_repository.dart';
 import 'core/cart/cart_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
+import 'core/payment/invoice_api.dart';
 import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
 import 'core/promotions/promotion_api.dart';
@@ -20,6 +21,7 @@ import 'ui/loyalty_screen.dart';
 import 'ui/menu_screen.dart';
 import 'ui/open_table_screen.dart';
 import 'ui/orders_screen.dart';
+import 'ui/payment_screen.dart';
 import 'ui/promotions_screen.dart';
 
 /// Địa chỉ backend Java. Truyền lúc build:
@@ -62,6 +64,7 @@ void main() {
     menuApi: HttpMenuApi(baseUrl: apiBaseUrl),
     cartApi: HttpCartApi(baseUrl: apiBaseUrl),
     createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
+    invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
     orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
     promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
     loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
@@ -76,6 +79,7 @@ class RestaurantApp extends StatefulWidget {
     required this.menuApi,
     required this.cartApi,
     required this.createOrderApi,
+    required this.invoiceApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -86,6 +90,7 @@ class RestaurantApp extends StatefulWidget {
   final MenuApi menuApi;
   final CartApi cartApi;
   final CreateOrderApi createOrderApi;
+  final InvoiceApi invoiceApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -173,6 +178,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
       menuApi: widget.menuApi,
       cartApi: widget.cartApi,
       createOrderApi: widget.createOrderApi,
+      invoiceApi: widget.invoiceApi,
       orderApi: widget.orderApi,
       promotionApi: widget.promotionApi,
       loyaltyApi: widget.loyaltyApi,
@@ -216,6 +222,7 @@ class _KhungChinh extends StatefulWidget {
     required this.menuApi,
     required this.cartApi,
     required this.createOrderApi,
+    required this.invoiceApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -233,6 +240,7 @@ class _KhungChinh extends StatefulWidget {
   final MenuApi menuApi;
   final CartApi cartApi;
   final CreateOrderApi createOrderApi;
+  final InvoiceApi invoiceApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -268,6 +276,8 @@ class _KhungChinhState extends State<_KhungChinh> {
       _TabTaiKhoan(
         phienBan: widget.phienBan,
         dangNhap: widget.dangNhap,
+        invoiceApi: widget.invoiceApi,
+        soDienThoai: widget.soDienThoai,
         loyaltyApi: widget.loyaltyApi,
         onRoiBan: widget.onRoiBan,
         onDangNhap: widget.onDangNhap,
@@ -298,6 +308,8 @@ class _TabTaiKhoan extends StatelessWidget {
   const _TabTaiKhoan({
     required this.phienBan,
     required this.dangNhap,
+    required this.invoiceApi,
+    required this.soDienThoai,
     required this.loyaltyApi,
     required this.onRoiBan,
     required this.onDangNhap,
@@ -306,6 +318,8 @@ class _TabTaiKhoan extends StatelessWidget {
 
   final TableSession phienBan;
   final AuthSession? dangNhap;
+  final InvoiceApi invoiceApi;
+  final String? soDienThoai;
   final LoyaltyApi loyaltyApi;
   final Future<void> Function() onRoiBan;
   final VoidCallback onDangNhap;
@@ -324,6 +338,19 @@ class _TabTaiKhoan extends StatelessWidget {
             subtitle: Text(phienBan.tableDisplayName),
             trailing:
                 TextButton(onPressed: onRoiBan, child: const Text('Rời bàn')),
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: const Text('Thanh toán'),
+            subtitle: const Text('Xem hoá đơn và chọn cách trả tiền'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PaymentScreen(
+                api: invoiceApi,
+                phienBan: phienBan,
+                soDienThoai: soDienThoai,
+              ),
+            )),
           ),
           const Divider(),
           if (ses == null)

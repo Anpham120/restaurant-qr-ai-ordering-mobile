@@ -248,3 +248,60 @@ gửi — và phải cất xuống máy, vì khách mở lại app rồi mới �
 
 Chỉ gửi khi **thật sự có** — gửi chuỗi rỗng khác hẳn không gửi, backend sẽ coi đó là một số và tạo
 hồ sơ tích điểm rác.
+
+## Thanh toán: khách YÊU CẦU, nhân viên hoặc webhook XÁC NHẬN
+
+Khách **không có quyền xác nhận đã trả tiền**. Đo thật:
+
+```
+POST .../invoice/payment/confirm  (token bàn)  → 401
+```
+
+Endpoint đó là `@PreAuthorize("hasAnyRole('CounterStaff','Staff','Admin')")`. Nên màn hình thanh
+toán **cố ý không có nút "Tôi đã trả"** — một nút không làm gì sẽ khiến khách bấm rồi tưởng đã
+xong và bỏ đi.
+
+Sau khi yêu cầu, ai xác nhận:
+
+| Cách trả | Ai xác nhận |
+|---|---|
+| COD | Nhân viên quầy, sau khi nhận tiền mặt (#19 có nút xác nhận hàng loạt) |
+| VietQR | **Webhook Casso tự đối soát** (#3) khi tiền về |
+
+### Nội dung chuyển khoản không được sửa
+
+Casso đối soát bằng **đúng chuỗi** đó. Sửa một ký tự là tiền về mà hệ thống không nhận ra, và hoá
+đơn nằm chờ tới khi có người xử lý tay. Nên app cho **chép** (`SelectableText` + nút copy) chứ
+không cho sửa, và câu hướng dẫn viết hoa `GIỮ NGUYÊN` — có phép kiểm cho đúng chữ đó.
+
+### Yêu cầu thanh toán khoá việc THÊM món, không khoá việc bớt
+
+Đo thật sau khi yêu cầu COD:
+
+```
+thêm món  → 400 TABLE_INVOICE_PAYMENT_PENDING
+bớt món   → 200, itemCount=0
+```
+
+Đó là chủ ý của backend: khách lỡ thêm nhầm mà không bớt được thì kẹt phải trả tiền cho nó. Câu
+thông báo trong app nói đúng điều đó thay vì "giỏ đã khoá".
+
+### Defect tìm được: thiếu cấu hình ngân hàng trả 500 không mã lỗi
+
+Đo trên hệ thống đang chạy (chưa cấu hình VietQR):
+
+```
+POST .../invoice/payment-request {"method":"VietQR"}
+→ HTTP 500  {"status":500,"error":"Internal Server Error"}
+```
+
+`PaymentService` (đường thanh toán theo **đơn**) đã bắt đúng ngoại lệ này và trả
+`400 VIETQR_CONFIG_MISSING`. Đường theo **hoá đơn bàn** — chính là đường app dùng — thì không.
+Client không có gì để nói với khách ngoài con số 500.
+
+**Dữ liệu không hỏng:** `@Transactional` cuộn ngược mọi thay đổi. Tôi đã đoán rằng hoá đơn sẽ kẹt
+ở `Pending` không có QR; đo lại sau hai lần 500 thì hoá đơn vẫn `NotRequested` và giỏ vẫn thêm
+món được. Giả thuyết đó **sai** — ghi lại để người sau không đi sửa nhầm chỗ.
+
+Đã sửa: bắt `IllegalStateException` và trả `400 VIETQR_CONFIG_MISSING`, khớp đường còn lại. Sau
+khi sửa và dựng lại: `HTTP 400 · VIETQR_CONFIG_MISSING`.

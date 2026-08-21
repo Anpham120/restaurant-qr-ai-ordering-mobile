@@ -41,7 +41,7 @@ bản Java **kém hơn**.
 | Endpoint | 88 |
 | Module | 13 — `auth`, `cart`, `chat`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`, `reports`, `shared`, `tables` |
 | Tệp nguồn `.java` | 186 |
-| Dòng mã nguồn | 13.743 |
+| Dòng mã nguồn | 13.760 |
 | Tệp test | 15 |
 | Dòng mã test | 1.897 |
 | Phương thức `@Test` | 119 |
