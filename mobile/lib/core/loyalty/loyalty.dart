@@ -52,3 +52,32 @@ class MyLoyalty {
                 .toList(growable: false),
       );
 }
+
+/// Kết quả một lần đổi điểm (#34).
+class KetQuaDoiDiem {
+  const KetQuaDoiDiem({
+    required this.redemptionId,
+    required this.rewardName,
+    required this.pointsSpent,
+    required this.soDuMoi,
+  });
+
+  final String redemptionId;
+  final String rewardName;
+  final int pointsSpent;
+
+  /// Số dư SAU khi đổi, do backend trả kèm.
+  ///
+  /// Không bắt app gọi thêm một lượt: sau khi tiêu điểm, con số khách muốn thấy ngay là số dư
+  /// còn lại, và một lượt gọi thứ hai tạo ra khoảng thời gian màn hình còn hiện số dư CŨ.
+  final MyLoyalty soDuMoi;
+
+  factory KetQuaDoiDiem.fromJson(Map<String, dynamic> json) => KetQuaDoiDiem(
+        redemptionId: (json['redemptionId'] as String?) ?? '',
+        rewardName: (json['rewardName'] as String?) ?? '',
+        pointsSpent: (json['pointsSpent'] as int?) ?? 0,
+        soDuMoi: MyLoyalty.fromJson(
+            (json['soDuMoi'] as Map<String, dynamic>?) ??
+                const <String, dynamic>{}),
+      );
+}

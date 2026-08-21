@@ -4,6 +4,8 @@ import com.cmc.restaurant.auth.UserEntity;
 import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
 import com.cmc.restaurant.shared.ApiException;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,12 +28,17 @@ public class MyLoyaltyService {
 	private final UserRepository users;
 	private final LoyaltyMemberRepository members;
 	private final LoyaltyService loyaltyService;
+	private final LoyaltyRewardRepository rewards;
+	private final LoyaltyRedemptionRepository redemptions;
 
 	public MyLoyaltyService(
-			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService) {
+			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService,
+			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions) {
 		this.users = users;
 		this.members = members;
 		this.loyaltyService = loyaltyService;
+		this.rewards = rewards;
+		this.redemptions = redemptions;
 	}
 
 	/**
@@ -87,6 +94,72 @@ public class MyLoyaltyService {
 		user.setPhoneNumber(phone);
 		users.save(user);
 		return read(user);
+	}
+
+	/**
+	 * Đổi điểm lấy ưu đãi (#34, §9.10 M3 mục 10).
+	 *
+	 * <p>Ba lớp bảo vệ, mỗi lớp chặn một chuyện khác nhau:
+	 *
+	 * <ol>
+	 *   <li><b>Khoá idempotency</b> — bấm hai lần lúc mạng chập chờn không tiêu điểm hai lần. Lần
+	 *       gọi lại với cùng khoá trả về chính lần đổi cũ.
+	 *   <li><b>UPDATE có điều kiện</b> ({@code where points >= :chiPhi}) — hai request SONG SONG
+	 *       không thể cùng trừ. Đây là khoá chống tranh chấp mà DoD của #34 yêu cầu.
+	 *   <li><b>Ràng buộc UNIQUE trên {@code idempotency_key}</b> — chốt cuối ở tầng cơ sở dữ liệu,
+	 *       vẫn giữ được ngay cả khi hai tiến trình khác nhau cùng chạy phép kiểm ở lớp 1 và cùng
+	 *       thấy "chưa có".
+	 * </ol>
+	 *
+	 * <p>Thứ tự cố ý: TRỪ ĐIỂM TRƯỚC, ghi sổ sau. Ghi sổ trước rồi trừ điểm thất bại sẽ để lại một
+	 * dòng sổ cho lần đổi không xảy ra — tệ hơn nhiều so với chiều ngược lại, vốn được
+	 * {@code @Transactional} cuộn ngược.
+	 */
+	@Transactional
+	public LoyaltyDtos.RedeemResponse redeem(String userId, String rewardId, String idempotencyKey) {
+		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
+		if (daCo != null) {
+			return new LoyaltyDtos.RedeemResponse(
+					daCo.getId(), daCo.getRewardId(), daCo.getRewardName(), daCo.getPointsSpent(),
+					daCo.getCreatedAt(), me(userId));
+		}
+
+		UserEntity user = users.findById(userId)
+				.orElseThrow(() -> ApiException.notFound("USER_NOT_FOUND", "User was not found."));
+		String phone = user.getPhoneNumber();
+		if (phone == null) {
+			throw ApiException.badRequest("LOYALTY_NOT_LINKED",
+					"Link a phone number before redeeming rewards.");
+		}
+
+		LoyaltyMemberEntity member = members.findByPhoneNumber(phone)
+				.orElseThrow(() -> ApiException.badRequest("LOYALTY_NO_POINTS",
+						"This account has no loyalty points yet."));
+
+		LoyaltyRewardEntity reward = rewards.findById(rewardId)
+				.orElseThrow(() -> ApiException.notFound("LOYALTY_REWARD_NOT_FOUND",
+						"Reward was not found."));
+		if (!reward.isActive()) {
+			throw ApiException.badRequest("LOYALTY_REWARD_INACTIVE",
+					"This reward is no longer available.");
+		}
+
+		OffsetDateTime now = OffsetDateTime.now();
+		int daTru = members.truDiemNeuDu(member.getId(), reward.getPointsRequired(), now);
+		if (daTru == 0) {
+			// Không phân biệt "không đủ điểm" với "thua tranh chấp": với khách hai thứ nói cùng
+			// một điều, và số dư đọc lại bên dưới mới là con số thật.
+			throw ApiException.badRequest("LOYALTY_NOT_ENOUGH_POINTS",
+					"Not enough points for this reward.");
+		}
+
+		LoyaltyRedemptionEntity ghi = redemptions.save(new LoyaltyRedemptionEntity(
+				"red_" + UUID.randomUUID().toString().replace("-", ""),
+				member.getId(), reward, idempotencyKey, now));
+
+		return new LoyaltyDtos.RedeemResponse(
+				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
+				ghi.getCreatedAt(), me(userId));
 	}
 
 	/** Điểm và ưu đãi đủ điều kiện của tài khoản này. */

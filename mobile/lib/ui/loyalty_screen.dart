@@ -4,6 +4,7 @@ import '../core/auth/auth_api.dart';
 import '../core/auth/auth_session.dart';
 import '../core/loyalty/loyalty.dart';
 import '../core/loyalty/loyalty_api.dart';
+import '../core/orders/khoa_dat_don.dart';
 
 /// Điểm thưởng và ưu đãi đủ điều kiện của chính khách (§9.10 M1 mục 3).
 class LoyaltyScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class LoyaltyScreen extends StatefulWidget {
 
 class _LoyaltyScreenState extends State<LoyaltyScreen> {
   final _so = TextEditingController();
+  final _khoa = KhoaDatDon();
+  String? _dangDoi;
   MyLoyalty? _diem;
   String? _loi;
   bool _dangGui = false;
@@ -61,6 +64,61 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       setState(() => _loi = e.message);
     } finally {
       if (mounted) setState(() => _dangGui = false);
+    }
+  }
+
+  /// Đổi điểm lấy ưu đãi (#34).
+  ///
+  /// HỎI XÁC NHẬN trước, và hộp thoại nói RÕ số điểm sẽ trừ. Đây là lần duy nhất trong app khách
+  /// tiêu thứ họ đã tích cả tháng; một nút bấm thẳng ở màn hình có nhiều dòng giống nhau là chỗ
+  /// dễ bấm nhầm nhất.
+  Future<void> _doi(Reward uu) async {
+    if (_dangDoi != null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đổi ưu đãi?'),
+        content: Text('${uu.name}\n\nSẽ trừ ${uu.pointsRequired} điểm. '
+            'Việc này không hoàn tác được.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Không')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Đổi')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() {
+      _dangDoi = uu.rewardId;
+      _loi = null;
+    });
+    try {
+      final kq = await widget.api.doiDiem(
+        widget.dangNhap.accessToken,
+        uu.rewardId,
+        // Khoá gắn với ƯU ĐÃI: gửi lại cùng ưu đãi là cùng một yêu cầu. Đổi ưu đãi khác là yêu
+        // cầu khác và phải có khoá khác.
+        _khoa.khoaCho(uu.rewardId),
+      );
+      // Quên khoá sau khi xong: khách đổi lại đúng ưu đãi đó lần nữa phải là một lần đổi MỚI.
+      _khoa.quen();
+      if (!mounted) return;
+      // Dùng số dư backend trả kèm, không gọi lại: gọi lại tạo khoảng thời gian hiện số dư cũ.
+      setState(() => _diem = kq.soDuMoi);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Đã đổi ${kq.rewardName} · -${kq.pointsSpent} điểm'),
+      ));
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _loi = e.message);
+      // Không đủ điểm có thể vì vừa thua tranh chấp — đọc lại để hiện con số thật.
+      if (e.code == 'LOYALTY_NOT_ENOUGH_POINTS') await _tai();
+    } finally {
+      if (mounted) setState(() => _dangDoi = null);
     }
   }
 
@@ -112,7 +170,17 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(r.name),
                 subtitle: r.description == null ? null : Text(r.description!),
-                trailing: Text('${r.pointsRequired} điểm'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${r.pointsRequired} điểm'),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _dangDoi != null ? null : () => _doi(r),
+                      child: Text(_dangDoi == r.rewardId ? 'Đang đổi…' : 'Đổi'),
+                    ),
+                  ],
+                ),
               )),
       ];
 

@@ -475,3 +475,67 @@ IllegalArgumentException: Failed to evaluate expression 'hasRole(Customer)'  →
 chỉ phát hiện được nhờ gọi thật. `PreAuthorizeExpressionTest` quét mã nguồn và biến nó thành lỗi
 lúc build. Phép kiểm còn có một ca **kiểm chính biểu thức chính quy của nó** — một mẫu viết sai sẽ
 làm cổng luôn xanh và thành đồ trang trí.
+
+## Đổi điểm lấy ưu đãi (#34): ba lớp bảo vệ
+
+Đây là chỗ duy nhất trong app khách **tiêu** thứ họ đã tích cả tháng. DoD của issue nói rõ:
+*"endpoint redeem trừ điểm có khoá chống tranh chấp"*.
+
+| Lớp | Chặn chuyện gì |
+|---|---|
+| `Idempotency-Key` bắt buộc | Bấm hai lần lúc mạng chập chờn không tiêu điểm hai lần |
+| `UPDATE … where points >= :chiPhi` | Hai request **song song** không thể cùng trừ |
+| `UNIQUE` trên `idempotency_key` | Chốt cuối ở tầng CSDL, giữ được cả khi hai tiến trình cùng vượt qua lớp 1 |
+
+Đo thật, hai request song song với số dư đúng 60 và ưu đãi 60 điểm:
+
+```
+r1: ĐỔI ĐƯỢC · số dư 0
+r2: TỪ CHỐI  · LOYALTY_NOT_ENOUGH_POINTS
+điểm trong DB: 0        ← không âm
+```
+
+Và cùng khoá gửi hai lần:
+
+```
+lần 1: red_9f2ebf94… · số dư 140
+lần 2: red_9f2ebf94… · số dư 140    ← cùng redemptionId, chỉ trừ một lần
+```
+
+### Vì sao `UPDATE` có điều kiện chứ không `@Version`
+
+Phần Orders dùng `@Version` vì bản ghi ở đó bị nhiều bên sửa vì nhiều lý do khác nhau, nên cần
+phát hiện *"ai đó đã đổi trong lúc bạn đọc"*. Ở đây chỉ có **một** phép biến đổi (trừ điểm) và
+**một** điều kiện (đủ điểm) — một câu UPDATE có điều kiện vừa mạnh hơn vừa **không bao giờ đỏ
+oan**, nên không cần vòng thử lại.
+
+Đánh đổi: trả về 0 dòng **không phân biệt** "không đủ điểm" với "thua tranh chấp". Với khách hai
+thứ nói cùng một điều, và số dư đọc lại mới là con số thật.
+
+### Sổ ghi, không chỉ trừ số
+
+`loyalty_redemptions` (V10) lưu **bản sao** tên ưu đãi và số điểm **tại thời điểm đổi**. Quán đổi
+tên hay ngừng một ưu đãi là chuyện thường; sổ phải kể đúng thứ khách đã nhận *lúc đó*.
+
+Không có sổ thì điểm biến mất mà không ai đối chiếu được — khách nói *"tôi mất 200 điểm mà chưa
+nhận gì"* và quầy không có gì để tra.
+
+### Lỗi tìm được khi đo: phản hồi trả số dư **cũ**
+
+```
+DB sau khi đổi:        140 điểm  ✓
+phản hồi soDuMoi:      200 điểm  ✗
+```
+
+Dữ liệu đúng, sổ đúng, chỉ **con số báo về** sai. Nguyên nhân: `@Modifying` đi thẳng xuống CSDL và
+**không đụng persistence context**, nên lượt đọc ngay sau đó trả entity còn nằm trong cache bậc
+một. Khách nhìn thấy số dư không đổi và sẽ bấm đổi lần nữa.
+
+Sửa bằng `@Modifying(clearAutomatically = true, flushAutomatically = true)`. Đo lại: phản hồi 80,
+DB 80.
+
+### Hộp xác nhận nói rõ số điểm
+
+Nút "Đổi" nằm cạnh nhiều dòng ưu đãi giống nhau. Hộp thoại nêu **tên ưu đãi**, **số điểm sẽ trừ**,
+và *"không hoàn tác được"* — cùng nguyên tắc với hộp xác nhận ở #19, nhưng ở đây thứ bị tiêu là
+điểm chứ không phải tiền mặt.

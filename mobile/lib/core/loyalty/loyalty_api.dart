@@ -8,6 +8,12 @@ import 'loyalty.dart';
 abstract class LoyaltyApi {
   Future<MyLoyalty> cuaToi(String accessToken);
   Future<MyLoyalty> noiSo(String accessToken, String phone);
+
+  /// Đổi điểm lấy ưu đãi (#34).
+  ///
+  /// [khoaIdempotency] BẮT BUỘC: bấm hai lần lúc mạng chập chờn ở đây tiêu điểm THẬT của khách.
+  Future<KetQuaDoiDiem> doiDiem(
+      String accessToken, String rewardId, String khoaIdempotency);
 }
 
 /// Gọi `/api/loyalty/me` — điểm của CHÍNH tài khoản đang đăng nhập.
@@ -40,6 +46,31 @@ class HttpLoyaltyApi implements LoyaltyApi {
           },
           body: jsonEncode({'phone': phone.trim()}),
         ));
+  }
+
+  @override
+  Future<KetQuaDoiDiem> doiDiem(
+      String accessToken, String rewardId, String khoaIdempotency) async {
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('$baseUrl/api/loyalty/me/redeem'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+          'Idempotency-Key': khoaIdempotency,
+        },
+        body: jsonEncode({'rewardId': rewardId}),
+      );
+    } catch (_) {
+      throw const AuthException('NETWORK_ERROR',
+          'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+    }
+    if (response.statusCode == 200) {
+      return KetQuaDoiDiem.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>);
+    }
+    throw _dichLoi(response);
   }
 
   Future<MyLoyalty> _goi(Future<http.Response> Function() gui) async {
@@ -78,6 +109,20 @@ class HttpLoyaltyApi implements LoyaltyApi {
       case 'LOYALTY_PHONE_TAKEN':
         return const AuthException(
             'LOYALTY_PHONE_TAKEN', 'Số này đang gắn với một tài khoản khác.');
+      case 'LOYALTY_NOT_ENOUGH_POINTS':
+        // Backend cố ý KHÔNG phân biệt "không đủ điểm" với "thua tranh chấp" — với khách hai thứ
+        // nói cùng một điều. Số dư trên màn hình được đọc lại sau đó mới là con số thật.
+        return const AuthException(
+            'LOYALTY_NOT_ENOUGH_POINTS', 'Chưa đủ điểm cho ưu đãi này.');
+      case 'LOYALTY_NOT_LINKED':
+        return const AuthException('LOYALTY_NOT_LINKED',
+            'Liên kết số điện thoại trước khi đổi ưu đãi nhé.');
+      case 'LOYALTY_REWARD_INACTIVE':
+        return const AuthException(
+            'LOYALTY_REWARD_INACTIVE', 'Ưu đãi này đã ngừng áp dụng.');
+      case 'LOYALTY_REWARD_NOT_FOUND':
+        return const AuthException(
+            'LOYALTY_REWARD_NOT_FOUND', 'Không tìm thấy ưu đãi này.');
       case 'LOYALTY_PHONE_INVALID':
       case 'LOYALTY_PHONE_REQUIRED':
         return const AuthException(
