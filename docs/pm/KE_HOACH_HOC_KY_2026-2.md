@@ -604,6 +604,10 @@ hết vào cuối kỳ.
 - [x] Tạo nhánh `develop` từ `main`, bật cùng branch protection; ghi lại quy trình nhánh ở §4.1a.
 - [ ] Đăng ký tài khoản Casso, liên kết ngân hàng cá nhân, lấy Secure Token (điều kiện tiên quyết
       cho issue #12 — hạn chế #3).
-- [ ] Khởi tạo project Spring Boot (issue #2) khi sẵn sàng bắt đầu code — nhớ tạo branch
-      `issue-2/anpham120-init-spring-boot` từ `develop` theo đúng quy trình mới, không code thẳng
-      trên `develop`/`main`.
+- [x] Khởi tạo project Spring Boot (issue #2). ĐÃ VƯỢT XA mục này: toàn bộ 17 module đã port,
+      `backend/` (.NET) bị xoá ở #59, và CI chạy trên stack Java từ #58.
+- [x] Toàn bộ 35 issue đã đóng, gồm 11 mục WBS §9.10 của app Flutter (M1–M3).
+- [ ] **Bảng `customer_profile_facts` + logic promote/seed** (§9.8) — thuộc backend + AI-service,
+      không tính vào môn Lập trình di động. Phần hiển thị ở app đã sẵn sàng nhận dữ liệu.
+- [ ] **Kiểm thử app trên thiết bị thật** và chụp bằng chứng cho báo cáo (§9.10). CI dựng được APK
+      và bản iOS không ký, nhưng đó không thay được ảnh chụp máy thật.

@@ -216,6 +216,11 @@ jobs:
       - name: Kiểm số liệu báo cáo Lập trình nâng cao khớp mã
         run: python docs/build_bao_cao_lap_trinh_nang_cao.py --check
 
+      # Cùng cơ chế, cho báo cáo môn Lập trình di động. Một báo cáo nộp môn viết một lần rồi
+      # không ai đọc lại, trong khi mã tiếp tục đổi — nên mọi con số về app Flutter sinh từ mã.
+      - name: Số liệu báo cáo Lập trình di động khớp mã Dart
+        run: python docs/build_bao_cao_lap_trinh_di_dong.py --check
+
       # Tập đánh giá TRUY HỒI — khác tập 119 ca: nó chấm ĐOẠN ĐƯỢC LẤY, không chấm câu trả lời.
       # Khóa đáp án là điều kiện chọn, giải ra chunk_id khi chạy, nên nó không thể trỏ vào tài
       # liệu không tồn tại mà vẫn xanh.
