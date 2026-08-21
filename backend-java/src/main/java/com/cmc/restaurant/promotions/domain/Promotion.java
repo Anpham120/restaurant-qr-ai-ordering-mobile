@@ -52,6 +52,31 @@ public class Promotion {
 	 * @throws PromotionRuleViolation with the same error codes the .NET endpoint returned, so the
 	 *     existing client keeps distinguishing "expired" from "minimum not met"
 	 */
+	/**
+	 * Khuyến mãi có đang chạy tại thời điểm {@code now} không — dùng để LIỆT KÊ, không phải để áp.
+	 *
+	 * <p>Tách khỏi {@link #applyTo} vì hai câu hỏi khác nhau: hàm kia hỏi "mã này dùng được cho ĐƠN
+	 * NÀY không" và cố ý trả ba mã lỗi riêng (INACTIVE / NOT_STARTED / EXPIRED) để khách biết vì
+	 * sao; hàm này hỏi "có nên hiện mã này trong danh sách không". Gộp lại sẽ mất ba mã lỗi đó.
+	 *
+	 * <p>KHÔNG xét {@code minOrderAmount}: đó là điều kiện của từng đơn, không phải của khuyến mãi.
+	 * Ẩn mã chỉ vì giỏ hiện tại chưa đủ tiền là giấu đi đúng thông tin khách cần để quyết định gọi
+	 * thêm món. App hiện ngưỡng đó ra thay vì lọc mất.
+	 *
+	 * <p>Ba điều kiện dưới đây phải khớp đúng ba nhánh ném lỗi đầu {@link #applyTo}. Đó là bất biến
+	 * có phép kiểm riêng: một mã đã liệt kê mà lúc áp lại bị từ chối là lỗi tệ nhất của màn hình
+	 * khuyến mãi — khách thấy nó, gõ nó, và bị chối.
+	 */
+	public boolean isActiveAt(OffsetDateTime now) {
+		if (!active) {
+			return false;
+		}
+		if (startsAt != null && now.isBefore(startsAt)) {
+			return false;
+		}
+		return endsAt == null || !now.isAfter(endsAt);
+	}
+
 	public Discount applyTo(BigDecimal subtotal, OffsetDateTime now) {
 		if (!active) {
 			throw new PromotionRuleViolation("PROMOTION_INACTIVE", "Promotion is not active.");

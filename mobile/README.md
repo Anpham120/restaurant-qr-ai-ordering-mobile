@@ -88,3 +88,34 @@ phân giải pod của `flutter_secure_storage`, rồi Xcode biên dịch toàn 
 `--enforce-lockfile` đòi mục tiêu cố định; bốn gói `matcher`, `meta`, `test_api`, `vector_math`
 do chính SDK ghim, nên đổi SDK là đổi phiên bản và lockfile hết khớp. Nâng Flutter phải là một
 commit sửa cả hai nơi cùng lúc.
+
+## Điểm thưởng: vì sao chưa có
+
+#27 yêu cầu một trang gồm **điểm thưởng + ưu đãi đủ điều kiện + khuyến mãi**. Mới làm được phần
+khuyến mãi. Phần điểm thưởng bị chặn bởi ba sự thật trong mã, không phải bởi thời gian:
+
+1. **`GET /api/loyalty/lookup` chỉ dành cho nhân viên, có chủ ý.** `LoyaltyController` ghi rõ lý do:
+   *"anyone able to call it could enumerate which phone numbers are customers and how much they
+   spend"*. Mở nó cho khách chính là mở lại đúng lỗ hổng mà câu đó dựng lên để chặn.
+
+2. **Không có đường nối nào giữa tài khoản app và hồ sơ tích điểm.** `loyalty_members` khoá theo
+   `phone_number`; `users` không có cột số điện thoại nào. Sau #26, phiên bàn nối được với
+   `users.id` — nhưng điểm thưởng thì không.
+
+3. **Không có cách xác thực số điện thoại.** Hệ thống chưa tích hợp SMS/OTP. Mọi số khách tự khai
+   đều là số chưa kiểm.
+
+Hệ quả: bất kỳ endpoint nào cho khách tra điểm theo số họ tự khai đều cho phép đọc điểm của người
+khác — chỉ cần khai số của họ. Đó đúng là thứ mà §9.5 tưởng là *"dùng ngay"*.
+
+**§9.5 của kế hoạch ghi sai ở điểm này.** Nó xếp *"Tra điểm + ưu đãi đủ điều kiện
+(`GET /api/loyalty/lookup?phone=`)"* vào cột **Dùng ngay**. Endpoint có tồn tại, nhưng không dùng
+được cho app.
+
+Ba hướng đi, cần một quyết định trước khi làm:
+
+| Hướng | Được gì | Mất gì |
+|---|---|---|
+| Thêm `users.phone_number` + `GET /api/loyalty/me` | Làm được ngay, và mở đường cho §9.7 (tự điền SĐT lúc thanh toán) | Khách khai số của người khác là đọc được điểm của họ |
+| Như trên, nhưng chỉ cho liên kết khi số ĐÓ CHƯA có hồ sơ tích điểm | Không lộ điểm của ai | Khách cũ (đã có điểm) không tự liên kết được, phải nhờ quầy; và lời từ chối vẫn tiết lộ "số này là thành viên" |
+| Chờ có OTP | Đúng đắn hoàn toàn | Cần dịch vụ SMS — ngoài phạm vi môn học |
