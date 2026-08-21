@@ -22,6 +22,7 @@ import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
 import 'core/promotions/promotion_api.dart';
 import 'ui/cart_screen.dart';
+import 'ui/theme.dart';
 import 'ui/server_settings_screen.dart';
 import 'ui/chat_screen.dart';
 import 'ui/login_screen.dart';
@@ -211,7 +212,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gọi món',
-      theme: ThemeData(colorSchemeSeed: Colors.deepOrange, useMaterial3: true),
+      theme: chuDeQuan(),
       home: _manHinh(),
     );
   }
@@ -353,7 +354,8 @@ class _KhungChinhState extends State<_KhungChinh> {
   @override
   Widget build(BuildContext context) {
     final man = [
-      MenuScreen(api: widget.menuApi, imageBaseUrl: imageBaseUrl),
+      MenuScreen(
+          api: widget.menuApi, imageBaseUrl: widget.cauHinh.imageBaseUrl),
       CartScreen(
         cartApi: widget.cartApi,
         createOrderApi: widget.createOrderApi,
@@ -418,10 +420,15 @@ class _KhungChinhState extends State<_KhungChinh> {
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.restaurant_menu), label: 'Thực đơn'),
+          NavigationDestination(
+              icon: Icon(Icons.shopping_cart_outlined), label: 'Giỏ'),
           NavigationDestination(icon: Icon(Icons.receipt_long), label: 'Đơn'),
           NavigationDestination(
-              icon: Icon(Icons.local_offer), label: 'Khuyến mãi'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Tài khoản'),
+              icon: Icon(Icons.smart_toy_outlined), label: 'Trợ lý'),
+          NavigationDestination(
+              icon: Icon(Icons.local_offer_outlined), label: 'Khuyến mãi'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline), label: 'Tài khoản'),
         ],
       ),
     );

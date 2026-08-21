@@ -24,14 +24,14 @@ tầng đang nằm không.
 |---|---|
 | Flutter (ghim ở CI) | 3.47.1 |
 | Dart SDK | `>=3.4.0 <4.0.0` |
-| Tệp nguồn `.dart` (`lib/`) | 42 |
-| Dòng mã nguồn | 5.211 |
-| Tệp test | 20 |
-| Dòng mã test | 3.017 |
-| Ca kiểm (`test` + `testWidgets`) | 198 |
-| Màn hình | 11 — `cart_screen`, `chat_screen`, `history_screen`, `login_screen`, `loyalty_screen`, `menu_screen`, `open_table_screen`, `orders_screen`, `payment_screen`, `promotions_screen`, `server_settings_screen` |
+| Tệp nguồn `.dart` (`lib/`) | 45 |
+| Dòng mã nguồn | 5.831 |
+| Tệp test | 22 |
+| Dòng mã test | 3.172 |
+| Ca kiểm (`test` + `testWidgets`) | 210 |
+| Màn hình | 13 — `cart_screen`, `chat_screen`, `history_screen`, `login_screen`, `loyalty_screen`, `menu_screen`, `open_table_screen`, `orders_screen`, `payment_screen`, `promotions_screen`, `qr_scan_screen`, `server_settings_screen`, `theme` |
 | Nhóm lớp lõi | 10 — `auth`, `cart`, `cau_hinh`, `chat`, `loyalty`, `menu`, `orders`, `payment`, `promotions`, `tables` |
-| Phụ thuộc ngoài | 3 — `flutter_lints`, `flutter_secure_storage`, `http` |
+| Phụ thuộc ngoài | 4 — `flutter_lints`, `flutter_secure_storage`, `http`, `mobile_scanner` |
 
 > Bảng này SINH TỪ MÃ (`docs/build_bao_cao_lap_trinh_di_dong.py`), có cổng `--check` ở CI.
 > Không đếm `mobile/android` và `mobile/ios`: đó là khung do `flutter create` sinh ra.

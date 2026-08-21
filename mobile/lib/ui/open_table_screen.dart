@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../core/tables/quet_qr.dart';
+import 'qr_scan_screen.dart';
+
 import '../core/auth/auth_api.dart';
 import '../core/auth/auth_session.dart';
 import '../core/tables/table_session.dart';
@@ -39,6 +42,20 @@ class _OpenTableScreenState extends State<OpenTableScreen> {
     super.dispose();
   }
 
+  /// Mở màn hình quét, rồi mở phiên bằng token đọc được.
+  ///
+  /// Điền token vào ô nhập tay trước khi gọi `_mo()`: nếu mở phiên hỏng (bàn đã đóng, QR của
+  /// quán khác), khách thấy ngay thứ vừa quét được và sửa/thử lại được — thay vì một thông báo
+  /// lỗi trên một ô trống.
+  Future<void> _quet() async {
+    final kq = await Navigator.of(context).push<MaQrBan>(
+      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+    );
+    if (kq == null || !mounted) return;
+    _qr.text = kq.qrToken;
+    await _mo();
+  }
+
   Future<void> _mo() async {
     if (_dangGui) return;
     setState(() {
@@ -67,13 +84,34 @@ class _OpenTableScreenState extends State<OpenTableScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // QUÉT là lối vào chính — cả hệ thống tên là "gọi món qua QR". Nút to, đặt trên
+            // cùng, trước cả ô nhập tay.
+            FilledButton.icon(
+              onPressed: _dangGui ? null : _quet,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Quét mã QR trên bàn'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text('hoặc nhập tay',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+              const Expanded(child: Divider()),
+            ]),
+            const SizedBox(height: 16),
             TextField(
               controller: _qr,
               autocorrect: false,
               onSubmitted: (_) => _mo(),
               decoration: const InputDecoration(
                 labelText: 'Mã QR của bàn',
-                helperText: 'Mã in trên tem QR đặt tại bàn',
+                helperText: 'Dùng khi tem QR bị mờ hoặc không bật được camera',
               ),
             ),
             const SizedBox(height: 20),
