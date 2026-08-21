@@ -1,6 +1,7 @@
 class OrderItem {
   const OrderItem({
     required this.orderItemId,
+    required this.menuItemId,
     required this.name,
     required this.quantity,
     required this.unitPrice,
@@ -11,6 +12,10 @@ class OrderItem {
   });
 
   final String orderItemId;
+
+  /// Cần cho việc đặt lại món cũ (#33): giỏ hàng nhận `menuItemId`, không nhận `orderItemId`.
+  final String menuItemId;
+
   final String name;
   final int quantity;
   final num unitPrice;
@@ -24,6 +29,7 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
         orderItemId: (json['orderItemId'] as String?) ?? '',
+        menuItemId: (json['menuItemId'] as String?) ?? '',
         name: json['name'] as String,
         quantity: (json['quantity'] as int?) ?? 0,
         unitPrice: (json['unitPrice'] as num?) ?? 0,

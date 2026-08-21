@@ -12,6 +12,7 @@ import 'core/cart/cart_api.dart';
 import 'core/chat/chat_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
+import 'core/orders/order_history_api.dart';
 import 'core/orders/order_token_store.dart';
 import 'core/payment/invoice_api.dart';
 import 'core/menu/menu_api.dart';
@@ -20,6 +21,7 @@ import 'core/promotions/promotion_api.dart';
 import 'ui/cart_screen.dart';
 import 'ui/chat_screen.dart';
 import 'ui/login_screen.dart';
+import 'ui/history_screen.dart';
 import 'ui/loyalty_screen.dart';
 import 'ui/menu_screen.dart';
 import 'ui/open_table_screen.dart';
@@ -70,6 +72,7 @@ void main() {
     createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
     invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
     tokenStore: OrderTokenStore(),
+    historyApi: HttpOrderHistoryApi(baseUrl: apiBaseUrl),
     orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
     promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
     loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
@@ -87,6 +90,7 @@ class RestaurantApp extends StatefulWidget {
     required this.createOrderApi,
     required this.invoiceApi,
     required this.tokenStore,
+    required this.historyApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -100,6 +104,7 @@ class RestaurantApp extends StatefulWidget {
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
+  final OrderHistoryApi historyApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -190,6 +195,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
       createOrderApi: widget.createOrderApi,
       invoiceApi: widget.invoiceApi,
       tokenStore: widget.tokenStore,
+      historyApi: widget.historyApi,
       orderApi: widget.orderApi,
       promotionApi: widget.promotionApi,
       loyaltyApi: widget.loyaltyApi,
@@ -238,6 +244,7 @@ class _KhungChinh extends StatefulWidget {
     required this.createOrderApi,
     required this.invoiceApi,
     required this.tokenStore,
+    required this.historyApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -258,6 +265,7 @@ class _KhungChinh extends StatefulWidget {
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
+  final OrderHistoryApi historyApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -315,6 +323,13 @@ class _KhungChinhState extends State<_KhungChinh> {
         dangNhap: widget.dangNhap,
         invoiceApi: widget.invoiceApi,
         soDienThoai: widget.soDienThoai,
+        historyApi: widget.historyApi,
+        themVaoGio: (menuItemId, quantity) => widget.cartApi.doiSoLuong(
+          widget.phienBan.sessionId,
+          widget.phienBan.tableSessionToken,
+          menuItemId,
+          quantity,
+        ),
         loyaltyApi: widget.loyaltyApi,
         onRoiBan: widget.onRoiBan,
         onDangNhap: widget.onDangNhap,
@@ -347,6 +362,8 @@ class _TabTaiKhoan extends StatelessWidget {
     required this.dangNhap,
     required this.invoiceApi,
     required this.soDienThoai,
+    required this.historyApi,
+    required this.themVaoGio,
     required this.loyaltyApi,
     required this.onRoiBan,
     required this.onDangNhap,
@@ -357,6 +374,8 @@ class _TabTaiKhoan extends StatelessWidget {
   final AuthSession? dangNhap;
   final InvoiceApi invoiceApi;
   final String? soDienThoai;
+  final OrderHistoryApi historyApi;
+  final Future<void> Function(String menuItemId, int quantity) themVaoGio;
   final LoyaltyApi loyaltyApi;
   final Future<void> Function() onRoiBan;
   final VoidCallback onDangNhap;
@@ -406,6 +425,19 @@ class _TabTaiKhoan extends StatelessWidget {
               subtitle: Text(ses.user.email),
               trailing: TextButton(
                   onPressed: onDangXuat, child: const Text('Đăng xuất')),
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Lịch sử đơn'),
+              subtitle: const Text('Đơn của những lần ghé trước'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => HistoryScreen(
+                  api: historyApi,
+                  dangNhap: ses,
+                  themVaoGio: themVaoGio,
+                ),
+              )),
             ),
             ListTile(
               leading: const Icon(Icons.card_giftcard),

@@ -246,6 +246,21 @@ public class OrderService {
 	}
 
 	@Transactional(readOnly = true)
+	/**
+	 * Lịch sử đơn của CHÍNH khách đang đăng nhập, qua nhiều lần ghé (#33).
+	 *
+	 * <p>Không nhận tham số định danh nào từ request — {@code memberId} đến từ JWT, giống hệt luật
+	 * ở {@code /api/loyalty/me}. Nếu một ngày ai đó thêm {@code ?memberId=} cho tiện thì đây thành
+	 * đường đọc lịch sử ăn uống của người khác.
+	 */
+	public OrderDtos.OrderListResponse listOrdersForMember(String memberId) {
+		List<OrderEntity> orders = orderRepository.findRecentForMember(memberId, GIOI_HAN_LICH_SU);
+		return new OrderDtos.OrderListResponse(toResponses(orders), orders.size());
+	}
+
+	/** Số đơn tối đa trả về cho màn hình lịch sử — khách quen có thể có hàng trăm. */
+	private static final int GIOI_HAN_LICH_SU = 50;
+
 	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(
 				status, tableCode, updatedSince, org.springframework.data.domain.PageRequest.of(0, 100));
