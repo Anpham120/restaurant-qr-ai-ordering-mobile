@@ -1,3 +1,5 @@
+import '../tien.dart';
+
 /// Một khuyến mãi đang chạy.
 ///
 /// Ánh xạ `PromotionDtos.ActivePromotionResponse` của backend Java.
@@ -57,11 +59,11 @@ class Promotion {
 String moTaMucGiam(Promotion p) {
   final giam = p.type == 'Percentage'
       ? 'Giảm ${_soGon(p.discountValue)}%'
-      : 'Giảm ${_tienVnd(p.discountValue)}';
+      : 'Giảm ${tienVnd(p.discountValue)}';
   // Trần giảm chỉ có nghĩa với phần trăm. Với số tiền cố định nó không bao giờ ràng buộc, và nêu
   // ra sẽ khiến khách tưởng có thêm một giới hạn nữa.
   if (p.type == 'Percentage' && p.maxDiscountAmount != null) {
-    return '$giam, tối đa ${_tienVnd(p.maxDiscountAmount!)}';
+    return '$giam, tối đa ${tienVnd(p.maxDiscountAmount!)}';
   }
   return giam;
 }
@@ -69,22 +71,8 @@ String moTaMucGiam(Promotion p) {
 /// Điều kiện tối thiểu, hoặc `null` nếu không có.
 String? moTaDieuKien(Promotion p) {
   if (p.minOrderAmount == null || p.minOrderAmount == 0) return null;
-  return 'Đơn từ ${_tienVnd(p.minOrderAmount!)}';
+  return 'Đơn từ ${tienVnd(p.minOrderAmount!)}';
 }
 
 String _soGon(num n) =>
     n == n.roundToDouble() ? n.toInt().toString() : n.toString();
-
-/// Định dạng tiền Việt: chấm ngăn nghìn, hậu tố đ.
-///
-/// Tự viết thay vì kéo `intl` vào: một phụ thuộc mới phải nâng cấp và kiểm mãi về sau, cho đúng
-/// một hàm mười dòng. Nếu sau này cần đa ngôn ngữ thật thì đổi, và lúc đó lý do đã rõ ràng.
-String _tienVnd(num n) {
-  final s = n.round().abs().toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
-    buf.write(s[i]);
-  }
-  return '${n < 0 ? '-' : ''}${buf.toString()}đ';
-}

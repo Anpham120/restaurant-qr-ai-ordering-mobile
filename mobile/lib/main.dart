@@ -8,8 +8,16 @@ import 'core/tables/secure_table_session_store.dart';
 import 'core/tables/table_session.dart';
 import 'core/tables/table_session_api.dart';
 import 'core/tables/table_session_repository.dart';
+import 'core/loyalty/loyalty_api.dart';
+import 'core/menu/menu_api.dart';
+import 'core/orders/order_api.dart';
+import 'core/promotions/promotion_api.dart';
 import 'ui/login_screen.dart';
+import 'ui/loyalty_screen.dart';
+import 'ui/menu_screen.dart';
 import 'ui/open_table_screen.dart';
+import 'ui/orders_screen.dart';
+import 'ui/promotions_screen.dart';
 
 /// Địa chỉ backend Java. Truyền lúc build:
 ///
@@ -20,6 +28,20 @@ import 'ui/open_table_screen.dart';
 const String apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'http://10.0.2.2:8081',
+);
+
+/// Base URL của ẢNH MÓN — KHÁC base của API, và đây là chỗ dễ mất cả tiếng để hiểu.
+///
+/// Ảnh không do backend phục vụ. Đo trên hệ thống đang chạy:
+///
+///     GET :8081/menu-images/04-banh-cuon-thanh-tri.webp  → 401   (API Spring)
+///     GET :8080/menu-images/04-banh-cuon-thanh-tri.webp  → 200   (container web)
+///
+/// Ghép nhầm ảnh vào base API thì thực đơn hiện ra trắng trơn mà không có lỗi nào để lần theo —
+/// widget ảnh chỉ lặng lẽ hiện ô trống.
+const String imageBaseUrl = String.fromEnvironment(
+  'IMAGE_BASE_URL',
+  defaultValue: 'http://10.0.2.2:8080',
 );
 
 void main() {
@@ -34,14 +56,30 @@ void main() {
       store: SecureTableSessionStore(),
       auth: auth,
     ),
+    menuApi: HttpMenuApi(baseUrl: apiBaseUrl),
+    orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
+    promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
+    loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
   ));
 }
 
 class RestaurantApp extends StatefulWidget {
-  const RestaurantApp({super.key, required this.auth, required this.ban});
+  const RestaurantApp({
+    super.key,
+    required this.auth,
+    required this.ban,
+    required this.menuApi,
+    required this.orderApi,
+    required this.promotionApi,
+    required this.loyaltyApi,
+  });
 
   final AuthRepository auth;
   final TableSessionRepository ban;
+  final MenuApi menuApi;
+  final OrderApi orderApi;
+  final PromotionApi promotionApi;
+  final LoyaltyApi loyaltyApi;
 
   @override
   State<RestaurantApp> createState() => _RestaurantAppState();
@@ -93,9 +131,13 @@ class _RestaurantAppState extends State<RestaurantApp> {
         onMoPhienXong: (session) => setState(() => _phienBan = session),
       );
     }
-    return _ManHinhTam(
+    return _KhungChinh(
       phienBan: _phienBan!,
       dangNhap: _dangNhap,
+      menuApi: widget.menuApi,
+      orderApi: widget.orderApi,
+      promotionApi: widget.promotionApi,
+      loyaltyApi: widget.loyaltyApi,
       onRoiBan: () async {
         await widget.ban.roiBan();
         if (mounted) setState(() => _phienBan = null);
@@ -117,13 +159,19 @@ class _RestaurantAppState extends State<RestaurantApp> {
   }
 }
 
-/// Màn hình tạm sau khi đã vào bàn.
+/// Khung chính sau khi đã vào bàn: thực đơn, đơn của bàn, khuyến mãi, tài khoản.
 ///
-/// Menu, giỏ hàng và đơn nằm ở #28–#29 — để trống chỗ này thay vì dựng sẵn khung chưa ai dùng.
-class _ManHinhTam extends StatelessWidget {
-  const _ManHinhTam({
+/// Bốn tab thay vì một màn hình tạm vì #28 đã cho app đủ nội dung để điều hướng thật. Giỏ hàng
+/// (#29) và thanh toán (#30) chưa có tab — thêm tab rỗng để "đủ bộ" sẽ khiến khách bấm vào và
+/// tưởng tính năng hỏng.
+class _KhungChinh extends StatefulWidget {
+  const _KhungChinh({
     required this.phienBan,
     required this.dangNhap,
+    required this.menuApi,
+    required this.orderApi,
+    required this.promotionApi,
+    required this.loyaltyApi,
     required this.onRoiBan,
     required this.onDangNhap,
     required this.onDangXuat,
@@ -131,41 +179,115 @@ class _ManHinhTam extends StatelessWidget {
 
   final TableSession phienBan;
   final AuthSession? dangNhap;
+  final MenuApi menuApi;
+  final OrderApi orderApi;
+  final PromotionApi promotionApi;
+  final LoyaltyApi loyaltyApi;
+  final Future<void> Function() onRoiBan;
+  final VoidCallback onDangNhap;
+  final Future<void> Function() onDangXuat;
+
+  @override
+  State<_KhungChinh> createState() => _KhungChinhState();
+}
+
+class _KhungChinhState extends State<_KhungChinh> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final man = [
+      MenuScreen(api: widget.menuApi, imageBaseUrl: imageBaseUrl),
+      OrdersScreen(api: widget.orderApi, phienBan: widget.phienBan),
+      PromotionsScreen(api: widget.promotionApi),
+      _TabTaiKhoan(
+        phienBan: widget.phienBan,
+        dangNhap: widget.dangNhap,
+        loyaltyApi: widget.loyaltyApi,
+        onRoiBan: widget.onRoiBan,
+        onDangNhap: widget.onDangNhap,
+        onDangXuat: widget.onDangXuat,
+      ),
+    ];
+
+    return Scaffold(
+      body: man[_tab],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.restaurant_menu), label: 'Thực đơn'),
+          NavigationDestination(icon: Icon(Icons.receipt_long), label: 'Đơn'),
+          NavigationDestination(
+              icon: Icon(Icons.local_offer), label: 'Khuyến mãi'),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Tài khoản'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tab tài khoản: trạng thái bàn, đăng nhập/đăng xuất, và điểm thưởng khi đã đăng nhập.
+class _TabTaiKhoan extends StatelessWidget {
+  const _TabTaiKhoan({
+    required this.phienBan,
+    required this.dangNhap,
+    required this.loyaltyApi,
+    required this.onRoiBan,
+    required this.onDangNhap,
+    required this.onDangXuat,
+  });
+
+  final TableSession phienBan;
+  final AuthSession? dangNhap;
+  final LoyaltyApi loyaltyApi;
   final Future<void> Function() onRoiBan;
   final VoidCallback onDangNhap;
   final Future<void> Function() onDangXuat;
 
   @override
   Widget build(BuildContext context) {
+    final ses = dangNhap;
     return Scaffold(
-      appBar: AppBar(title: Text('Bàn ${phienBan.tableCode}')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(phienBan.tableDisplayName,
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text('Trạng thái: ${phienBan.resumeState}',
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 24),
-            if (dangNhap != null) ...[
-              Text('Đơn được cộng vào ${dangNhap!.user.email}'),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                  onPressed: onDangXuat, child: const Text('Đăng xuất')),
-            ] else ...[
-              const Text('Khách vãng lai — đơn không được tích điểm'),
-              const SizedBox(height: 8),
-              // Nói rõ giới hạn: đăng nhập bây giờ KHÔNG gắn ngược phiên đã mở ẩn danh nếu bàn
-              // đã có người khác gắn. Hứa hẹn mơ hồ ở đây sẽ thành khiếu nại ở quầy.
-              OutlinedButton(
+      appBar: AppBar(title: const Text('Tài khoản')),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.table_restaurant),
+            title: Text('Bàn ${phienBan.tableCode}'),
+            subtitle: Text(phienBan.tableDisplayName),
+            trailing:
+                TextButton(onPressed: onRoiBan, child: const Text('Rời bàn')),
+          ),
+          const Divider(),
+          if (ses == null)
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text('Khách vãng lai'),
+              subtitle:
+                  const Text('Đăng nhập để tích điểm và xem ưu đãi riêng'),
+              trailing: TextButton(
                   onPressed: onDangNhap, child: const Text('Đăng nhập')),
-            ],
-            const SizedBox(height: 24),
-            TextButton(onPressed: onRoiBan, child: const Text('Rời bàn')),
+            )
+          else ...[
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: Text(ses.user.fullName),
+              subtitle: Text(ses.user.email),
+              trailing: TextButton(
+                  onPressed: onDangXuat, child: const Text('Đăng xuất')),
+            ),
+            ListTile(
+              leading: const Icon(Icons.card_giftcard),
+              title: const Text('Điểm thưởng'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => LoyaltyScreen(api: loyaltyApi, dangNhap: ses),
+              )),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
