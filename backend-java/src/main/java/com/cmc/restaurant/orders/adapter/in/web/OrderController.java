@@ -84,6 +84,20 @@ public class OrderController {
 		return orderService.listOrdersForMember(principal.userId());
 	}
 
+	/**
+	 * Món khách hay gọi (#35, §9.8) — "Món tôi hay gọi" ở app.
+	 *
+	 * <p>§9.8 nói rõ phần này không cần cơ chế mới, chỉ là truy vấn lịch sử theo {@code MemberId}.
+	 * Phần CÒN LẠI của §9.8 (hồ sơ AI bền vững qua bảng {@code CustomerProfileFact}) là việc của
+	 * backend + AI-service và CHƯA có — xem ghi chú ở {@code mobile/README.md}.
+	 */
+	@GetMapping("/api/orders/mine/favourites")
+	@PreAuthorize("hasRole('Customer')")
+	public OrderDtos.FavouriteItemListResponse listMyFavourites(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+		return orderService.listFavouriteItemsForMember(principal.userId());
+	}
+
 	@GetMapping("/api/orders")
 	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'Admin')")
 	public OrderDtos.OrderListResponse listOrders(

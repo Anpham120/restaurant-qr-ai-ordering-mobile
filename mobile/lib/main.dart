@@ -12,6 +12,7 @@ import 'core/cart/cart_api.dart';
 import 'core/chat/chat_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
+import 'core/orders/favourite_api.dart';
 import 'core/orders/order_history_api.dart';
 import 'core/orders/order_token_store.dart';
 import 'core/payment/invoice_api.dart';
@@ -73,6 +74,7 @@ void main() {
     invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
     tokenStore: OrderTokenStore(),
     historyApi: HttpOrderHistoryApi(baseUrl: apiBaseUrl),
+    favouriteApi: HttpFavouriteApi(baseUrl: apiBaseUrl),
     orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
     promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
     loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
@@ -91,6 +93,7 @@ class RestaurantApp extends StatefulWidget {
     required this.invoiceApi,
     required this.tokenStore,
     required this.historyApi,
+    required this.favouriteApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -105,6 +108,7 @@ class RestaurantApp extends StatefulWidget {
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
   final OrderHistoryApi historyApi;
+  final FavouriteApi favouriteApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -196,6 +200,7 @@ class _RestaurantAppState extends State<RestaurantApp> {
       invoiceApi: widget.invoiceApi,
       tokenStore: widget.tokenStore,
       historyApi: widget.historyApi,
+      favouriteApi: widget.favouriteApi,
       orderApi: widget.orderApi,
       promotionApi: widget.promotionApi,
       loyaltyApi: widget.loyaltyApi,
@@ -245,6 +250,7 @@ class _KhungChinh extends StatefulWidget {
     required this.invoiceApi,
     required this.tokenStore,
     required this.historyApi,
+    required this.favouriteApi,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -266,6 +272,7 @@ class _KhungChinh extends StatefulWidget {
   final InvoiceApi invoiceApi;
   final OrderTokenStore tokenStore;
   final OrderHistoryApi historyApi;
+  final FavouriteApi favouriteApi;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -324,6 +331,7 @@ class _KhungChinhState extends State<_KhungChinh> {
         invoiceApi: widget.invoiceApi,
         soDienThoai: widget.soDienThoai,
         historyApi: widget.historyApi,
+        favouriteApi: widget.favouriteApi,
         themVaoGio: (menuItemId, quantity) => widget.cartApi.doiSoLuong(
           widget.phienBan.sessionId,
           widget.phienBan.tableSessionToken,
@@ -363,6 +371,7 @@ class _TabTaiKhoan extends StatelessWidget {
     required this.invoiceApi,
     required this.soDienThoai,
     required this.historyApi,
+    required this.favouriteApi,
     required this.themVaoGio,
     required this.loyaltyApi,
     required this.onRoiBan,
@@ -375,6 +384,7 @@ class _TabTaiKhoan extends StatelessWidget {
   final InvoiceApi invoiceApi;
   final String? soDienThoai;
   final OrderHistoryApi historyApi;
+  final FavouriteApi favouriteApi;
   final Future<void> Function(String menuItemId, int quantity) themVaoGio;
   final LoyaltyApi loyaltyApi;
   final Future<void> Function() onRoiBan;
@@ -434,6 +444,7 @@ class _TabTaiKhoan extends StatelessWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => HistoryScreen(
                   api: historyApi,
+                  favouriteApi: favouriteApi,
                   dangNhap: ses,
                   themVaoGio: themVaoGio,
                 ),

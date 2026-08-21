@@ -51,6 +51,20 @@ public final class OrderDtos {
 			List<OrderItemResponse> items, List<OrderStatusEventResponse> events, String customerAccessToken) {
 	}
 
+	/**
+	 * Một món khách hay gọi (#35, §9.8).
+	 *
+	 * <p>Trả CẢ {@code timesOrdered} lẫn {@code totalQuantity}: hai con số nói hai chuyện khác
+	 * nhau — "gọi bao nhiêu lần" là thói quen, "tổng bao nhiêu phần" có thể chỉ là một bữa đông
+	 * người. App hiện số lần, nhưng số lượng vẫn có ích khi cần giải thích thứ tự.
+	 */
+	public record FavouriteItemResponse(
+			String menuItemId, String name, long timesOrdered, long totalQuantity) {
+	}
+
+	public record FavouriteItemListResponse(List<FavouriteItemResponse> items) {
+	}
+
 	public record OrderListResponse(List<OrderResponse> orders, int total) {
 	}
 }

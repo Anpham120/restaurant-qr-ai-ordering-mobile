@@ -44,6 +44,50 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 			""", nativeQuery = true)
 	List<OrderEntity> findRecentForMember(String memberId, int gioiHan);
 
+	/** Một dòng "món tôi hay gọi". */
+	interface MonHayGoi {
+		String getMenuItemId();
+
+		String getMenuItemName();
+
+		long getSoLan();
+
+		long getTongSoLuong();
+	}
+
+	/**
+	 * Món khách gọi nhiều nhất qua nhiều lần ghé (#35, §9.8).
+	 *
+	 * <p>§9.8 nói thẳng rằng phần này KHÔNG cần cơ chế mới: chỉ là truy vấn lịch sử {@code Order}
+	 * theo {@code MemberId}, thứ đã có từ #26/#33. Đây là chỗ lời hứa đó được đổi thành mã.
+	 *
+	 * <p>Sắp theo SỐ LẦN GỌI trước, tổng số lượng sau. Một người gọi phở tám lần, mỗi lần một bát,
+	 * "hay gọi" phở hơn người từng gọi mười bát chè trong đúng một bữa liên hoan. Sắp theo tổng số
+	 * lượng sẽ cho ra danh sách của bữa tiệc đó, không phải thói quen của khách.
+	 *
+	 * <p>LOẠI món đã huỷ và đơn đã huỷ: khách chủ động bỏ chúng, nên chúng không nói gì về sở
+	 * thích. Giữ lại sẽ khiến "món hay gọi" gồm cả món khách hay đổi ý.
+	 *
+	 * <p>Native SQL cùng lý do đã ghi ở {@link #findRecentForMember} — ràng buộc vào schema của
+	 * Tables, không vào mã.
+	 */
+	@Query(value = """
+			select oi.menu_item_id as menuItemId,
+			       max(oi.menu_item_name) as menuItemName,
+			       count(*) as soLan,
+			       sum(oi.quantity) as tongSoLuong
+			from order_items oi
+			join orders o on o.id = oi.order_id
+			join table_sessions s on s.id = o.table_session_id
+			where s.member_id = :memberId
+			  and oi.status <> 'Cancelled'
+			  and o.status <> 'Cancelled'
+			group by oi.menu_item_id
+			order by count(*) desc, sum(oi.quantity) desc
+			limit :gioiHan
+			""", nativeQuery = true)
+	List<MonHayGoi> findTopItemsForMember(String memberId, int gioiHan);
+
 	/** Mọi đơn của một phiên bàn, mới nhất trước (#96). */
 	List<OrderEntity> findByTableSessionIdOrderByCreatedAtDesc(String tableSessionId);
 

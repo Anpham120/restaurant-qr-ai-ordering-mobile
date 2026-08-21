@@ -539,3 +539,55 @@ DB 80.
 Nút "Đổi" nằm cạnh nhiều dòng ưu đãi giống nhau. Hộp thoại nêu **tên ưu đãi**, **số điểm sẽ trừ**,
 và *"không hoàn tác được"* — cùng nguyên tắc với hộp xác nhận ở #19, nhưng ở đây thứ bị tiêu là
 điểm chứ không phải tiền mặt.
+
+## §9.8 hồ sơ AI bền vững: làm được một nửa
+
+#35 gồm hai nửa, và chỉ một nửa thuộc phạm vi môn Lập trình di động.
+
+### Làm được: "Món tôi hay gọi"
+
+§9.8 nói thẳng phần này **không cần cơ chế mới** — chỉ là truy vấn lịch sử `Order` theo
+`MemberId`, thứ đã có từ #26/#33. `GET /api/orders/mine/favourites`.
+
+Đo trên hệ thống đang chạy, ba lần ghé:
+
+```
+Bánh cuốn Thanh Trì · 3 lần · tổng 3 phần
+Cơm hến Huế         · 1 lần · tổng 8 phần
+Bún bò Huế          · 1 lần · tổng 1 phần
+```
+
+**Xếp theo SỐ LẦN gọi, không theo tổng số phần.** Một người gọi bánh cuốn ba lần "hay gọi" nó hơn
+người từng gọi tám phần cơm hến trong đúng một bữa liên hoan. Sắp theo tổng số lượng sẽ cho ra
+danh sách của bữa tiệc đó, không phải thói quen của khách.
+
+App còn **lọc bỏ món chỉ gọi một lần**: một lần là một lần thử, không phải thói quen. Hiện nó dưới
+nhãn *"Món bạn hay gọi"* sẽ khiến danh sách đầy những món khách ăn thử rồi thôi.
+
+Khối này là **phần phụ** của màn hình lịch sử: lời gọi hỏng thì nuốt lỗi và vẫn hiện lịch sử, chứ
+không làm hỏng cả màn hình vì một tính năng thứ yếu.
+
+### CHƯA làm được: hồ sơ AI bền vững
+
+§9.8 thiết kế bảng `CustomerProfileFact` — cùng hình dạng `ChatSessionFact` nhưng khoá theo
+`MemberId` và **không bị xoá khi bàn đóng** — cộng logic *promote* (chép fact dị ứng/ăn chay/độ
+cay sang hồ sơ bền vững khi phiên chat đóng) và *seed* (nạp lại fact cũ vào phiên chat mới).
+
+Hiện trạng đo được:
+
+```
+chat_session_facts       → có   (kind, value, confidence, khoá theo chat_session_id)
+customer_profile_facts   → KHÔNG có
+```
+
+Không có bảng đó thì **không có gì để app hiển thị**. Và §9.8 phân công rõ:
+
+> *"bảng/logic promote-seed là backend + AI-service (Python), không tính vào môn Lập trình di
+> động — việc của Flutter chỉ là hiển thị"*
+
+Nên phần này bị chặn bởi công việc thuộc môn khác, không phải bởi thời gian. Dựng một màn hình
+đọc bảng chưa tồn tại, hoặc tự suy ra "dị ứng" từ lịch sử đơn, đều là bịa dữ liệu về sức khoẻ
+khách — thứ §9.8 đã cảnh báo riêng:
+
+> *"đây là lớp cá nhân hoá tiện lợi, **không thay thế** cơ chế chặn cứng theo nhãn dị nguyên của
+> món (hạn chế #7 — mới phủ 44/91 món)"*
