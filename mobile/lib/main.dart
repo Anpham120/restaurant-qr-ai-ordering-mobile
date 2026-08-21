@@ -11,6 +11,7 @@ import 'core/tables/table_session_repository.dart';
 import 'core/cart/cart_api.dart';
 import 'core/loyalty/loyalty_api.dart';
 import 'core/orders/create_order_api.dart';
+import 'core/orders/order_token_store.dart';
 import 'core/payment/invoice_api.dart';
 import 'core/menu/menu_api.dart';
 import 'core/orders/order_api.dart';
@@ -65,6 +66,7 @@ void main() {
     cartApi: HttpCartApi(baseUrl: apiBaseUrl),
     createOrderApi: HttpCreateOrderApi(baseUrl: apiBaseUrl),
     invoiceApi: HttpInvoiceApi(baseUrl: apiBaseUrl),
+    tokenStore: OrderTokenStore(),
     orderApi: HttpOrderApi(baseUrl: apiBaseUrl),
     promotionApi: HttpPromotionApi(baseUrl: apiBaseUrl),
     loyaltyApi: HttpLoyaltyApi(baseUrl: apiBaseUrl),
@@ -80,6 +82,7 @@ class RestaurantApp extends StatefulWidget {
     required this.cartApi,
     required this.createOrderApi,
     required this.invoiceApi,
+    required this.tokenStore,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -91,6 +94,7 @@ class RestaurantApp extends StatefulWidget {
   final CartApi cartApi;
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
+  final OrderTokenStore tokenStore;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -179,11 +183,14 @@ class _RestaurantAppState extends State<RestaurantApp> {
       cartApi: widget.cartApi,
       createOrderApi: widget.createOrderApi,
       invoiceApi: widget.invoiceApi,
+      tokenStore: widget.tokenStore,
       orderApi: widget.orderApi,
       promotionApi: widget.promotionApi,
       loyaltyApi: widget.loyaltyApi,
       onRoiBan: () async {
         await widget.ban.roiBan();
+        // Token đơn của bàn cũ không dùng được nữa — không có lý do giữ.
+        await widget.tokenStore.xoaHet();
         if (mounted) setState(() => _phienBan = null);
       },
       onDangNhap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -223,6 +230,7 @@ class _KhungChinh extends StatefulWidget {
     required this.cartApi,
     required this.createOrderApi,
     required this.invoiceApi,
+    required this.tokenStore,
     required this.orderApi,
     required this.promotionApi,
     required this.loyaltyApi,
@@ -241,6 +249,7 @@ class _KhungChinh extends StatefulWidget {
   final CartApi cartApi;
   final CreateOrderApi createOrderApi;
   final InvoiceApi invoiceApi;
+  final OrderTokenStore tokenStore;
   final OrderApi orderApi;
   final PromotionApi promotionApi;
   final LoyaltyApi loyaltyApi;
@@ -264,14 +273,22 @@ class _KhungChinhState extends State<_KhungChinh> {
         createOrderApi: widget.createOrderApi,
         phienBan: widget.phienBan,
         soDienThoai: widget.soDienThoai,
-        onDatXong: (don) {
+        onDatXong: (don) async {
+          // Cất X-Order-Token NGAY: backend chỉ trả nó một lần, và mất nó là mất quyền huỷ món
+          // của chính mình (#11).
+          await widget.tokenStore.luu(don.orderCode, don.customerAccessToken);
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Đã gửi bếp — đơn ${don.orderCode}')),
           );
           setState(() => _tab = 2);
         },
       ),
-      OrdersScreen(api: widget.orderApi, phienBan: widget.phienBan),
+      OrdersScreen(
+        api: widget.orderApi,
+        phienBan: widget.phienBan,
+        tokenStore: widget.tokenStore,
+      ),
       PromotionsScreen(api: widget.promotionApi),
       _TabTaiKhoan(
         phienBan: widget.phienBan,

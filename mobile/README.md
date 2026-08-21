@@ -305,3 +305,50 @@ món được. Giả thuyết đó **sai** — ghi lại để người sau khô
 
 Đã sửa: bắt `IllegalStateException` và trả `400 VIETQR_CONFIG_MISSING`, khớp đường còn lại. Sau
 khi sửa và dựng lại: `HTTP 400 · VIETQR_CONFIG_MISSING`.
+
+## Ước lượng thời gian (#10): app không được bịa con số
+
+Backend chỉ ước lượng khi món đã có **từ 20 mẫu lịch sử**, luôn trả **khoảng** (p25–p75), và cộng
+thêm độ sâu hàng đợi bếp. Dưới ngưỡng đó nó trả `null` thay vì đoán.
+
+Đo trên hệ thống đang chạy:
+
+```
+ORD-1016 · Bánh cuốn Thanh Trì · status=Pending · ước lượng = null-null
+order_items có ready_at → 0 dòng
+```
+
+Nên **null là trạng thái bình thường**, không phải lỗi tải. App hiện **không gì cả** — không
+"đang tính", không "khoảng 15 phút".
+
+Nhóm gốc đã cố ý không làm tính năng này: *"một ước lượng sai làm mất lòng tin hơn là không có
+ước lượng"*. Ba điều kiện của #10 tồn tại để quyết định đó không bị lặp lại một cách mù quáng —
+và một con số bịa ở tầng app phá đúng cả ba mà không ai thấy.
+
+`moTaUocLuong` cũng không hiện `"10-10 phút"` khi khoảng suy biến: nó nói `"khoảng 10 phút"`, vì
+một khoảng rộng 0 phút đọc như một con số chắc chắn.
+
+## Huỷ món (#11): hai điều kiện, không phải một
+
+```
+token đơn ĐÚNG,  món Pending    → 200
+token đơn SAI                   → 404 ORDER_NOT_FOUND
+token BÀN thay token đơn        → 404 ORDER_NOT_FOUND
+token đúng,      món Preparing  → 400 ORDER_ITEM_CANCEL_NOT_ALLOWED
+```
+
+**Điều kiện 1 — món phải đang `Pending`.** Backend chặt hơn đường của nhân viên *có chủ ý*: nhân
+viên vẫn huỷ được món `Preparing`, khách thì không, vì tới lúc đó bếp đã dùng nguyên liệu.
+
+**Điều kiện 2 — máy phải có `X-Order-Token` của đúng đơn đó.** Token bàn **không** dùng thay được
+(đo ở trên: 404). Backend chỉ trả token này **một lần**, lúc tạo đơn, nên app cất nó vào
+Keychain/Keystore ngay khi đặt xong và xoá khi rời bàn.
+
+Hệ quả với người dùng: đơn do **máy khác** trong bàn đặt thì máy này **không hiện nút huỷ**. Đó là
+đúng — người đặt mới là người quyết định huỷ — và tốt hơn một nút bấm vào rồi báo lỗi.
+
+Khoá **theo từng món**, không theo cả đơn: đo thật, huỷ được món 1 trong khi món 2 cùng đơn vẫn
+`Pending`.
+
+Token sai và đơn không tồn tại **trả cùng một mã** — cố ý, vì mã đơn tăng dần nên xác nhận
+"ORD-1002 có thật" đã là rò rỉ. Câu thông báo của app phải phủ được cả hai nghĩa.
