@@ -9,6 +9,7 @@ on:
     branches: [develop, main]
     paths:
       - 'mobile/**'
+      - 'mobile-rn/**'
       - '.github/workflows/ci-mobile.yml'
   # KHÔNG lọc `paths` cho `pull_request`, cùng lý do đã ghi ở `ci-java.yml`: nếu sau này
   # `mobile-build` được đặt làm required check, một PR không đụng `mobile/` sẽ treo PENDING
@@ -134,3 +135,41 @@ jobs:
       # KHÔNG đặt `continue-on-error`. Một cổng không chặn được thì không phải cổng.
       - name: Build iOS (không ký)
         run: flutter build ios --debug --no-codesign
+
+  # Bản React Native (#145). Chạy SONG SONG với hai job Flutter ở trên, không thay thế chúng:
+  # báo cáo môn có khối sinh tự động từ số liệu Flutter với cổng --check, và artifact APK là bằng
+  # chứng §9.10. Xoá Flutter là việc riêng, làm sau khi đối chiếu xong.
+  mobile-rn-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-rn
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile-rn/package-lock.json
+
+      # `npm ci` chứ không `npm install`: cài đúng theo lockfile và HỎNG nếu lockfile lệch
+      # package.json. Cùng tinh thần với `--enforce-lockfile` ở job Flutter — một bản dựng CI
+      # âm thầm nâng phiên bản là bản dựng không nói lên điều gì về mã đang xét.
+      - name: Cài phụ thuộc đúng theo lockfile
+        run: npm ci
+
+      - name: Kiểm định dạng mã
+        run: npm run format:check
+
+      # Tương đương `flutter analyze --fatal-infos`: cảnh báo cũng làm đỏ. Ở bản Flutter, chính
+      # mức nghiêm này bắt được lỗi `prefer_final_fields` khiến nút huỷ món không bao giờ hiện.
+      - name: Lint
+        run: npm run lint
+
+      - name: Kiểm kiểu
+        run: npm run typecheck
+
+      - name: Chạy test
+        run: npm test
