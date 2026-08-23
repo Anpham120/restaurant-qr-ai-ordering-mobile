@@ -655,3 +655,69 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8081 \
 cd deploy && docker compose -f docker-compose.java.yml -p cmc-restaurant-java-local up -d
 curl http://localhost:8081/api/health     # {"status":"ok"}
 ```
+
+## Ước lượng thời gian lên món (#10) — viết lại theo nghiệp vụ
+
+### Vì sao bản đầu không dùng được
+
+Thuần thống kê, cần **20 mẫu lịch sử cho từng món**. Đo trên hệ thống đang chạy: **0 mẫu**. Quán
+mới mở hoặc món ít gọi sẽ im lặng hàng tuần.
+
+Và phần tính tải bếp có lỗi mô hình nặng hơn:
+
+```
+chờ thêm = số món đang chờ × trung vị một món
+```
+
+Công thức đó giả định bếp nấu **từng món một**. Giờ cao điểm 25 món trong hàng đợi, trung vị 10
+phút → **+250 phút**. Bốn tiếng cho một bát phở. Nó sai đúng vào lúc cần đúng nhất.
+
+### Mô hình mới
+
+```
+chờ       = (tổng prep_minutes trong bếp − prep_minutes của chính món này) ÷ số món làm song song
+ước lượng = chờ + prep_minutes của món này,  ±25%
+```
+
+`menu_items.prep_minutes` (V11) là **thời gian lên món**, không phải thời gian nấu. Phở ninh nước
+dùng cả đêm nhưng múc ra bát chỉ vài phút — điền tổng thời gian nấu sẽ khiến mọi món nước báo hàng
+tiếng và không ai tin app nữa.
+
+`KITCHEN_PARALLEL_DISHES` (mặc định 6) là con số **nghiệp vụ**, không suy được từ mã: quán tự đo.
+Đặt quá cao thì app hứa nhanh hơn thực tế; quá thấp thì khách bỏ đi vì tưởng phải chờ lâu.
+
+### Đo thật, hai tình huống
+
+| | Tải bếp | Ước lượng | `kitchenBusy` |
+|---|---|---|---|
+| Bếp rảnh | 15 phút · 1 món | **11–19 phút** | `false` |
+| Giờ cao điểm | 191 phút · 25 món | **33–55 phút** | **`true`** |
+
+Món khai 15 phút, bếp trống → 11–19. Cùng món đó khi 8 bàn vừa gọi → 33–55.
+
+### Nói VÌ SAO lâu, không chỉ đưa số lớn hơn
+
+Ước lượng nhảy từ 11–19 lên 33–55 mà không giải thích **trông như app tính sai**. Nên có cờ riêng
+`kitchenBusy`, và app hiện thêm dòng *"Bếp đang đông nên món lâu hơn thường ngày."*
+
+Ngưỡng báo đông đặt theo **tỷ lệ** chứ không phút cố định: khi phần chờ đã lớn hơn phần nấu, thứ
+quyết định thời gian không còn là món ăn mà là hàng người xếp trước — và khách có quyền biết để
+chọn đợi, đổi món, hay gọi nhân viên.
+
+**Không báo đông khi chưa có ước lượng**: gieo lo lắng mà không cho con số nào là làm khách hoang
+mang mà không giúp họ quyết định gì.
+
+### Ba điều kiện của #10 vẫn giữ
+
+| Điều kiện gốc | Sau khi viết lại |
+|---|---|
+| Không đoán khi thiếu dữ liệu | Món chưa khai `prep_minutes` → **không ước lượng**. 34/91 món đang như vậy |
+| Luôn là khoảng | ±25%, không bao giờ một con số |
+| Có tính tải bếp | Giờ tính theo **tổng công việc**, không theo đầu món |
+
+### Giá trị khởi tạo là chỗ dựa tạm
+
+57/91 món được suy từ nhãn `method:` — **ước lượng của người viết migration, không phải của bếp**.
+34 món thiếu nhãn để `NULL` và sẽ không có ước lượng, im lặng đúng hơn một con số bịa.
+
+Bếp sửa lại qua `PATCH /api/admin/menu-items/{id}` khi thấy sai.

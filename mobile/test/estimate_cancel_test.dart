@@ -46,6 +46,27 @@ void main() {
     });
   });
 
+  group('báo bếp đang đông', () {
+    test('bếp bình thường thì KHÔNG nói gì', () {
+      // Gieo lo lắng khi không có gì bất thường làm khách mất tin vào cả những lần báo thật.
+      expect(moTaBepDong(false, '11–19 phút'), isNull);
+    });
+
+    test('bếp đông thì nói RÕ VÌ SAO lâu', () {
+      // Đo thật: bếp rảnh 11–19 phút, giờ cao điểm 33–55 phút. Con số nhảy gấp ba mà không giải
+      // thích trông như app tính sai.
+      final s = moTaBepDong(true, '33–55 phút');
+      expect(s, isNotNull);
+      expect(s, contains('đông'));
+    });
+
+    test('KHÔNG báo bếp đông khi chưa có ước lượng', () {
+      // Báo "bếp đang đông" mà không kèm con số nào là gieo lo lắng mà không cho khách thứ gì để
+      // quyết định — họ không biết nên đợi hay đổi món.
+      expect(moTaBepDong(true, null), isNull);
+    });
+  });
+
   group('huỷ món (hạn chế #11)', () {
     test('CHỈ huỷ được món đang Pending', () {
       // Backend chặt hơn đường của nhân viên có chủ ý: nhân viên vẫn huỷ được món Preparing,

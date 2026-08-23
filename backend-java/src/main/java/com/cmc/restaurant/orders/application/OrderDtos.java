@@ -27,10 +27,18 @@ public final class OrderDtos {
 
 	/** {@code estimatedReadyMinutesLow}/{@code High} are null when the item is no longer waiting
 	 * (Ready/Served/Cancelled) or the menu item doesn't have enough history yet — hạn chế #10. */
+	/**
+	 * @param kitchenBusy hàng đợi đang quyết định thời gian, không phải bản thân món.
+	 *
+	 *     <p>Cần một cờ RIÊNG chứ không chỉ một con số lớn hơn: một ước lượng nhảy từ 8 phút lên
+	 *     25 phút mà không nói vì sao trông như app tính sai. Nói "bếp đang đông" biến con số đó
+	 *     thành thông tin khách dùng được — họ chọn đợi, đổi món, hay gọi nhân viên.
+	 */
 	public record OrderItemResponse(
 			String orderItemId, String menuItemId, String name, BigDecimal unitPrice, int quantity,
 			String status, BigDecimal lineTotal, OffsetDateTime updatedAt,
-			Integer estimatedReadyMinutesLow, Integer estimatedReadyMinutesHigh) {
+			Integer estimatedReadyMinutesLow, Integer estimatedReadyMinutesHigh,
+			boolean kitchenBusy) {
 	}
 
 	public record OrderStatusEventResponse(

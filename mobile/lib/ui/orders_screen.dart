@@ -166,6 +166,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 if (uocLuong != null)
                   Text('Dự kiến $uocLuong',
                       style: Theme.of(context).textTheme.bodySmall),
+                // Nói VÌ SAO lâu, ngay dưới con số. Đo thật: bếp rảnh 11–19 phút, giờ cao điểm
+                // 33–55 phút. Con số nhảy gấp ba mà không giải thích trông như app tính sai.
+                if (moTaBepDong(m.kitchenBusy, uocLuong) != null)
+                  Text(
+                    moTaBepDong(m.kitchenBusy, uocLuong)!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
+                  ),
               ],
             ),
           ),

@@ -9,6 +9,7 @@ class OrderItem {
     required this.status,
     this.estimatedReadyMinutesLow,
     this.estimatedReadyMinutesHigh,
+    this.kitchenBusy = false,
   });
 
   final String orderItemId;
@@ -27,6 +28,13 @@ class OrderItem {
   final int? estimatedReadyMinutesLow;
   final int? estimatedReadyMinutesHigh;
 
+  /// Hàng đợi đang quyết định thời gian, không phải bản thân món.
+  ///
+  /// Cần cờ RIÊNG chứ không chỉ một con số lớn hơn: ước lượng nhảy từ 11–19 lên 33–55 phút mà
+  /// không nói vì sao trông như app tính sai. Nói "bếp đang đông" biến con số đó thành thông tin
+  /// khách dùng được — họ chọn đợi, đổi món, hay gọi nhân viên.
+  final bool kitchenBusy;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
         orderItemId: (json['orderItemId'] as String?) ?? '',
         menuItemId: (json['menuItemId'] as String?) ?? '',
@@ -37,6 +45,7 @@ class OrderItem {
         status: (json['status'] as String?) ?? 'Pending',
         estimatedReadyMinutesLow: json['estimatedReadyMinutesLow'] as int?,
         estimatedReadyMinutesHigh: json['estimatedReadyMinutesHigh'] as int?,
+        kitchenBusy: (json['kitchenBusy'] as bool?) ?? false,
       );
 }
 
@@ -139,6 +148,15 @@ String? moTaUocLuong(int? low, int? high) {
   if (low == null || high == null) return null;
   if (high <= low) return 'khoảng $low phút';
   return '$low–$high phút';
+}
+
+/// Câu giải thích vì sao món lâu hơn thường ngày, hoặc `null` khi bếp bình thường.
+///
+/// Chỉ nói khi CÓ ước lượng: báo "bếp đang đông" mà không kèm con số nào là gieo lo lắng mà
+/// không cho khách thứ gì để quyết định.
+String? moTaBepDong(bool bepDong, String? uocLuong) {
+  if (!bepDong || uocLuong == null) return null;
+  return 'Bếp đang đông nên món lâu hơn thường ngày.';
 }
 
 /// Khách có tự huỷ được món này không (hạn chế #11).
