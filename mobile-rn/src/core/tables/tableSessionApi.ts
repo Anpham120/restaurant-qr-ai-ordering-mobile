@@ -1,5 +1,5 @@
 import { AuthException } from '../auth/authApi';
-import { HEADER_JSON, type GoiMang, goiMangThat, maLoi } from '../mang/goiMang';
+import { HEADER_JSON, type GoiMang, goiMangThat, loiChungHttp, maLoi } from '../mang/goiMang';
 import { type TableSession, tableSessionTuJson } from './tableSession';
 
 export interface MoPhienTuyChon {
@@ -72,8 +72,6 @@ function dichLoi(status: number, than: string): AuthException {
       return new AuthException('TABLE_CODE_INVALID', 'Mã bàn phải có dạng T01.');
   }
 
-  if (status >= 500) {
-    return new AuthException('SERVER_ERROR', 'Máy chủ đang lỗi. Thử lại sau ít phút.');
-  }
-  return new AuthException(code ?? 'UNKNOWN', `Không mở được phiên bàn (mã ${status}).`);
+  const chung = loiChungHttp(status, code, 'Không mở được phiên bàn');
+  return new AuthException(chung.code, chung.message);
 }

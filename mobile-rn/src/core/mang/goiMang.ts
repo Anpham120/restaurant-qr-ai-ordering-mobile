@@ -45,3 +45,23 @@ export function maLoi(than: string): string | null {
   }
   return null;
 }
+
+/**
+ * Đuôi chung của mọi bảng dịch lỗi: 5xx thành một câu, còn lại giữ mã và kèm số HTTP.
+ *
+ * Tách ra khi có bản sao thứ ba, không sớm hơn. Mỗi API vẫn tự giữ bảng dịch RIÊNG của mình —
+ * đó mới là phần mang nghĩa nghiệp vụ, và gộp chúng lại sẽ tạo ra một bảng khổng lồ nơi mã của
+ * giỏ hàng lẫn với mã của đăng nhập.
+ *
+ * @param moTa câu mô tả việc đang làm, ví dụ "Không cập nhật được giỏ"
+ */
+export function loiChungHttp(
+  status: number,
+  code: string | null,
+  moTa: string,
+): { code: string; message: string } {
+  if (status >= 500) {
+    return { code: 'SERVER_ERROR', message: 'Máy chủ đang lỗi. Thử lại sau ít phút.' };
+  }
+  return { code: code ?? 'UNKNOWN', message: `${moTa} (mã ${status}).` };
+}

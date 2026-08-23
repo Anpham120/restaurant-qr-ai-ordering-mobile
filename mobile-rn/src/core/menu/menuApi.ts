@@ -1,5 +1,5 @@
 import { AuthException } from '../auth/authApi';
-import { type GoiMang, goiMangThat, maLoi } from '../mang/goiMang';
+import { type GoiMang, goiMangThat, loiChungHttp, maLoi } from '../mang/goiMang';
 import { type MenuCategory, type MenuItem, menuCategoryTuJson, menuItemTuJson } from './menu';
 
 export interface MenuData {
@@ -44,12 +44,7 @@ export class HttpMenuApi implements MenuApi {
       };
     }
 
-    if (res.status >= 500) {
-      throw new AuthException('SERVER_ERROR', 'Máy chủ đang lỗi. Thử lại sau ít phút.');
-    }
-    throw new AuthException(
-      maLoi(than) ?? 'UNKNOWN',
-      `Không tải được thực đơn (mã ${res.status}).`,
-    );
+    const chung = loiChungHttp(res.status, maLoi(than), 'Không tải được thực đơn');
+    throw new AuthException(chung.code, chung.message);
   }
 }
