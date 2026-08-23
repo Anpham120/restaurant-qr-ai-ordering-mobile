@@ -278,6 +278,18 @@ public class OrderService {
 	/** Số đơn tối đa trả về cho màn hình lịch sử — khách quen có thể có hàng trăm. */
 	private static final int GIOI_HAN_LICH_SU = 50;
 
+	/**
+	 * Danh sách đơn cho Bảng Bếp và màn hình vận hành.
+	 *
+	 * <p>{@code @Transactional} ở đây KHÔNG phải để ghi mà để giữ phiên Hibernate mở suốt lúc dựng
+	 * phản hồi. Dự án đặt {@code open-in-view: false}, nên ngoài giao dịch thì bộ sưu tập
+	 * {@code items} tải lười không đọc được nữa.
+	 *
+	 * <p>Thiếu dòng này, endpoint trả 200 khi không có đơn nào và trả 500 ngay khi có đơn đầu tiên
+	 * — tức nó xanh trên máy trống và đỏ trên quán đang bán. Mọi hàm cùng loại trong lớp này đều
+	 * đã có; riêng nó bị bỏ sót từ lúc tách bố cục hexagonal.
+	 */
+	@Transactional(readOnly = true)
 	public OrderDtos.OrderListResponse listOrders(OrderStatus status, String tableCode, OffsetDateTime updatedSince) {
 		List<OrderEntity> orders = orderRepository.search(
 				status, tableCode, updatedSince, org.springframework.data.domain.PageRequest.of(0, 100));
@@ -488,7 +500,9 @@ public class OrderService {
 	// --- response mapping --------------------------------------------------------------------
 
 	private OrderDtos.OrderResponse toResponse(OrderEntity order) {
-		return toResponse(order, paymentRepository.findByOrderId(order.getId()).orElse(null));
+		return toResponse(
+				order, paymentRepository.findByOrderId(order.getId()).orElse(null),
+				estimationService.chupTaiBep());
 	}
 
 	/**
@@ -511,10 +525,14 @@ public class OrderService {
 				// có hai dòng thì `toMap` sẽ ném lỗi khoá trùng. Giữ dòng đầu để một bản ghi hỏng
 				// không làm cả màn hình vận hành trắng.
 				.collect(Collectors.toMap(PaymentEntity::getOrderId, p -> p, (a, b) -> a));
-		return orders.stream().map(o -> toResponse(o, theoDon.get(o.getId()))).toList();
+		// Cùng lý do với việc gộp truy vấn thanh toán ở trên: tải bếp giống hệt nhau cho mọi món
+		// của mọi đơn trong lượt trả này, nên hỏi một lần.
+		OrderItemEstimationService.TaiBep tai = estimationService.chupTaiBep();
+		return orders.stream().map(o -> toResponse(o, theoDon.get(o.getId()), tai)).toList();
 	}
 
-	private OrderDtos.OrderResponse toResponse(OrderEntity order, PaymentEntity payment) {
+	private OrderDtos.OrderResponse toResponse(
+			OrderEntity order, PaymentEntity payment, OrderItemEstimationService.TaiBep tai) {
 		return new OrderDtos.OrderResponse(
 				order.getId(), order.getOrderCode(), order.getOrderType(), order.getTableCode(),
 				order.getTableSessionId(), order.getStatus().name(),
@@ -522,7 +540,7 @@ public class OrderService {
 				payment == null ? "Unselected" : payment.getMethod().name(),
 				order.getSubtotalAmount(), order.getDiscountAmount(), order.getTotalAmount(),
 				order.getCreatedAt(), order.getUpdatedAt(),
-				order.getItems().stream().map(this::toItemResponse).toList(),
+				order.getItems().stream().map(item -> toItemResponse(item, tai)).toList(),
 				order.getStatusHistory().stream().map(this::toEventResponse).toList());
 	}
 
@@ -538,9 +556,10 @@ public class OrderService {
 	private static final Set<OrderItemStatus> AWAITING_ESTIMATE_STATUS =
 			EnumSet.of(OrderItemStatus.Pending, OrderItemStatus.Preparing);
 
-	private OrderDtos.OrderItemResponse toItemResponse(OrderItemEntity item) {
+	private OrderDtos.OrderItemResponse toItemResponse(
+			OrderItemEntity item, OrderItemEstimationService.TaiBep tai) {
 		OrderItemEstimationService.Estimate estimate = AWAITING_ESTIMATE_STATUS.contains(item.getStatus())
-				? estimationService.estimate(item.getMenuItemId()).orElse(null)
+				? estimationService.estimate(item.getMenuItemId(), tai).orElse(null)
 				: null;
 		return new OrderDtos.OrderItemResponse(
 				item.getId(), item.getMenuItemId(), item.getMenuItemName(), item.getUnitPrice(), item.getQuantity(),

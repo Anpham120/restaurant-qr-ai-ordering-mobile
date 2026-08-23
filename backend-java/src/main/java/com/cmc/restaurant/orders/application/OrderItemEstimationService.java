@@ -85,7 +85,30 @@ public class OrderItemEstimationService {
 	public record Estimate(int lowMinutes, int highMinutes, boolean bepDong) {
 	}
 
-	public Optional<Estimate> estimate(String menuItemId) {
+	/**
+	 * Trạng thái bếp tại một thời điểm, chụp MỘT lần rồi dùng cho mọi món trong cùng một lượt trả.
+	 *
+	 * <p>Trước đây mỗi món tự đi hỏi hai con số này. Chúng giống hệt nhau cho mọi món trong cùng
+	 * một yêu cầu, nên đơn tám món sinh tám câu tổng tải bếp trả về đúng một kết quả. Trên Bảng Bếp
+	 * — nơi trả về hàng chục đơn và tự làm mới mỗi năm giây — con số đó nhân lên rất nhanh.
+	 *
+	 * <p>Chụp một lần còn đúng hơn về nghĩa: mọi món trong một lượt trả phải được tính trên CÙNG
+	 * một trạng thái bếp. Hỏi lại giữa chừng thì hai món cạnh nhau có thể dựa trên hai tải khác
+	 * nhau, và không có gì nói cho người đọc biết vì sao.
+	 *
+	 * @param tongViecTrongBep tổng prep_minutes của mọi món bếp đang làm
+	 * @param treBepKhai       số phút bếp tự khai thêm (#142)
+	 */
+	public record TaiBep(long tongViecTrongBep, int treBepKhai) {
+	}
+
+	/** Chụp trạng thái bếp. Gọi một lần cho mỗi lượt trả, không phải cho mỗi món. */
+	public TaiBep chupTaiBep() {
+		return new TaiBep(
+				orderItemRepository.sumPrepMinutesInKitchenQueue(), kitchenDelay.phutTreHienTai());
+	}
+
+	public Optional<Estimate> estimate(String menuItemId, TaiBep tai) {
 		Integer prep = menuItemId == null
 				? null
 				: orderItemRepository.findPrepMinutes(menuItemId).orElse(null);
@@ -101,18 +124,26 @@ public class OrderItemEstimationService {
 		// Đo trước khi sửa: bếp trống, một món khai 15 phút, ước lượng ra 13–22 phút. Phần thừa
 		// đúng bằng 15/6 = 2,5 phút của chính nó. Sai nhỏ lúc vắng, nhưng nó là loại sai khiến
 		// người đọc mất tin vào cả công thức.
-		long tongViecTrongBep = orderItemRepository.sumPrepMinutesInKitchenQueue();
-		double viecXepTruoc = Math.max(0, tongViecTrongBep - prep);
+		double viecXepTruoc = Math.max(0, tai.tongViecTrongBep() - prep);
 		double cho = viecXepTruoc / capacity.parallelDishes();
 
 		// Phần bếp tự khai (#142). Hàng đợi ở trên chỉ đo được thứ đã đi qua ứng dụng; đầu bếp
 		// nghỉ ốm, hỏng lò, đoàn đặt trước đang làm ở trong thì không nằm trong bất kỳ đơn nào.
 		// Đây là chỗ duy nhất con người nói ra được phần máy không thấy.
-		int treBepKhai = kitchenDelay.phutTreHienTai();
+		int treBepKhai = tai.treBepKhai();
 
-		double giua = prep + cho + treBepKhai;
-		int low = (int) Math.max(1, Math.round(giua * (1 - BIEN_DO)));
-		int high = (int) Math.max(low + 1, Math.round(giua * (1 + BIEN_DO)));
+		// Biên độ ±25% CHỈ áp lên phần máy tự tính, rồi mới cộng phần bếp khai vào cả hai đầu.
+		//
+		// Bản trước cộng trước rồi mới nhân biên độ, nên bếp bấm "+20 phút" bị hệ thống dịch thành
+		// "khoảng 15 tới 25 phút". Biên độ sinh ra để nói MÁY KHÔNG CHẮC, không phải để nghi ngờ
+		// lời người vừa khai. Người trực bếp nói một con số dứt khoát thì phải giữ nguyên con số
+		// đó, nếu không cái nút mất ý nghĩa: bấm 20 mà ra 25 thì lần sau họ bấm 30.
+		double giua = prep + cho;
+		int low = (int) Math.max(1, Math.round(giua * (1 - BIEN_DO))) + treBepKhai;
+		int high = (int) Math.round(giua * (1 + BIEN_DO)) + treBepKhai;
+		if (high <= low) {
+			high = low + 1;
+		}
 
 		// Bếp đã tự khai trễ thì luôn báo cho khách, không xét thêm ngưỡng: người trực bếp bấm nút
 		// đó chính là để khách biết. Bỏ vế này đi thì con số nhảy lên mà không kèm lý do, và khách
