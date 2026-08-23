@@ -1,4 +1,4 @@
-import { HEADER_JSON, type GoiMang, goiMangThat, maLoi } from '../mang/goiMang';
+import { HEADER_JSON, type GoiMang, goiMangThat, loiChungHttp, maLoi } from '../mang/goiMang';
 import { type AuthSession, authSessionTuJson } from './authSession';
 
 /** Lỗi đăng nhập đã dịch sang câu người dùng đọc được, kèm mã ổn định để mã nguồn phân nhánh. */
@@ -64,8 +64,6 @@ function dichLoi(status: number, than: string): AuthException {
       return new AuthException('PASSWORD_REQUIRED', 'Chưa nhập mật khẩu.');
   }
 
-  if (status >= 500) {
-    return new AuthException('SERVER_ERROR', 'Máy chủ đang lỗi. Thử lại sau ít phút.');
-  }
-  return new AuthException(maLoi(than) ?? 'UNKNOWN', `Đăng nhập không thành công (mã ${status}).`);
+  const chung = loiChungHttp(status, maLoi(than), 'Đăng nhập không thành công');
+  return new AuthException(chung.code, chung.message);
 }
