@@ -545,7 +545,9 @@ public class OrderService {
 		return new OrderDtos.OrderItemResponse(
 				item.getId(), item.getMenuItemId(), item.getMenuItemName(), item.getUnitPrice(), item.getQuantity(),
 				item.getStatus().name(), item.lineTotal(), item.getUpdatedAt(),
-				estimate == null ? null : estimate.lowMinutes(), estimate == null ? null : estimate.highMinutes());
+				estimate == null ? null : estimate.lowMinutes(),
+				estimate == null ? null : estimate.highMinutes(),
+				estimate != null && estimate.bepDong());
 	}
 
 	private OrderDtos.OrderStatusEventResponse toEventResponse(OrderStatusHistoryEntity event) {

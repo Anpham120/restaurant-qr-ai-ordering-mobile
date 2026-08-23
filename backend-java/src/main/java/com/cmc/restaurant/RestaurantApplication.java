@@ -4,6 +4,7 @@ import com.cmc.restaurant.auth.JwtProperties;
 import com.cmc.restaurant.chat.ChatProperties;
 import com.cmc.restaurant.payments.CassoProperties;
 import com.cmc.restaurant.payments.VietQrProperties;
+import com.cmc.restaurant.orders.application.KitchenCapacityProperties;
 import com.cmc.restaurant.shared.CorsProperties;
 import java.util.Arrays;
 import org.springframework.boot.SpringApplication;
@@ -14,7 +15,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 @SpringBootApplication
 @EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, CassoProperties.class, ChatProperties.class,
-		CorsProperties.class})
+		CorsProperties.class,
+		KitchenCapacityProperties.class})
 public class RestaurantApplication {
 
 	/** Mirrors {@code --migrate-only} in the .NET {@code Program.cs}, and with it the V10 principle

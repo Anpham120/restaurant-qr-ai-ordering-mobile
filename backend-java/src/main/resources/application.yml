@@ -39,6 +39,11 @@ payments:
     # failure mode — accepting unauthenticated payloads would mark orders paid for free.
     secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
 
+# Năng lực bếp — xem KitchenCapacityProperties. Số món bếp làm được CÙNG LÚC, dùng để đổi hàng
+# đợi thành thời gian chờ. Quán tự đo rồi chỉnh; mặc định là ước lượng cho bếp cỡ vừa.
+kitchen:
+  parallel-dishes: ${KITCHEN_PARALLEL_DISHES:6}
+
 cors:
   # Danh sách phân tách bằng dấu phẩy, khớp cách bản .NET nhận CORS_ALLOWED_ORIGINS.
   # Mặc định "*" vì bản Java chỉ chạy cục bộ trong phạm vi môn học; điểm quan trọng là giờ
