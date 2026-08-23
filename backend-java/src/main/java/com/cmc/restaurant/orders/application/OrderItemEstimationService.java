@@ -66,11 +66,15 @@ public class OrderItemEstimationService {
 
 	private final OrderItemRepository orderItemRepository;
 	private final KitchenCapacityProperties capacity;
+	private final KitchenDelayService kitchenDelay;
 
 	public OrderItemEstimationService(
-			OrderItemRepository orderItemRepository, KitchenCapacityProperties capacity) {
+			OrderItemRepository orderItemRepository,
+			KitchenCapacityProperties capacity,
+			KitchenDelayService kitchenDelay) {
 		this.orderItemRepository = orderItemRepository;
 		this.capacity = capacity;
+		this.kitchenDelay = kitchenDelay;
 	}
 
 	/**
@@ -101,11 +105,20 @@ public class OrderItemEstimationService {
 		double viecXepTruoc = Math.max(0, tongViecTrongBep - prep);
 		double cho = viecXepTruoc / capacity.parallelDishes();
 
-		double giua = prep + cho;
+		// Phần bếp tự khai (#142). Hàng đợi ở trên chỉ đo được thứ đã đi qua ứng dụng; đầu bếp
+		// nghỉ ốm, hỏng lò, đoàn đặt trước đang làm ở trong thì không nằm trong bất kỳ đơn nào.
+		// Đây là chỗ duy nhất con người nói ra được phần máy không thấy.
+		int treBepKhai = kitchenDelay.phutTreHienTai();
+
+		double giua = prep + cho + treBepKhai;
 		int low = (int) Math.max(1, Math.round(giua * (1 - BIEN_DO)));
 		int high = (int) Math.max(low + 1, Math.round(giua * (1 + BIEN_DO)));
 
-		return Optional.of(new Estimate(low, high, cho > prep * NGUONG_BEP_DONG));
+		// Bếp đã tự khai trễ thì luôn báo cho khách, không xét thêm ngưỡng: người trực bếp bấm nút
+		// đó chính là để khách biết. Bỏ vế này đi thì con số nhảy lên mà không kèm lý do, và khách
+		// sẽ kết luận ứng dụng hỏng chứ không kết luận quán đang đông.
+		boolean bepDong = treBepKhai > 0 || cho > prep * NGUONG_BEP_DONG;
+		return Optional.of(new Estimate(low, high, bepDong));
 	}
 
 	/** Tải bếp lúc này, để màn hình bếp và báo cáo dùng chung một con số với ước lượng. */

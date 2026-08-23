@@ -17,7 +17,10 @@ import { useOpsRealtime } from "../../hooks/useOpsRealtime";
 import { getKitchenOrders } from "../../services/orderService";
 import { fetchKitchenMenuItems, toggleMenuItemAvailability } from "../../services/adminMenuService";
 import { locMonTheoTen } from "./kitchenMenuFilter";
-import { ChefHat, RefreshCw, UtensilsCrossed } from "lucide-react";
+import { getKitchenDelay, setKitchenDelay } from "../../services/kitchenDelayService";
+import type { KitchenDelay } from "../../services/kitchenDelayService";
+import { moTaTreBep, sapHetHan } from "../../components/kitchen/kitchenDelayLabel";
+import { ChefHat, RefreshCw, Timer, UtensilsCrossed } from "lucide-react";
 import "../../components/operations/operations.css";
 
 type MenuItemSummary = { id: string; name: string; isAvailable: boolean };
@@ -31,6 +34,8 @@ export function KitchenRealtimePage() {
   const [showMenuPanel, setShowMenuPanel] = useState(searchParams.get("menu") === "1");
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [timMon, setTimMon] = useState("");
+  const [treBep, setTreBep] = useState<KitchenDelay | null>(null);
+  const [dangDoiTre, setDangDoiTre] = useState(false);
 
   // Filter orders relevant to kitchen
   const kitchenOrders = useMemo(
@@ -94,9 +99,39 @@ export function KitchenRealtimePage() {
     }
   }, []);
 
+  const loadTreBep = useCallback(async () => {
+    try {
+      setTreBep(await getKitchenDelay());
+    } catch {
+      /* không chặn bảng bếp vì một tính năng phụ */
+    }
+  }, []);
+
+  const doiTreBep = useCallback(
+    async (phut: number) => {
+      setDangDoiTre(true);
+      try {
+        setTreBep(await setKitchenDelay(phut));
+        setError("");
+      } catch {
+        setError("Không đặt được độ trễ bếp.");
+      } finally {
+        setDangDoiTre(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
-    Promise.all([loadOrders(), loadMenu()]).finally(() => setIsLoading(false));
-  }, [loadOrders, loadMenu]);
+    Promise.all([loadOrders(), loadMenu(), loadTreBep()]).finally(() => setIsLoading(false));
+  }, [loadOrders, loadMenu, loadTreBep]);
+
+  // Cờ tự tắt sau 90 phút, nên phải hỏi lại định kỳ. Không hỏi thì bảng bếp vẫn hiện "đang cộng
+  // +20" hàng giờ sau khi nó đã hết hiệu lực, và người trực ca tin vào một trạng thái không còn.
+  useEffect(() => {
+    const id = setInterval(loadTreBep, 60_000);
+    return () => clearInterval(id);
+  }, [loadTreBep]);
 
   const { connectionStatus } = useOpsRealtime({
     refresh: loadOrders,
@@ -177,6 +212,40 @@ export function KitchenRealtimePage() {
       </div>
 
       {error ? <div className="ops-notice ops-notice--danger">{error}</div> : null}
+
+      {/* Bếp tự khai độ trễ (#142). Hàng đợi đơn không thấy được đầu bếp nghỉ ốm hay hỏng lò. */}
+      <div
+        className={treBep && treBep.delayMinutes > 0 ? "ops-notice ops-notice--warning" : "ops-notice"}
+        style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 16 }}
+      >
+        <Timer aria-hidden="true" size={16} />
+        <strong>{moTaTreBep(treBep)}</strong>
+        {sapHetHan(treBep) ? <span>— sắp tự tắt, bấm lại để gia hạn</span> : null}
+        <span style={{ flex: 1 }} />
+        {[10, 20, 30].map((phut) => (
+          <button
+            className={
+              treBep?.delayMinutes === phut
+                ? "ops-btn ops-btn--sm"
+                : "ops-btn ops-btn--ghost ops-btn--sm"
+            }
+            disabled={dangDoiTre}
+            key={phut}
+            onClick={() => doiTreBep(phut)}
+            type="button"
+          >
+            +{phut} phút
+          </button>
+        ))}
+        <button
+          className="ops-btn ops-btn--ghost ops-btn--sm"
+          disabled={dangDoiTre || !treBep || treBep.delayMinutes === 0}
+          onClick={() => doiTreBep(0)}
+          type="button"
+        >
+          Tắt
+        </button>
+      </div>
 
       {/* Stats */}
       <div className="ops-stats">
