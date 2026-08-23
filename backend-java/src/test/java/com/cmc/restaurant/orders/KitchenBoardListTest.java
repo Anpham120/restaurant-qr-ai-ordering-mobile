@@ -95,6 +95,13 @@ class KitchenBoardListTest {
 		Map<String, Object> phien = rest.exchange("/api/table-sessions", HttpMethod.POST,
 				new HttpEntity<>(Map.of("qrToken", qrToken, "tableCode", tableCode), mo), Map.class)
 				.getBody();
+		// Chốt fixture. Lần chạy đầu dùng bàn T31/T32 — seed chỉ có tới T30 — nên phiên không mở
+		// được và test đỏ vì NullPointerException ở dòng dưới. Nó VẪN đỏ, đúng hai ca dự định, nên
+		// nhìn qua thì tưởng đã bắt được lỗi 500. Một test đỏ sai lý do còn nguy hơn test xanh sai,
+		// vì nó tạo cảm giác đã có cổng chặn.
+		assertThat(phien)
+				.as("không mở được phiên bàn %s — kiểm lại bàn này có trong seed không", tableCode)
+				.isNotNull();
 
 		HttpHeaders dat = new HttpHeaders();
 		dat.setContentType(MediaType.APPLICATION_JSON);
@@ -118,7 +125,7 @@ class KitchenBoardListTest {
 	@DisplayName("Bảng Bếp đọc được đơn KÈM danh sách món")
 	void boardLoadsOrdersWithItems() {
 		TaiKhoan bep = taoNhanVienBep();
-		datDon("T31", List.of(Map.of("menuItemId", "m_004", "quantity", 1),
+		datDon("T25", List.of(Map.of("menuItemId", "m_004", "quantity", 1),
 				Map.of("menuItemId", "m_010", "quantity", 2)));
 
 		ResponseEntity<Map> res = goi("/api/orders", bep.token());
@@ -135,7 +142,7 @@ class KitchenBoardListTest {
 	@DisplayName("Lọc theo trạng thái cũng phải đọc được món")
 	void boardLoadsFilteredOrders() {
 		TaiKhoan bep = taoNhanVienBep();
-		datDon("T32", List.of(Map.of("menuItemId", "m_004", "quantity", 1)));
+		datDon("T26", List.of(Map.of("menuItemId", "m_004", "quantity", 1)));
 
 		ResponseEntity<Map> res = goi("/api/orders?status=Placed", bep.token());
 
@@ -152,7 +159,7 @@ class KitchenBoardListTest {
 
 		// Ca này XANH kể cả khi endpoint hỏng. Giữ lại có chủ đích, để lần sau ai sửa vùng này thì
 		// biết rằng một mã 200 ở đây không chứng minh được gì nếu danh sách rỗng.
-		ResponseEntity<Map> res = goi("/api/orders?tableCode=T99", bep.token());
+		ResponseEntity<Map> res = goi("/api/orders?tableCode=T30", bep.token());
 
 		assertThat(res.getStatusCode().value()).isEqualTo(200);
 	}
