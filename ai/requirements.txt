@@ -50,4 +50,4 @@ pydantic>=2.8,<3.0
 # uvicorn cũng phải tìm trên index của PyTorch — nơi không có chúng — và build thất bại.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.2,<3.0
-sentence-transformers>=5.7.0,<6.0
+sentence-transformers>=6.0.0,<7.0
