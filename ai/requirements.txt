@@ -37,7 +37,7 @@
 # Phần dữ liệu, thước đo và tập đánh giá chỉ dùng thư viện chuẩn của Python — không cần cài
 # gì để chạy chúng. Bốn gói dưới đây là cho tầng HTTP.
 fastapi>=0.141.1,<1.0
-uvicorn[standard]>=0.52.1,<1.0
+uvicorn[standard]>=0.52.4,<1.0
 httpx>=0.27,<1.0
 pydantic>=2.8,<3.0
 
