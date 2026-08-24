@@ -85,7 +85,6 @@ jobs:
       #
       # `ai/app/test_packaging.py::ComposeChiTruyenBienDichVuTHATSUDoc` canh khối tương ứng trong
       # docker-compose theo CẢ HAI chiều, nên biến chết không quay lại được mà không ai thấy.
-      CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL || '' }}
       BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.STAGING_BOOTSTRAP_ADMIN_EMAIL || '' }}
       BOOTSTRAP_ADMIN_PASSWORD: ${{ secrets.STAGING_BOOTSTRAP_ADMIN_PASSWORD || '' }}
       SEED_DEMO_USERS: "true"

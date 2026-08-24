@@ -129,7 +129,15 @@ Script `deploy/scripts/deploy-vps.sh` thực hiện tuần tự trên VPS:
 1. Đồng bộ mã nguồn (giữ `repo.previous` để rollback).
 2. `docker compose up -d --build`.
 3. `backup-postgres.sh` — sao lưu DB trước khi kiểm tra.
-4. `write-nginx-config.sh` + `issue-certbot.sh` — cấu hình reverse proxy + TLS.
+4. `write-nginx-config.sh` — cấu hình reverse proxy (HTTP thuần, cổng 80).
+
+   **TLS không còn do máy chủ gốc cấp.** Certbot bị bỏ khi dự án thôi dùng VPS cố định. Nginx chỉ
+   phục vụ HTTP ở cổng 80; việc kết thúc TLS chuyển ra biên (Cloudflare hoặc tương đương), nên các
+   URL `https://` ở phần kiểm tra bên dưới vẫn đúng — chỉ khác chỗ chứng chỉ được cấp.
+
+   Hệ quả phải nhớ: máy chủ gốc **không được phơi thẳng ra internet**. Nó chỉ nghe HTTP, nên ai
+   tới thẳng IP sẽ nói chuyện không mã hoá. Đường vào phải đi qua biên — đường hầm hoặc tường lửa
+   chỉ cho biên gọi vào.
 5. `health-check.sh` — kiểm tra `/api/health`; lỗi sẽ khiến job thất bại.
 
 Nếu **Deploy Production** thất bại (build/migration/health-check), workflow tự **dispatch `rollback.yml`** cho môi trường production.
@@ -140,7 +148,7 @@ Secrets đặt theo **GitHub Environments** (`staging`, `production`), không n�
 
 - `STAGING_HOST` / `PRODUCTION_HOST`, `*_SSH_USER`, `*_SSH_KEY`
 - `*_POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`, `GEMINI_API_KEY`
-- `*_BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD`, `CERTBOT_EMAIL`, `RELEASE_BOT_TOKEN` (tuỳ chọn)
+- `*_BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD`, `RELEASE_BOT_TOKEN` (tuỳ chọn)
 
 ### 8. Kích hoạt cổng duyệt production (một lần, trong Settings)
 
@@ -201,7 +209,7 @@ Khi push hoặc merge vào `develop`:
 1. Workflow `Deploy Staging` chạy với environment `staging`.
 2. GitHub Secrets được ghi thành `.env` trên VPS.
 3. Docker Compose build/start các service.
-4. Nginx và Certbot được cấu hình.
+4. Nginx được cấu hình (HTTP thuần).
 5. Health check kiểm tra frontend và API.
 6. Kết quả ghi vào report trên VPS.
 
@@ -229,7 +237,6 @@ STAGING_SSH_KEY
 STAGING_POSTGRES_PASSWORD
 JWT_SIGNING_KEY
 GEMINI_API_KEY
-CERTBOT_EMAIL
 ```
 
 Production:
@@ -241,7 +248,6 @@ PRODUCTION_SSH_KEY
 PRODUCTION_POSTGRES_PASSWORD
 JWT_SIGNING_KEY
 GEMINI_API_KEY
-CERTBOT_EMAIL
 ```
 
 Variables khuyến nghị:

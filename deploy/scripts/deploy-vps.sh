@@ -141,8 +141,6 @@ AI_TIMEOUT_SECONDS=$(env_quote "${AI_TIMEOUT_SECONDS:-60}")
 LLM_TIMEOUT_SECONDS=$(env_quote "${LLM_TIMEOUT_SECONDS:-${AI_TIMEOUT_SECONDS:-30}}")
 VITE_USE_MOCK_CHAT=$(env_quote "${VITE_USE_MOCK_CHAT:-false}")
 VITE_USE_MOCK_ORDER=$(env_quote "${VITE_USE_MOCK_ORDER:-false}")
-ENABLE_CERTBOT=$(env_quote "${ENABLE_CERTBOT:-true}")
-CERTBOT_EMAIL=$(env_quote "${CERTBOT_EMAIL:-}")
 BOOTSTRAP_ADMIN_EMAIL=$(env_quote "${BOOTSTRAP_ADMIN_EMAIL:-}")
 BOOTSTRAP_ADMIN_PASSWORD=$(env_quote "${BOOTSTRAP_ADMIN_PASSWORD:-}")
 SEED_DEMO_USERS=$(env_quote "${SEED_DEMO_USERS:-false}")
@@ -171,5 +169,4 @@ EOF
   docker compose --env-file .env -f repo/deploy/docker-compose.yml -p '${COMPOSE_PROJECT_NAME}' up -d --build --remove-orphans && \
   bash repo/deploy/scripts/backup-postgres.sh pre-health-check && \
   bash repo/deploy/scripts/write-nginx-config.sh && \
-  bash repo/deploy/scripts/issue-certbot.sh && \
   bash repo/deploy/scripts/health-check.sh"
