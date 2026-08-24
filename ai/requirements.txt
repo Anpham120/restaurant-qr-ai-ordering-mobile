@@ -39,7 +39,7 @@
 fastapi>=0.141.1,<1.0
 uvicorn[standard]>=0.52.1,<1.0
 httpx>=0.27,<1.0
-pydantic>=2.8,<3.0
+pydantic>=2.13.4,<3.0
 
 # Truy hồi bằng embedding.
 #
