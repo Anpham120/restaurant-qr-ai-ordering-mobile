@@ -1,9 +1,13 @@
 # Báo cáo môn Lập trình ứng dụng di động
 
-Ứng dụng Flutter cho hệ thống gọi món qua QR — `mobile/` trong kho
+Ứng dụng React Native (Expo) cho hệ thống gọi món qua QR — `mobile-rn/` trong kho
 `Anpham120/restaurant-qr-ai-ordering-mobile`.
 
-Kế hoạch gốc: `docs/pm/KE_HOACH_HOC_KY_2026-2.md` §9. Nhật ký thiết kế chi tiết: `mobile/README.md`.
+Kế hoạch gốc: `docs/pm/KE_HOACH_HOC_KY_2026-2.md` §9.
+
+**Về bản Flutter.** App được viết trước bằng Flutter, rồi chuyển sang React Native ở #145 và xoá
+bản cũ ở #173. Mọi lý lẽ thiết kế trong báo cáo này ĐÃ ĐI QUA cả hai bản: chúng là quyết định về
+nghiệp vụ và bảo mật, không phải về khung. Lịch sử bản Flutter còn nguyên trong git.
 
 ## 1. Bài toán, và vì sao nó không phải "làm lại web trên mobile"
 
@@ -22,19 +26,22 @@ tầng đang nằm không.
 
 | Chỉ số | Giá trị |
 |---|---|
-| Flutter (ghim ở CI) | 3.47.1 |
-| Dart SDK | `>=3.4.0 <4.0.0` |
-| Tệp nguồn `.dart` (`lib/`) | 45 |
-| Dòng mã nguồn | 5.859 |
-| Tệp test | 22 |
-| Dòng mã test | 3.193 |
-| Ca kiểm (`test` + `testWidgets`) | 213 |
-| Màn hình | 13 — `cart_screen`, `chat_screen`, `history_screen`, `login_screen`, `loyalty_screen`, `menu_screen`, `open_table_screen`, `orders_screen`, `payment_screen`, `promotions_screen`, `qr_scan_screen`, `server_settings_screen`, `theme` |
-| Nhóm lớp lõi | 10 — `auth`, `cart`, `cau_hinh`, `chat`, `loyalty`, `menu`, `orders`, `payment`, `promotions`, `tables` |
-| Phụ thuộc ngoài | 4 — `flutter_lints`, `flutter_secure_storage`, `http`, `mobile_scanner` |
+| Expo SDK | 57.0.15 |
+| React Native | 0.86.2 |
+| Node (ghim ở CI) | 22 |
+| Tệp nguồn `.ts`/`.tsx` | 49 |
+| Dòng mã nguồn | 5.962 |
+| Tệp test | 42 |
+| Dòng mã test | 5.528 |
+| Ca kiểm khai báo (`it` + `test`) | 395 |
+| Màn hình | 14 — `AccountTab`, `CartScreen`, `ChatScreen`, `HistoryScreen`, `KhungChinh`, `LoginScreen`, `LoyaltyScreen`, `MenuScreen`, `OpenTableScreen`, `OrdersScreen`, `PaymentScreen`, `PromotionsScreen`, `QrScanScreen`, `ServerSettingsScreen` |
+| Nhóm lớp lõi | 11 — `auth`, `cart`, `cauHinh`, `chat`, `loyalty`, `mang`, `menu`, `orders`, `payment`, `promotions`, `tables` |
+| Phụ thuộc ngoài | 3 — `expo-camera`, `expo-clipboard`, `expo-secure-store` |
 
 > Bảng này SINH TỪ MÃ (`docs/build_bao_cao_lap_trinh_di_dong.py`), có cổng `--check` ở CI.
-> Không đếm `mobile/android` và `mobile/ios`: đó là khung do `flutter create` sinh ra.
+> Không đếm `node_modules`, `android`, `ios`: đó là thứ công cụ sinh ra.
+> Số ca kiểm là số KHAI BÁO. `it.each` sinh nhiều ca từ một dòng, nên số ca CHẠY thật lớn
+> hơn — `npm test` là nguồn đúng cho con số đó.
 
 <!-- HET:so-lieu-flutter -->
 
@@ -138,21 +145,27 @@ Hồ sơ AI bền vững cần bảng `customer_profile_facts`, **chưa tồn t�
 
 ## 6. Cổng chặn
 
-`ci-mobile.yml` có hai job, **cả hai đều chặn được merge**:
+`ci-mobile.yml` chạy một job chặn được merge, gồm năm cổng:
 
-| Job | Máy | Kiểm gì |
+| Cổng | Lệnh | Chặn cái gì |
 |---|---|---|
-| `mobile-build` | `ubuntu-latest` | `pub get --enforce-lockfile` · `dart format --set-exit-if-changed` · `flutter analyze --fatal-infos` · `flutter test` · `flutter build apk --debug` |
-| `mobile-build-ios` | `macos-latest` | `pub get --enforce-lockfile` · `flutter build ios --debug --no-codesign` |
+| Lockfile | `npm ci` | phụ thuộc trôi khỏi bản đã ghim |
+| Định dạng | `prettier --check` | diff bẩn vì khoảng trắng |
+| Lint | `eslint --max-warnings 0` | cảnh báo cũng làm đỏ |
+| Kiểu | `tsc --noEmit` | lỗi kiểu mà test không thấy |
+| Test | `jest` | hồi quy hành vi |
 
-**Flutter ghim ở một phiên bản cụ thể**, không dùng `channel: stable`. Bốn gói `matcher`, `meta`,
-`test_api`, `vector_math` do **chính SDK** ghim, nên khi `stable` nhích lên thì `--enforce-lockfile`
-đỏ. Bỏ cờ đó sẽ làm CI xanh và làm lockfile vô nghĩa cùng lúc; ghim phiên bản biến việc nâng
-Flutter thành một commit có chủ ý sửa cả hai nơi.
+**Mức nghiêm được giữ nguyên từ bản Flutter**, không nới ra khi đổi khung: `--max-warnings 0` là
+bản tương đương `flutter analyze --fatal-infos`, và `npm ci` tương đương `--enforce-lockfile`.
+Ở bản Flutter chính mức nghiêm đó bắt được `prefer_final_fields` — lỗi khiến nút huỷ món không
+bao giờ hiện.
 
-**iOS không phải giới hạn của ngôn ngữ.** Mã Dart giống hệt nhau; chỉ khâu biên dịch cuối và
-CocoaPods là của Apple và bắt buộc macOS. Runner macOS của GitHub miễn phí cho repo public, nên
-việc thiếu cổng iOS lúc đầu là một khoảng trống, không phải một ràng buộc kỹ thuật.
+**Cổng kiểu là cổng MỚI, không có bản tương đương ở Flutter.** Dart kiểm kiểu ngay lúc biên dịch;
+TypeScript thì không, vì `jest` chạy qua babel và bỏ qua kiểu. Nó đã trả công hai lần: cả hai lần
+`exactOptionalPropertyTypes` bắt lỗi trong khi toàn bộ test vẫn xanh.
+
+**iOS.** Expo dựng iOS trên máy chủ EAS, nên không cần runner macOS như bản Flutter. Đổi lại,
+việc dựng iOS không còn nằm trong cổng chặn merge — đó là một khoảng trống có thật, ghi ở §8.
 
 ### Cách viết phép kiểm: mỗi luật phải **đỏ được**
 
@@ -174,10 +187,19 @@ Mọi contract trong báo cáo này được đo bằng cách gọi vào backend
 PostgreSQL thật), không chép từ tài liệu. Hai chi tiết chỉ lộ ra theo cách đó:
 
 - `expiresAt` trả về có **9 chữ số thập phân** (`Instant` của Java in tới nanosecond), trong khi
-  `DateTime` của Dart chỉ tới microsecond. Bộ kiểm ban đầu của tôi dùng chuỗi gọn **tự nghĩ ra** —
+  `Date` của JavaScript chỉ tới mili giây. Bộ kiểm ban đầu của tôi dùng chuỗi gọn **tự nghĩ ra** —
   tức kiểm app với dữ liệu do chính app tưởng tượng.
 - **Ảnh món không do API phục vụ**: `:8081/menu-images/...` trả 401, `:8080/...` trả 200. Ghép
   nhầm base URL thì thực đơn hiện trắng trơn **mà không có lỗi nào để lần theo**.
+
+Sau khi chuyển sang React Native, toàn bộ tầng gọi mạng được chạy LẠI đối với backend đang chạy —
+không qua một bản giả nào — đi hết hành trình khách: thực đơn → vào bàn → giỏ → đặt đơn → theo dõi
+món → hoá đơn → đăng nhập → điểm thưởng → lịch sử → trợ lý. **14/14 lời gọi trả về đúng**, kể cả
+hai điều khó nhất:
+
+- gửi LẠI cùng khoá idempotency trả về **đúng đơn cũ**, không tạo đơn thứ hai;
+- `qrToken` được app tự điền lại vào phiên (backend không trả nó về), nên `POST /api/orders` không
+  còn hỏng vì `DINE_IN_TABLE_REQUIRED`.
 
 ## 8. Việc còn lại
 
