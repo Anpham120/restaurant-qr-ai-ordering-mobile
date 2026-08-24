@@ -27,7 +27,7 @@ export interface MenuScreenProps {
   /** Base URL của ẢNH — khác base của API. Ảnh do container web phục vụ, không phải backend. */
   imageBaseUrl: string;
   /** Thêm món vào giỏ. Bỏ trống thì thẻ không có nút thêm (dùng khi chỉ xem). */
-  onThemVaoGio?: (menuItemId: string) => Promise<void>;
+  onThemVaoGio?: ((menuItemId: string) => Promise<void>) | undefined;
   /**
    * Báo tin ra ngoài để màn hình cha hiện lên.
    *
@@ -35,7 +35,7 @@ export interface MenuScreenProps {
    * đương sẵn có, và đẩy ra ngoài còn tiện hơn: test đọc được lời báo mà không phải dựng cả một
    * tầng thông báo giả.
    */
-  onBaoTin?: (loi: string) => void;
+  onBaoTin?: ((loi: string) => void) | undefined;
 }
 
 const CAO_ANH = 168;
