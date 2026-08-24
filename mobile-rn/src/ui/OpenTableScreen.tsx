@@ -12,7 +12,7 @@ export interface OpenTableScreenProps {
   repository: TableSessionRepository;
   onMoPhienXong: (phien: TableSession) => void;
   /** Phiên đăng nhập hiện tại, chỉ dùng để nói cho khách biết đơn có được gắn tài khoản không. */
-  dangNhapVoi?: AuthSession | null;
+  dangNhapVoi?: AuthSession | null | undefined;
 }
 
 /**

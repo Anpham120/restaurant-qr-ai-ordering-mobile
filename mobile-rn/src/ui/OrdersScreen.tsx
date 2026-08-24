@@ -28,7 +28,7 @@ export interface OrdersScreenProps {
    * callback, nên phải bọc lại thành Promise — và bọc ở đây, không bọc trong màn hình, để test
    * đọc được cả nhánh đồng ý lẫn nhánh từ chối.
    */
-  hoiXacNhan?: (tieuDe: string, noiDung: string) => Promise<boolean>;
+  hoiXacNhan?: ((tieuDe: string, noiDung: string) => Promise<boolean>) | undefined;
 }
 
 function hoiBangAlert(tieuDe: string, noiDung: string): Promise<boolean> {

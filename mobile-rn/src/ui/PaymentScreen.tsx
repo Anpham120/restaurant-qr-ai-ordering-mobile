@@ -13,11 +13,11 @@ import { MauQuan, kieuChung } from './theme';
 export interface PaymentScreenProps {
   api: InvoiceApi;
   phienBan: TableSession;
-  soDienThoai?: string | null;
+  soDienThoai?: string | null | undefined;
   /** Báo tin ra ngoài (đã chép nội dung…). Tách khỏi màn để test đọc được. */
-  onBaoTin?: (tin: string) => void;
+  onBaoTin?: ((tin: string) => void) | undefined;
   /** Tiêm được để test không phụ thuộc clipboard của nền tảng. */
-  chepVaoBoNho?: (chuoi: string) => Promise<void>;
+  chepVaoBoNho?: ((chuoi: string) => Promise<void>) | undefined;
 }
 
 /**

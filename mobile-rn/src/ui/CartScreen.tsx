@@ -15,7 +15,7 @@ export interface CartScreenProps {
   createOrderApi: CreateOrderApi;
   phienBan: TableSession;
   /** Số đã liên kết với tài khoản — tự điền lúc đặt, §9.7 gọi đây là tính năng lõi. */
-  soDienThoai?: string | null;
+  soDienThoai?: string | null | undefined;
   onDatXong: (don: CreatedOrder) => void;
 }
 

@@ -17,9 +17,9 @@ import { MauQuan, kieuChung } from './theme';
 export interface LoyaltyScreenProps {
   api: LoyaltyApi;
   accessToken: string;
-  onBaoTin?: (tin: string) => void;
+  onBaoTin?: ((tin: string) => void) | undefined;
   /** Hỏi xác nhận trước khi tiêu điểm. Tiêm được để test đọc được cả nhánh từ chối. */
-  hoiXacNhan?: (tieuDe: string, noiDung: string) => Promise<boolean>;
+  hoiXacNhan?: ((tieuDe: string, noiDung: string) => Promise<boolean>) | undefined;
 }
 
 /** Điểm thưởng của chính tài khoản đang đăng nhập, và đổi ưu đãi (#34). */

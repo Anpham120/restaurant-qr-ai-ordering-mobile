@@ -11,8 +11,8 @@ export interface ServerSettingsScreenProps {
   hienTai: CauHinhMayChu;
   onLuu: (moi: CauHinhMayChu) => Promise<void>;
   /** `true` khi app chưa có cấu hình nào — không cho thoát ra màn hình trống. */
-  batBuoc?: boolean;
-  goiMang?: GoiMang;
+  batBuoc?: boolean | undefined;
+  goiMang?: GoiMang | undefined;
 }
 
 const HET_GIO_MS = 5000;

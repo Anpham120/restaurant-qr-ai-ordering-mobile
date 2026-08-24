@@ -1,40 +1,134 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, Text, View } from 'react-native';
 
+import { HttpAuthApi } from './src/core/auth/authApi';
+import { AuthRepository } from './src/core/auth/authRepository';
+import { type AuthSession } from './src/core/auth/authSession';
+import { SecureTokenStore } from './src/core/auth/tokenStore';
+import { HttpCartApi } from './src/core/cart/cartApi';
 import { type CauHinhMayChu } from './src/core/cauHinh/cauHinh';
 import { CauHinhStore } from './src/core/cauHinh/cauHinhStore';
+import { HttpChatApi } from './src/core/chat/chatApi';
+import { HttpLoyaltyApi } from './src/core/loyalty/loyaltyApi';
+import { HttpMenuApi } from './src/core/menu/menuApi';
+import { HttpCreateOrderApi } from './src/core/orders/createOrderApi';
+import { HttpFavouriteApi } from './src/core/orders/favouriteApi';
+import { HttpOrderApi } from './src/core/orders/orderApi';
+import { HttpOrderHistoryApi } from './src/core/orders/orderHistoryApi';
+import { OrderTokenStore } from './src/core/orders/orderTokenStore';
+import { HttpInvoiceApi } from './src/core/payment/invoiceApi';
+import { HttpPromotionApi } from './src/core/promotions/promotionApi';
+import { type TableSession } from './src/core/tables/tableSession';
+import { HttpTableSessionApi } from './src/core/tables/tableSessionApi';
+import { TableSessionRepository } from './src/core/tables/tableSessionRepository';
+import { SecureTableSessionStore } from './src/core/tables/tableSessionStore';
+import { KhungChinh } from './src/ui/KhungChinh';
+import { LoginScreen } from './src/ui/LoginScreen';
+import { OpenTableScreen } from './src/ui/OpenTableScreen';
 import { ServerSettingsScreen } from './src/ui/ServerSettingsScreen';
 import { MauQuan, kieuChung } from './src/ui/theme';
 
-const store = new CauHinhStore();
+const cauHinhStore = new CauHinhStore();
+const tokenStore = new SecureTokenStore();
+const banStore = new SecureTableSessionStore();
+const orderTokenStore = new OrderTokenStore();
+
+/** Màn hình đang mở ở tầng ngoài cùng. */
+type ManNgoai = 'caiDat' | 'dangNhap' | null;
 
 /**
- * Bản chuyển sang React Native đang dựng dần (#145).
+ * Dựng lại TOÀN BỘ client theo địa chỉ hiện tại.
  *
- * Hiện mới có tầng nền: cấu hình máy chủ, kho lưu an toàn, phiên đăng nhập, giao diện thương
- * hiệu. Các màn hình còn lại theo sau trong những PR sau, mỗi PR mang theo test của phần đó.
- *
- * App vẫn mở thẳng vào màn hình máy chủ vì đó là bước đầu tiên thật sự của người dùng: chưa có
- * địa chỉ thì không màn hình nào khác gọi được gì.
+ * Mỗi client giữ `baseUrl` bên trong, nên đổi máy chủ bắt buộc phải dựng lại chúng — sửa một biến
+ * dùng chung sẽ không chạm tới những client đã tạo, và app sẽ nửa nói chuyện với máy cũ nửa với
+ * máy mới.
  */
+function dungClient(cauHinh: CauHinhMayChu) {
+  const api = cauHinh.apiBaseUrl;
+  const auth = new AuthRepository(new HttpAuthApi(api), tokenStore);
+  return {
+    auth,
+    ban: new TableSessionRepository(new HttpTableSessionApi(api), banStore, auth),
+    menuApi: new HttpMenuApi(api),
+    cartApi: new HttpCartApi(api),
+    createOrderApi: new HttpCreateOrderApi(api),
+    orderApi: new HttpOrderApi(api),
+    chatApi: new HttpChatApi(api),
+    promotionApi: new HttpPromotionApi(api),
+    invoiceApi: new HttpInvoiceApi(api),
+    historyApi: new HttpOrderHistoryApi(api),
+    favouriteApi: new HttpFavouriteApi(api),
+    loyaltyApi: new HttpLoyaltyApi(api),
+  };
+}
+
 export default function App() {
   const [cauHinh, setCauHinh] = useState<CauHinhMayChu | null>(null);
-  const [dangDoc, setDangDoc] = useState(true);
+  const [dangNhap, setDangNhap] = useState<AuthSession | null>(null);
+  const [phienBan, setPhienBan] = useState<TableSession | null>(null);
+  const [soDienThoai, setSoDienThoai] = useState<string | null>(null);
+  const [manNgoai, setManNgoai] = useState<ManNgoai>(null);
+  const [tin, setTin] = useState<string | null>(null);
+  const [dangKhoiPhuc, setDangKhoiPhuc] = useState(true);
+
+  const client = useMemo(() => (cauHinh === null ? null : dungClient(cauHinh)), [cauHinh]);
+
+  // Khôi phục cấu hình, phiên đăng nhập và phiên bàn — theo đúng thứ tự đó, vì hai thứ sau cần
+  // địa chỉ máy chủ mới đọc được.
+  useEffect(() => {
+    let huy = false;
+    void (async () => {
+      const ch = await cauHinhStore.doc();
+      if (huy) return;
+      setCauHinh(ch);
+      setDangKhoiPhuc(false);
+    })();
+    return () => {
+      huy = true;
+    };
+  }, []);
 
   useEffect(() => {
-    store
-      .doc()
-      .then(setCauHinh)
-      .finally(() => setDangDoc(false));
-  }, []);
+    if (client === null) return;
+    let huy = false;
+    void Promise.all([client.auth.khoiPhuc(), client.ban.khoiPhuc()]).then(([ses, ban]) => {
+      if (huy) return;
+      setDangNhap(ses);
+      setPhienBan(ban);
+    });
+    return () => {
+      huy = true;
+    };
+  }, [client]);
 
-  const luu = useCallback(async (moi: CauHinhMayChu) => {
-    await store.luu(moi);
+  const luuCauHinh = useCallback(async (moi: CauHinhMayChu) => {
+    await cauHinhStore.luu(moi);
+    // Đổi máy chủ thì token cũ vô nghĩa. Xoá hết thay vì để app gửi token của máy khác và nhận
+    // 401 ở một chỗ ngẫu nhiên.
+    await Promise.all([tokenStore.xoa(), banStore.xoa(), orderTokenStore.xoaHet()]);
+    setDangNhap(null);
+    setPhienBan(null);
     setCauHinh(moi);
+    setManNgoai(null);
   }, []);
 
-  if (dangDoc) {
+  const roiBan = useCallback(async () => {
+    if (client === null) return;
+    await client.ban.roiBan();
+    // Token đơn của bàn cũ không dùng được nữa — không có lý do giữ.
+    await orderTokenStore.xoaHet();
+    setPhienBan(null);
+  }, [client]);
+
+  const dangXuat = useCallback(async () => {
+    if (client === null) return;
+    await client.auth.dangXuat();
+    setDangNhap(null);
+    setSoDienThoai(null);
+  }, [client]);
+
+  if (dangKhoiPhuc) {
     return (
       <SafeAreaView style={[kieuChung.man, { justifyContent: 'center' }]}>
         <ActivityIndicator color={MauQuan.chestnut} />
@@ -42,18 +136,109 @@ export default function App() {
     );
   }
 
+  // Chưa có địa chỉ máy chủ thì KHÔNG có gì để hiện: mọi màn hình khác đều bắt đầu bằng một lời
+  // gọi mạng. Bắt nhập trước là trung thực hơn một màn hình trống kèm lỗi.
+  if (cauHinh === null || client === null || manNgoai === 'caiDat') {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <ServerSettingsScreen
+          batBuoc={cauHinh === null}
+          hienTai={cauHinh ?? { apiBaseUrl: '', imageBaseUrl: '' }}
+          onLuu={luuCauHinh}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (manNgoai === 'dangNhap') {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <LoginScreen
+          onDangNhapXong={(ses) => {
+            setDangNhap(ses);
+            setManNgoai(null);
+          }}
+          repository={client.auth}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // KHÔNG bắt đăng nhập trước khi vào bàn. Khách vãng lai phải dùng được app đúng như web; đăng
+  // nhập chỉ đổi lấy việc đơn được gắn tài khoản (§9.4).
+  if (phienBan === null) {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <OpenTableScreen
+          dangNhapVoi={dangNhap}
+          onMoPhienXong={(ban) => {
+            setPhienBan(ban);
+            // Số điện thoại đã liên kết đọc được ngay sau khi có phiên — nó quyết định đơn có
+            // tích điểm hay không (§9.7), và phải có TRƯỚC khi khách bấm đặt món.
+            if (dangNhap !== null) {
+              void client.loyaltyApi
+                .cuaToi(dangNhap.accessToken)
+                .then((d) => setSoDienThoai(d.linked ? d.phoneNumber : null))
+                .catch(() => setSoDienThoai(null));
+            }
+          }}
+          repository={client.ban}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={kieuChung.man}>
       <StatusBar style="dark" />
-      <ServerSettingsScreen
-        batBuoc={cauHinh === null}
-        hienTai={cauHinh ?? { apiBaseUrl: '', imageBaseUrl: '' }}
-        onLuu={luu}
+      <KhungChinh
+        cartApi={client.cartApi}
+        cauHinh={cauHinh}
+        chatApi={client.chatApi}
+        createOrderApi={client.createOrderApi}
+        dangNhap={dangNhap}
+        favouriteApi={client.favouriteApi}
+        historyApi={client.historyApi}
+        invoiceApi={client.invoiceApi}
+        loyaltyApi={client.loyaltyApi}
+        menuApi={client.menuApi}
+        onBaoTin={setTin}
+        onDangNhap={() => setManNgoai('dangNhap')}
+        onDangXuat={() => void dangXuat()}
+        onMoCaiDat={() => setManNgoai('caiDat')}
+        onRoiBan={() => void roiBan()}
+        orderApi={client.orderApi}
+        phienBan={phienBan}
+        promotionApi={client.promotionApi}
+        soDienThoai={soDienThoai}
+        tokenStore={orderTokenStore}
       />
-      {cauHinh !== null ? (
-        <View style={{ padding: 20 }}>
-          <Text style={kieuChung.chuPhu}>
-            Đã lưu máy chủ. Các màn hình còn lại đang được chuyển sang React Native.
+      {/*
+        Dải báo tin đơn giản thay cho ScaffoldMessenger của Flutter. React Native không có thứ
+        tương đương sẵn có, và mọi màn hình đã đẩy lời báo ra ngoài qua onBaoTin — nên chỗ hiển
+        thị nằm đúng ở đây, một lần cho cả app.
+      */}
+      {tin !== null ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 16,
+            right: 16,
+            bottom: 72,
+            backgroundColor: MauQuan.ink,
+            borderRadius: 12,
+            padding: 12,
+          }}
+        >
+          <Text
+            accessibilityLabel="Thông báo"
+            onPress={() => setTin(null)}
+            style={{ color: MauQuan.trang }}
+          >
+            {tin}
           </Text>
         </View>
       ) : null}
