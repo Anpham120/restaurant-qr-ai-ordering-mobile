@@ -352,7 +352,7 @@ PY
 
 report_dir="/opt/cmc-restaurant/${DEPLOY_ENV}/reports"
 mkdir -p "$report_dir"
-compose_file="/opt/cmc-restaurant/${DEPLOY_ENV}/repo/deploy/docker-compose.yml"
+compose_file="/opt/cmc-restaurant/${DEPLOY_ENV}/repo/deploy/docker-compose.java.yml"
 compose_status="not checked"
 if [ -f "$compose_file" ] && [ -n "${COMPOSE_PROJECT_NAME:-}" ]; then
   compose_status="$(docker compose --env-file "/opt/cmc-restaurant/${DEPLOY_ENV}/.env" -f "$compose_file" -p "$COMPOSE_PROJECT_NAME" ps --format json 2>/dev/null || true)"

@@ -22,7 +22,7 @@ set -a
 . ./.env
 set +a
 
-docker compose --env-file .env -f repo/deploy/docker-compose.yml -p "$COMPOSE_PROJECT_NAME" up -d --build --remove-orphans
+docker compose --env-file .env -f repo/deploy/docker-compose.java.yml -p "$COMPOSE_PROJECT_NAME" up -d --build --remove-orphans
 bash repo/deploy/scripts/backup-postgres.sh "rollback-${rollback_stamp}"
 bash repo/deploy/scripts/write-nginx-config.sh
 bash repo/deploy/scripts/health-check.sh

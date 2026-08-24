@@ -8,7 +8,7 @@ set -euo pipefail
 
 backup_file="${1:?Usage: restore-postgres.sh /opt/cmc-restaurant/<env>/backups/<file>.dump}"
 remote_root="/opt/cmc-restaurant/${DEPLOY_ENV}"
-compose_file="${remote_root}/repo/deploy/docker-compose.yml"
+compose_file="${remote_root}/repo/deploy/docker-compose.java.yml"
 env_file="${remote_root}/.env"
 
 if [ ! -f "$backup_file" ]; then

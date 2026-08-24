@@ -14,8 +14,9 @@
 
 ## Phạm vi ảnh hưởng
 
-- [ ] Backend (.NET API)
+- [ ] Backend (Java / Spring Boot)
 - [ ] Frontend (React apps)
+- [ ] Mobile (React Native / Expo)
 - [ ] AI service (Python RAG)
 - [ ] Hạ tầng / CI-CD
 - [ ] Database (có migration?)
@@ -24,8 +25,9 @@
 
 <!-- Đã chạy gì để chứng minh thay đổi hoạt động? -->
 
-- [ ] `dotnet build --configuration Release` (backend)
+- [ ] `./gradlew test` (backend Java)
 - [ ] `npm run build` (frontend)
+- [ ] `npm test` trong `mobile-rn/` (mobile)
 - [ ] Kiểm thử thủ công luồng liên quan
 
 ## Ghi chú triển khai
