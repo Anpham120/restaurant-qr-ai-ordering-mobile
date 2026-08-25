@@ -50,6 +50,10 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "order_code")
 	private String orderCode;
 
+	/** Dòng đơn do ưu đãi tặng món sinh ra; {@code null} với ưu đãi giảm tiền. */
+	@Column(name = "order_item_id")
+	private String orderItemId;
+
 	/** Khác {@code null} nghĩa là điểm đã trả lại và lần đổi này không còn giá trị. */
 	@Column(name = "reversed_at")
 	private OffsetDateTime reversedAt;
@@ -108,8 +112,9 @@ public class LoyaltyRedemptionEntity {
 	 * <p>{@code honouredBy} để trống có chủ đích: không nhân viên nào đứng ra phát. Ghi đại userId
 	 * của khách vào đó sẽ làm hỏng đúng câu hỏi mà cột này sinh ra để trả lời — "ai phát phiếu này".
 	 */
-	void heThongGanVaoDon(String orderCode, OffsetDateTime now) {
+	void heThongGanVaoDon(String orderCode, String orderItemId, OffsetDateTime now) {
 		this.orderCode = orderCode;
+		this.orderItemId = orderItemId;
 		this.honouredAt = now;
 	}
 

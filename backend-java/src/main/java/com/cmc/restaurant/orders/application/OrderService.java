@@ -393,6 +393,13 @@ public class OrderService {
 	 * status forward — matching {@code OrderEndpoints}, which fires both when {@code
 	 * OrderStatusChanged} is true. */
 	private void publishItemStatusChanged(Order order, OrderItem item, OrderStatus previousOrderStatus) {
+		// Chỗ hội tụ duy nhất của hai đường huỷ món: nhân viên đổi trạng thái, và khách tự huỷ.
+		// Công bố ở đây thay vì ở hai nơi gọi, vì một trong hai nơi bị bỏ sót là loại lỗi im lặng —
+		// khách huỷ được món tặng mà không lấy lại điểm, và không có gì báo động.
+		if (item.status() == OrderItemStatus.Cancelled) {
+			suKien.publishEvent(new MonBiHuyEvent(order.orderCode(), item.id(), item.updatedAt()));
+		}
+
 		realtimeNotifier.orderItemStatusChanged(
 				new RealtimeDtos.OrderItemStatusChangedEvent(
 						order.id(), order.orderCode(), item.id(), item.menuItemName(),

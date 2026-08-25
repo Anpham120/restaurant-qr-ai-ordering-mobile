@@ -26,6 +26,9 @@ public interface LoyaltyRedemptionRepository extends JpaRepository<LoyaltyRedemp
 	/** Các lần đổi đã bám vào đơn này và chưa được hoàn. */
 	List<LoyaltyRedemptionEntity> findByOrderCodeAndReversedAtIsNull(String orderCode);
 
+	/** Lần đổi sinh ra đúng dòng đơn này và chưa được hoàn. */
+	List<LoyaltyRedemptionEntity> findByOrderItemIdAndReversedAtIsNull(String orderItemId);
+
 	/**
 	 * Đánh dấu đã phát, CHỈ KHI phiếu còn dùng được.
 	 *

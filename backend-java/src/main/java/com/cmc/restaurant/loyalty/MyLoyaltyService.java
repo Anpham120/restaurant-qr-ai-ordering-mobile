@@ -188,6 +188,7 @@ public class MyLoyaltyService {
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
+		String maDongDon = null;
 		int daTru = members.truDiemNeuDu(member.getId(), reward.getPointsRequired(), now);
 		if (daTru == 0) {
 			// Không phân biệt "không đủ điểm" với "thua tranh chấp": với khách hai thứ nói cùng
@@ -201,7 +202,7 @@ public class MyLoyaltyService {
 		if (laGiamTien) {
 			donHang.congThemGiamGia(hoaDon.orderCode(), reward.getDiscountAmount());
 		} else if (ganMonVaoDon) {
-			donHang.themMonTang(hoaDon.orderCode(), reward.getMenuItemId());
+			maDongDon = donHang.themMonTang(hoaDon.orderCode(), reward.getMenuItemId());
 		}
 
 		soDiem.save(LoyaltyLedgerEntity.doi(
@@ -217,7 +218,7 @@ public class MyLoyaltyService {
 			// Bỏ sót nhánh giảm tiền là một lỗ thật, không phải chuyện gọn gàng: danh sách phiếu
 			// chờ lọc theo honoured_at is null, nên một khoản giảm đã trừ vào hoá đơn vẫn hiện ở
 			// quầy như phiếu chưa phát, và nhân viên bấm "đã phát" thì khách hưởng hai lần.
-			ghi.heThongGanVaoDon(hoaDon.orderCode(), now);
+			ghi.heThongGanVaoDon(hoaDon.orderCode(), maDongDon, now);
 		}
 		redemptions.save(ghi);
 

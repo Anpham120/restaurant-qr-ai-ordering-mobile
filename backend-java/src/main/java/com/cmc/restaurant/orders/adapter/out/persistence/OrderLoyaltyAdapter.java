@@ -3,6 +3,9 @@ package com.cmc.restaurant.orders.adapter.out.persistence;
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.orders.application.OrderLoyaltyPort;
+import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
+import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ApiException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -17,10 +20,13 @@ public class OrderLoyaltyAdapter implements OrderLoyaltyPort {
 
 	private final OrderRepository orders;
 	private final MenuItemRepository menuItems;
+	private final OrderRealtimeNotifier thongBao;
 
-	public OrderLoyaltyAdapter(OrderRepository orders, MenuItemRepository menuItems) {
+	public OrderLoyaltyAdapter(
+			OrderRepository orders, MenuItemRepository menuItems, OrderRealtimeNotifier thongBao) {
 		this.orders = orders;
 		this.menuItems = menuItems;
+		this.thongBao = thongBao;
 	}
 
 	@Override
@@ -69,10 +75,26 @@ public class OrderLoyaltyAdapter implements OrderLoyaltyPort {
 		// vốn đã là BẢN SAO tại thời điểm đặt (cùng lý do với reward_name), nên sửa ở đây không
 		// ảnh hưởng gì tới thực đơn — món vẫn tra được qua menu_item_id.
 		OffsetDateTime now = OffsetDateTime.now();
+		String orderItemId = "oi_" + UUID.randomUUID().toString().replace("-", "");
+		// Một biến, dùng cho cả dòng đơn lẫn sự kiện báo bếp. Tính riêng hai lần là cách hai chỗ
+		// lệch nhau: bảng bếp hiện "Gỏi cuốn chay" trong khi phiếu in ra "Gỏi cuốn chay (đổi điểm)".
+		String tenDong = mon.getName() + " (đổi điểm)";
 		order.addItem(new OrderItemEntity(
-				"oi_" + UUID.randomUUID().toString().replace("-", ""),
-				mon.getId(), mon.getName() + " (đổi điểm)", BigDecimal.ZERO, 1, now));
+				orderItemId, mon.getId(), tenDong, BigDecimal.ZERO, 1, now));
 		orders.save(order);
-		return mon.getName();
+
+		// Báo bếp. Mọi thay đổi khác của đơn đều đi qua đường này; bỏ sót đúng chỗ thêm món tặng sẽ
+		// để món nằm im tới lượt bếp tự tải lại — tối đa 5 giây, nhưng cũng là chỗ duy nhất trong
+		// hệ thống mà một thay đổi của đơn không tự báo đi.
+		//
+		// Dùng lại sự kiện "món đổi trạng thái" chứ không thêm loại sự kiện mới: món này VỪA sang
+		// Pending, nên câu đó đúng nghĩa đen, và mọi client đang nghe đều tải lại danh sách khi
+		// nhận bất kỳ sự kiện nào — thứ thật sự làm món hiện ra.
+		thongBao.orderItemStatusChanged(
+				new RealtimeDtos.OrderItemStatusChangedEvent(
+						order.getId(), order.getOrderCode(), orderItemId,
+						tenDong, OrderItemStatus.Pending.name(), now),
+				order.getTableCode());
+		return orderItemId;
 	}
 }

@@ -53,7 +53,8 @@ public interface OrderLoyaltyPort {
 	 * <p>Vì đơn giá bằng 0, dòng này không làm đổi tạm tính hay tổng đơn — nó chỉ nói cho bếp biết
 	 * phải làm thêm món gì.
 	 *
-	 * @return tên món đã thêm, để nơi gọi báo lại cho khách
+	 * @return id của dòng đơn vừa tạo — nơi gọi phải giữ lại để biết dòng nào ứng với lần đổi nào
+	 *         khi khách huỷ đúng món đó
 	 */
 	String themMonTang(String orderCode, String menuItemId);
 }
