@@ -10,11 +10,12 @@ import java.util.Optional;
  * (Payments, Realtime, Tables, Reports) nhìn thấy một phương thức đổi được tiền của đơn — thứ
  * chúng không có việc gì phải biết.
  *
- * <p>Người dùng đầu tiên là Loyalty: ưu đãi kiểu {@code DISCOUNT} chỉ có nghĩa khi bám vào một hoá
- * đơn thật. Trước khi có cổng này, đổi một ưu đãi giảm tiền chỉ ghi một dòng
- * {@code loyalty_redemptions} rồi thôi — điểm bị trừ mà không đồng nào được giảm.
+ * <p>Người dùng duy nhất là Loyalty, và cổng này gom đúng hai việc Loyalty được phép làm với một
+ * đơn: trừ tiền, và thêm một món tặng. Trước khi có nó, đổi ưu đãi chỉ ghi một dòng
+ * {@code loyalty_redemptions} rồi thôi — điểm bị trừ mà không đồng nào được giảm, món tặng thì bếp
+ * không bao giờ nghe thấy.
  */
-public interface OrderDiscountPort {
+public interface OrderLoyaltyPort {
 
 	/**
 	 * Phần tiền của đơn mà bên ngoài cần để tính được khoản giảm.
@@ -41,4 +42,18 @@ public interface OrderDiscountPort {
 	 * âm thầm xoá khoản đó đi.
 	 */
 	void congThemGiamGia(String orderCode, BigDecimal themGiam);
+
+	/**
+	 * Thêm một dòng món tặng vào đơn, đơn giá 0đ.
+	 *
+	 * <p>Đơn giá 0 chứ không phải giá gốc kèm một khoản giảm bằng đúng giá đó: món tặng KHÔNG phải
+	 * doanh thu, và ghi nó thành doanh thu rồi trừ đi sẽ thổi cả doanh thu lẫn chiết khấu trong báo
+	 * cáo. Quán chỉ chịu giá vốn, và giá vốn không nằm ở bảng này.
+	 *
+	 * <p>Vì đơn giá bằng 0, dòng này không làm đổi tạm tính hay tổng đơn — nó chỉ nói cho bếp biết
+	 * phải làm thêm món gì.
+	 *
+	 * @return tên món đã thêm, để nơi gọi báo lại cho khách
+	 */
+	String themMonTang(String orderCode, String menuItemId);
 }

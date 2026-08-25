@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { AuthException } from '../../core/auth/authApi';
-import { type MyLoyalty } from '../../core/loyalty/loyalty';
+import { type MyLoyalty, type Reward } from '../../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../../core/loyalty/loyaltyApi';
-import { LoyaltyScreen } from '../LoyaltyScreen';
+import { LoyaltyScreen, moTaViecSeXayRa } from '../LoyaltyScreen';
 
 const CHUA_NOI: MyLoyalty = {
   linked: false,
@@ -273,12 +273,11 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
     expect(maDaGui).toBe('ORD-1042');
   });
 
-  it('ưu đãi TẶNG MÓN không hỏi đơn — phiếu tặng món không gắn hoá đơn nào', async () => {
-    let daHoiDon = false;
+  it('TẶNG MÓN có đơn đang mở thì gửi kèm mã đơn — món vào đơn, bếp làm ngay', async () => {
     let maDaGui: string | undefined = 'chua-goi';
     const api = apiVoi(DA_NOI, {
-      doiDiem: async (_t: string, _r: string, _k: string, orderId?: string) => {
-        maDaGui = orderId;
+      doiDiem: async (_t: string, _r: string, _k: string, orderCode?: string) => {
+        maDaGui = orderCode;
         return {
           redemptionId: 'rd',
           rewardName: 'Trà đào miễn phí',
@@ -289,19 +288,37 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
     });
 
     await render(
-      <LoyaltyScreen
-        accessToken="jwt"
-        api={api}
-        timDonDangMo={async () => {
-          daHoiDon = true;
-          return 'ORD-1042';
-        }}
-      />,
+      <LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => 'ORD-1042'} />,
     );
     await screen.findByLabelText('Đổi Trà đào miễn phí');
     await fireEvent.press(screen.getByLabelText('Đổi Trà đào miễn phí'));
 
-    expect(daHoiDon).toBe(false);
+    expect(maDaGui).toBe('ORD-1042');
+  });
+
+  it('TẶNG MÓN không có đơn thì vẫn đổi được — thành phiếu để dành', async () => {
+    // Khác hẳn ưu đãi giảm tiền: khách đổi ở nhà để dành là chuyện hợp lệ, ép phải có đơn sẽ chặn
+    // mất trường hợp đó.
+    let daGoi = false;
+    let maDaGui: string | undefined = 'chua-goi';
+    const api = apiVoi(DA_NOI, {
+      doiDiem: async (_t: string, _r: string, _k: string, orderCode?: string) => {
+        daGoi = true;
+        maDaGui = orderCode;
+        return {
+          redemptionId: 'rd',
+          rewardName: 'Trà đào miễn phí',
+          pointsSpent: 200,
+          soDuMoi: DA_NOI,
+        };
+      },
+    });
+
+    await render(<LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => null} />);
+    await screen.findByLabelText('Đổi Trà đào miễn phí');
+    await fireEvent.press(screen.getByLabelText('Đổi Trà đào miễn phí'));
+
+    expect(daGoi).toBe(true);
     expect(maDaGui).toBeUndefined();
   });
 });
@@ -356,5 +373,35 @@ describe('phiếu chưa dùng', () => {
 
     await screen.findByText('Chè bưởi');
     expect(screen.queryByText(/Invalid Date/)).toBeNull();
+  });
+});
+
+describe('câu nói trước khi trừ điểm', () => {
+  const tangMon: Reward = {
+    rewardId: 'rw_1',
+    name: 'Chè bưởi',
+    description: null,
+    pointsRequired: 350,
+    loai: 'FREE_ITEM',
+    soTienGiam: null,
+    hangToiThieu: 'BAC',
+  };
+  const giamTien: Reward = { ...tangMon, loai: 'DISCOUNT', soTienGiam: 50_000 };
+
+  it('tặng món CÓ đơn: nói món vào đơn nào', () => {
+    expect(moTaViecSeXayRa(tangMon, 'ORD-1042')).toContain('ORD-1042');
+    expect(moTaViecSeXayRa(tangMon, 'ORD-1042')).toContain('bếp làm ngay');
+  });
+
+  it('tặng món KHÔNG có đơn: nói rõ đây là phiếu để dành', () => {
+    // Cùng một nút cho ra hai kết quả khác hẳn nhau. Nói nhầm ở đây nghĩa là khách bấm đổi vì
+    // tưởng món sẽ ra, rồi ngồi chờ một món không ai làm.
+    const cau = moTaViecSeXayRa(tangMon, null);
+    expect(cau).toContain('phiếu');
+    expect(cau).not.toContain('bếp');
+  });
+
+  it('giảm tiền: nói giảm vào đơn nào', () => {
+    expect(moTaViecSeXayRa(giamTien, 'ORD-7')).toContain('ORD-7');
   });
 });

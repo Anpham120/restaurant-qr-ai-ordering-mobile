@@ -46,6 +46,10 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "honoured_by")
 	private String honouredBy;
 
+	/** Đơn mà phiếu này đã đi vào; {@code null} khi phiếu chưa gắn vào đơn nào. */
+	@Column(name = "order_code")
+	private String orderCode;
+
 	protected LoyaltyRedemptionEntity() {
 	}
 
@@ -79,6 +83,21 @@ public class LoyaltyRedemptionEntity {
 	/** Phiếu còn dùng được không. */
 	public boolean conDungDuoc() {
 		return honouredAt == null;
+	}
+
+	public String getOrderCode() {
+		return orderCode;
+	}
+
+	/**
+	 * Phiếu được tiêu ngay lúc đổi vì món đã vào đơn — bếp sẽ làm, không còn gì để quầy phát nữa.
+	 *
+	 * <p>{@code honouredBy} để trống có chủ đích: không nhân viên nào đứng ra phát. Ghi đại userId
+	 * của khách vào đó sẽ làm hỏng đúng câu hỏi mà cột này sinh ra để trả lời — "ai phát phiếu này".
+	 */
+	void heThongGanVaoDon(String orderCode, OffsetDateTime now) {
+		this.orderCode = orderCode;
+		this.honouredAt = now;
 	}
 
 	public String getRewardId() {

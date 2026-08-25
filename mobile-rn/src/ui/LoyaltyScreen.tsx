@@ -32,6 +32,22 @@ export interface LoyaltyScreenProps {
 }
 
 /**
+ * Điều sẽ xảy ra sau khi bấm đổi, nói bằng lời của khách.
+ *
+ * Tách thành hàm thuần vì đây là chỗ dễ nói sai nhất trên màn hình: cùng một nút bấm cho ra hai
+ * kết quả khác hẳn nhau tuỳ bàn có đơn hay không, và khách chỉ đọc câu này một lần, ngay trước
+ * khi điểm bị trừ vĩnh viễn.
+ */
+export function moTaViecSeXayRa(uu: Reward, maDonDangMo: string | null): string {
+  if (uu.loai === 'DISCOUNT') {
+    return `Giảm trực tiếp vào đơn ${maDonDangMo ?? ''} đang mở.`.replace('  ', ' ');
+  }
+  return maDonDangMo === null
+    ? 'Bạn sẽ nhận một phiếu. Đọc số điện thoại cho nhân viên khi muốn dùng.'
+    : `Món sẽ được thêm vào đơn ${maDonDangMo} và bếp làm ngay.`;
+}
+
+/**
  * Ngày đổi, dạng ngắn.
  *
  * Chuỗi backend trả về là ISO đầy đủ có múi giờ. Cắt bằng `slice` sẽ hiện giờ UTC — sai một ngày
@@ -120,28 +136,27 @@ export function LoyaltyScreen({
   const doi = useCallback(
     async (uu: Reward) => {
       if (dangDoi !== null) return;
+
+      // Hỏi mã đơn TRƯỚC hộp xác nhận, vì câu hỏi phụ thuộc vào việc bàn có đơn hay không: món
+      // tặng vào thẳng đơn thì bếp làm ngay, còn không có đơn thì thành phiếu để dành. Hai chuyện
+      // khác nhau với khách, nên phải nói rõ trước khi họ đồng ý trừ điểm.
+      const maDonDangMo = (await timDonDangMo?.()) ?? null;
+
+      if (uu.loai === 'DISCOUNT' && maDonDangMo === null) {
+        setLoi('Chưa có đơn nào đang mở. Gọi món trước rồi dùng ưu đãi giảm tiền nhé.');
+        return;
+      }
+
       const dongY = await hoiXacNhan(
         'Đổi ưu đãi?',
-        `${uu.name}\n\nSẽ trừ ${uu.pointsRequired} điểm. Điểm đã trừ không hoàn lại.`,
+        `${uu.name}\n\n${moTaViecSeXayRa(uu, maDonDangMo)}\n\nSẽ trừ ${uu.pointsRequired} điểm. Điểm đã trừ không hoàn lại.`,
       );
       if (!dongY) return;
 
       setDangDoi(uu.rewardId);
       setLoi(null);
       try {
-        // Ưu đãi giảm tiền phải bám một hoá đơn. Hỏi mã đơn TRƯỚC khi gọi đổi: không có đơn nào
-        // đang mở thì dừng ở đây, thay vì để backend trả LOYALTY_ORDER_REQUIRED sau khi khách đã
-        // xác nhận "điểm đã trừ không hoàn lại".
-        let maDon: string | undefined;
-        if (uu.loai === 'DISCOUNT') {
-          const ma = (await timDonDangMo?.()) ?? null;
-          if (ma === null) {
-            setLoi('Chưa có đơn nào đang mở. Gọi món trước rồi dùng ưu đãi giảm tiền nhé.');
-            return;
-          }
-          maDon = ma;
-        }
-
+        const maDon = maDonDangMo ?? undefined;
         const kq = await api.doiDiem(accessToken, uu.rewardId, khoa.khoaCho(uu.rewardId), maDon);
         khoa.quen();
         // Số dư mới đến kèm phản hồi — không gọi thêm một lượt, vì lượt đó tạo ra khoảng thời
