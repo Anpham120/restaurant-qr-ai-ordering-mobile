@@ -89,7 +89,10 @@ class RedeemConcurrencyTest {
 		OffsetDateTime now = OffsetDateTime.now();
 		LoyaltyRewardEntity r = new LoyaltyRewardEntity(
 				"rw_" + UUID.randomUUID().toString().replace("-", ""), now);
-		r.applyDefinition("Uu dai demo", "demo", chiPhi, true, now);
+		// Ưu đãi giảm tiền có số tiền hẳn hoi: ràng buộc payload của V13 từ chối một ưu đãi đang bật
+		// mà không nói được nó trả cho khách cái gì.
+		r.applyDefinition("Uu dai demo", "demo", chiPhi, true, now,
+				"DISCOUNT", null, BigDecimal.valueOf(10_000), "BAC");
 		rewards.save(r);
 
 		return new BoiCanh(token, phone, r.getId());

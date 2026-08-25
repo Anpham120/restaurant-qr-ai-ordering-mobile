@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   LoyaltyMember,
   LoyaltyMemberRequest,
+  LoyaltyMemberTier,
   LoyaltyReward,
   LoyaltyRewardRequest,
+  LoyaltyRewardType,
+  MenuItem,
 } from "@cmc/shared-types";
 import { api } from "../../services/apiClient";
 import { Star, X } from "lucide-react";
@@ -11,7 +14,24 @@ import "../../components/operations/operations.css";
 import { useOpsConfirm } from "../../components/operations/OpsConfirmProvider";
 
 const EMPTY_MEMBER: LoyaltyMemberRequest = { phoneNumber: "", fullName: "", points: 0 };
-const EMPTY_REWARD: LoyaltyRewardRequest = { name: "", description: "", pointsRequired: 10, isActive: true };
+const EMPTY_REWARD: LoyaltyRewardRequest = {
+  name: "",
+  description: "",
+  pointsRequired: 10,
+  isActive: true,
+  // Mặc định tặng món chứ không phải giảm tiền: quán chỉ chịu giá vốn cho món tặng, còn giảm tiền
+  // là mất đúng số tiền đó. Mặc định nên nghiêng về phía rẻ hơn cho quán.
+  rewardType: "FREE_ITEM",
+  menuItemId: null,
+  discountAmount: null,
+  minTier: "BAC",
+};
+
+const NHAN_HANG: Record<string, string> = {
+  BAC: "Bạc",
+  VANG: "Vàng",
+  KIM_CUONG: "Kim cương",
+};
 
 function formatVnd(value: number): string {
   return `${value.toLocaleString("vi-VN")}đ`;
@@ -31,15 +51,20 @@ export function AdminLoyaltyPage() {
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
   const [rewardForm, setRewardForm] = useState<LoyaltyRewardRequest>(EMPTY_REWARD);
+  // Danh sách món cho ô chọn "món tặng". Nạp cùng lúc với hai danh sách kia thay vì đợi mở form:
+  // form là hộp thoại, và một ô chọn rỗng trong một giây đầu trông như quán không có món nào.
+  const [monAn, setMonAn] = useState<MenuItem[]>([]);
 
   const load = useCallback(async () => {
     try {
-      const [memberList, rewardList] = await Promise.all([
+      const [memberList, rewardList, thucDon] = await Promise.all([
         api.loyalty.listMembers(),
         api.loyalty.listRewards(),
+        api.menu.get(),
       ]);
       setMembers(memberList);
       setRewards(rewardList);
+      setMonAn(thucDon.items);
     } catch {
       setNotice("Không tải được dữ liệu tích điểm.");
     } finally {
@@ -100,11 +125,18 @@ export function AdminLoyaltyPage() {
       return;
     }
     try {
+      const laTangMon = rewardForm.rewardType === "FREE_ITEM";
       const payload: LoyaltyRewardRequest = {
         name: rewardForm.name.trim(),
         description: rewardForm.description?.trim() || null,
         pointsRequired: Number(rewardForm.pointsRequired),
         isActive: rewardForm.isActive,
+        rewardType: rewardForm.rewardType,
+        // Chỉ gửi dữ liệu của đúng loại đang chọn. Đổi loại rồi lưu mà vẫn gửi cả hai sẽ bị backend
+        // từ chối, và người dùng không hiểu vì sao khi ô kia đã biến khỏi màn hình.
+        menuItemId: laTangMon ? (rewardForm.menuItemId ?? null) : null,
+        discountAmount: laTangMon ? null : Number(rewardForm.discountAmount ?? 0),
+        minTier: rewardForm.minTier ?? "BAC",
       };
       if (editingRewardId) {
         await api.loyalty.updateReward(editingRewardId, payload);
@@ -218,6 +250,8 @@ export function AdminLoyaltyPage() {
         <thead>
           <tr>
             <th>Tên</th>
+            <th>Loại</th>
+            <th>Hạng tối thiểu</th>
             <th>Mô tả</th>
             <th>Điểm yêu cầu</th>
             <th>Trạng thái</th>
@@ -228,6 +262,12 @@ export function AdminLoyaltyPage() {
           {rewards.map((reward) => (
             <tr key={reward.rewardId}>
               <td><strong>{reward.name}</strong></td>
+              <td>
+                {reward.rewardType === "FREE_ITEM"
+                  ? "Tặng món"
+                  : `Giảm ${formatVnd(reward.discountAmount ?? 0)}`}
+              </td>
+              <td>{NHAN_HANG[reward.minTier] ?? reward.minTier}</td>
               <td>{reward.description ?? "-"}</td>
               <td>{reward.pointsRequired}</td>
               <td>
@@ -242,7 +282,16 @@ export function AdminLoyaltyPage() {
                     type="button"
                     onClick={() => {
                       setEditingRewardId(reward.rewardId);
-                      setRewardForm({ name: reward.name, description: reward.description ?? "", pointsRequired: reward.pointsRequired, isActive: reward.isActive });
+                      setRewardForm({
+                        name: reward.name,
+                        description: reward.description ?? "",
+                        pointsRequired: reward.pointsRequired,
+                        isActive: reward.isActive,
+                        rewardType: reward.rewardType,
+                        menuItemId: reward.menuItemId,
+                        discountAmount: reward.discountAmount,
+                        minTier: reward.minTier,
+                      });
                       setNotice("");
                       setShowRewardForm(true);
                     }}
@@ -255,7 +304,7 @@ export function AdminLoyaltyPage() {
             </tr>
           ))}
           {rewards.length === 0 ? (
-            <tr><td colSpan={5}><div className="ops-empty">Chưa có phần thưởng</div></td></tr>
+            <tr><td colSpan={7}><div className="ops-empty">Chưa có phần thưởng</div></td></tr>
           ) : null}
         </tbody>
       </table>
@@ -305,6 +354,72 @@ export function AdminLoyaltyPage() {
                 <label className="ops-form-label">Mô tả</label>
                 <input className="ops-form-input" value={rewardForm.description ?? ""} onChange={(e) => setRewardForm({ ...rewardForm, description: e.target.value })} />
               </div>
+              <div className="ops-form-group">
+                <label className="ops-form-label">Loại ưu đãi *</label>
+                <select
+                  className="ops-form-input"
+                  value={rewardForm.rewardType}
+                  onChange={(e) =>
+                    setRewardForm({
+                      ...rewardForm,
+                      rewardType: e.target.value as LoyaltyRewardType,
+                      menuItemId: null,
+                      discountAmount: null,
+                    })
+                  }
+                >
+                  <option value="FREE_ITEM">Tặng món</option>
+                  <option value="DISCOUNT">Giảm tiền</option>
+                </select>
+              </div>
+
+              {rewardForm.rewardType === "FREE_ITEM" ? (
+                <div className="ops-form-group">
+                  <label className="ops-form-label">Món tặng *</label>
+                  <select
+                    className="ops-form-input"
+                    value={rewardForm.menuItemId ?? ""}
+                    onChange={(e) => setRewardForm({ ...rewardForm, menuItemId: e.target.value || null })}
+                  >
+                    <option value="">— chọn món —</option>
+                    {monAn.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="ops-form-group">
+                  <label className="ops-form-label">Số tiền giảm (đ) *</label>
+                  <input
+                    className="ops-form-input"
+                    type="number"
+                    value={rewardForm.discountAmount ?? ""}
+                    onChange={(e) =>
+                      setRewardForm({ ...rewardForm, discountAmount: Number(e.target.value) })
+                    }
+                  />
+                </div>
+              )}
+
+              <div className="ops-form-group">
+                <label className="ops-form-label">Hạng tối thiểu</label>
+                <select
+                  className="ops-form-input"
+                  value={rewardForm.minTier ?? "BAC"}
+                  onChange={(e) =>
+                    setRewardForm({ ...rewardForm, minTier: e.target.value as LoyaltyMemberTier })
+                  }
+                >
+                  {Object.entries(NHAN_HANG).map(([ma, nhan]) => (
+                    <option key={ma} value={ma}>
+                      {nhan}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="ops-form-group">
                 <label className="ops-form-label">Điểm yêu cầu *</label>
                 <input className="ops-form-input" type="number" value={rewardForm.pointsRequired} onChange={(e) => setRewardForm({ ...rewardForm, pointsRequired: Number(e.target.value) })} />

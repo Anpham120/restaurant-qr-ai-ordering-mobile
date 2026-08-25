@@ -60,12 +60,17 @@ public class LoyaltyRewardEntity {
 
 	/** Ghi toàn bộ phần quản trị viên nhập được — cùng tập trường cho cả tạo và sửa. */
 	void applyDefinition(
-			String name, String description, int pointsRequired, boolean active, OffsetDateTime now) {
+			String name, String description, int pointsRequired, boolean active, OffsetDateTime now,
+			String rewardType, String menuItemId, BigDecimal discountAmount, String minTier) {
 		this.name = name;
 		this.description = description;
 		this.pointsRequired = pointsRequired;
 		this.active = active;
 		this.updatedAt = now;
+		this.rewardType = rewardType;
+		this.menuItemId = menuItemId;
+		this.discountAmount = discountAmount;
+		this.minTier = minTier;
 	}
 
 	public String getId() {

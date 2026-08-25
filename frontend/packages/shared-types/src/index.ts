@@ -65,8 +65,39 @@ export type ValidatePromotionResponse = { code: string; name: string; type: Prom
 
 export type LoyaltyMember = { memberId: string; phoneNumber: string; fullName: string | null; points: number; lifetimeSpend: number; createdAt: string; updatedAt: string };
 export type LoyaltyMemberRequest = { phoneNumber: string; fullName?: string | null; points: number };
-export type LoyaltyReward = { rewardId: string; name: string; description: string | null; pointsRequired: number; isActive: boolean; createdAt: string; updatedAt: string };
-export type LoyaltyRewardRequest = { name: string; description?: string | null; pointsRequired: number; isActive: boolean };
+/** FREE_ITEM tặng một món; DISCOUNT trừ thẳng tiền vào hoá đơn. */
+export type LoyaltyRewardType = "FREE_ITEM" | "DISCOUNT";
+
+export type LoyaltyMemberTier = "BAC" | "VANG" | "KIM_CUONG";
+
+export type LoyaltyReward = {
+  rewardId: string;
+  name: string;
+  description: string | null;
+  pointsRequired: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  rewardType: LoyaltyRewardType;
+  menuItemId: string | null;
+  discountAmount: number | null;
+  minTier: LoyaltyMemberTier;
+};
+
+/**
+ * Mỗi loại chỉ mang dữ liệu của nó: FREE_ITEM cần `menuItemId`, DISCOUNT cần `discountAmount`.
+ * Gửi thiếu thì backend trả 400 nói rõ thiếu gì — trước đây nó nổ 500 vì ràng buộc cơ sở dữ liệu.
+ */
+export type LoyaltyRewardRequest = {
+  name: string;
+  description?: string | null;
+  pointsRequired: number;
+  isActive: boolean;
+  rewardType: LoyaltyRewardType;
+  menuItemId?: string | null;
+  discountAmount?: number | null;
+  minTier?: LoyaltyMemberTier;
+};
 /** Một phiếu khách đã đổi. `honouredAt` khác null nghĩa là đã phát rồi. */
 export type LoyaltyVoucher = {
   redemptionId: string;
