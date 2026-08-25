@@ -131,6 +131,45 @@ Mỗi PR phải xanh các job:
 > thuần, không phụ thuộc GitHub Actions, nên Jenkins gọi lại được y nguyên — đó là lý do bỏ
 > workflow mà không bỏ script.
 
+### Biến BẮT BUỘC cho `deploy-vps.sh`
+
+Script tự dừng nếu thiếu bất kỳ biến nào dưới đây — **fail closed**, không chạy nửa vời:
+
+```text
+DEPLOY_ENV
+SSH_HOST
+SSH_USER
+SSH_KEY
+COMPOSE_PROJECT_NAME
+FRONTEND_PORT
+BACKEND_PORT
+POSTGRES_PORT
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+FRONTEND_SERVER_NAMES
+API_SERVER_NAME
+PUBLIC_API_BASE_URL
+JWT_SIGNING_KEY
+CORS_ALLOWED_ORIGINS
+PAYMENTS__VIETQR__BANKID
+PAYMENTS__VIETQR__ACCOUNTNUMBER
+PAYMENTS__VIETQR__ACCOUNTNAME
+AI_SERVICE_URL
+AI_INTERNAL_TOKEN
+LLM_API_KEY
+LLM_MODEL
+```
+
+> Danh sách này trước đây được canh bằng một phép kiểm ở `frontend/src/utils/deploymentWorkflowEnv.test.ts`:
+> nó đọc khối `required_vars=(...)` rồi đối chiếu với hai workflow triển khai, và đỏ nếu workflow
+> thiếu một biến. Hai workflow đó đã bị bỏ nên phép kiểm không còn đối chiếu được với gì, và nó
+> đỏ vì `ENOENT` chứ không vì phát hiện lỗi.
+>
+> Bất biến thì KHÔNG mất: bất cứ thứ gì gọi `deploy-vps.sh` — Jenkins chẳng hạn — vẫn phải cung
+> cấp đủ ngần này biến. Chép danh sách ra đây để nó còn chỗ sống, và để Jenkinsfile có mục tiêu
+> đối chiếu. Khi Jenkins chạy được thì nên dựng lại phép kiểm đó, lần này đối chiếu Jenkinsfile.
+
 Script `deploy/scripts/deploy-vps.sh` thực hiện tuần tự trên máy chủ:
 
 1. Đồng bộ mã nguồn (giữ `repo.previous` để rollback).
