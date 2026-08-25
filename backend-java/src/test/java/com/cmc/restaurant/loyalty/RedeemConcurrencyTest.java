@@ -62,6 +62,9 @@ class RedeemConcurrencyTest {
 	@Autowired
 	private LoyaltyRedemptionRepository redemptions;
 
+	@Autowired
+	private com.cmc.restaurant.menu.MenuItemRepository menuItems;
+
 	private record BoiCanh(String token, String phone, String rewardId) {
 	}
 
@@ -89,10 +92,14 @@ class RedeemConcurrencyTest {
 		OffsetDateTime now = OffsetDateTime.now();
 		LoyaltyRewardEntity r = new LoyaltyRewardEntity(
 				"rw_" + UUID.randomUUID().toString().replace("-", ""), now);
-		// Ưu đãi giảm tiền có số tiền hẳn hoi: ràng buộc payload của V13 từ chối một ưu đãi đang bật
-		// mà không nói được nó trả cho khách cái gì.
+		// Ưu đãi TẶNG MÓN chứ không phải giảm tiền. Phép kiểm này nói về tranh chấp khi trừ điểm,
+		// và ưu đãi giảm tiền bắt buộc kèm mã đơn — thêm một hoá đơn vào đây chỉ làm phép kiểm phụ
+		// thuộc vào một luật khác, và khi luật đó đổi thì nó đỏ vì lý do chẳng liên quan gì.
+		String monId = menuItems.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("CSDL thử thiếu món: migration chưa gieo thực đơn"))
+				.getId();
 		r.applyDefinition("Uu dai demo", "demo", chiPhi, true, now,
-				"DISCOUNT", null, BigDecimal.valueOf(10_000), "BAC");
+				"FREE_ITEM", monId, null, "BAC");
 		rewards.save(r);
 
 		return new BoiCanh(token, phone, r.getId());
