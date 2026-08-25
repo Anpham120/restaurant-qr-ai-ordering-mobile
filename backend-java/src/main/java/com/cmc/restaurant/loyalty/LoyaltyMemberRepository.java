@@ -41,6 +41,18 @@ public interface LoyaltyMemberRepository extends JpaRepository<LoyaltyMemberEnti
 			+ "where m.id = :memberId and m.points >= :chiPhi")
 	int truDiemNeuDu(String memberId, int chiPhi, java.time.OffsetDateTime now);
 
+	/**
+	 * Trả điểm về ví khách.
+	 *
+	 * <p>Không có mệnh đề điều kiện như {@code truDiemNeuDu}: cộng vào thì không bao giờ hỏng, và
+	 * chống gọi hai lần là việc của {@code reversed_at} trên chính dòng đổi điểm, không phải của
+	 * câu lệnh này.
+	 */
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("update LoyaltyMemberEntity m set m.points = m.points + :diem, m.updatedAt = :now "
+			+ "where m.id = :memberId")
+	int congDiem(String memberId, int diem, java.time.OffsetDateTime now);
+
 	// --- quản trị thành viên (#94) ---------------------------------------------------------------
 
 	/** Nhiều điểm lên trước, cùng điểm thì theo số điện thoại — đúng thứ tự bản .NET. */

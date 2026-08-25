@@ -14,8 +14,17 @@ public interface LoyaltyRedemptionRepository extends JpaRepository<LoyaltyRedemp
 
 	List<LoyaltyRedemptionEntity> findByMemberIdOrderByCreatedAtDesc(String memberId);
 
-	/** Phiếu còn dùng được, cũ nhất lên trước — phiếu đổi lâu rồi thì nên dùng trước. */
-	List<LoyaltyRedemptionEntity> findByMemberIdAndHonouredAtIsNullOrderByCreatedAtAsc(String memberId);
+	/**
+	 * Phiếu còn dùng được, cũ nhất lên trước — phiếu đổi lâu rồi thì nên dùng trước.
+	 *
+	 * <p>Loại luôn phiếu đã hoàn: điểm đã trả về ví khách rồi, nên phiếu không còn giá trị. Không
+	 * loại thì một lần đổi bị huỷ theo đơn sẽ vừa trả lại điểm vừa để lại phiếu dùng được.
+	 */
+	List<LoyaltyRedemptionEntity>
+			findByMemberIdAndHonouredAtIsNullAndReversedAtIsNullOrderByCreatedAtAsc(String memberId);
+
+	/** Các lần đổi đã bám vào đơn này và chưa được hoàn. */
+	List<LoyaltyRedemptionEntity> findByOrderCodeAndReversedAtIsNull(String orderCode);
 
 	/**
 	 * Đánh dấu đã phát, CHỈ KHI phiếu còn dùng được.

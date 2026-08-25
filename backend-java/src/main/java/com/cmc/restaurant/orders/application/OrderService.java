@@ -66,6 +66,8 @@ public class OrderService {
 	private final com.cmc.restaurant.cart.CartService cartService;
 	private final com.cmc.restaurant.promotions.PromotionService promotionService;
 
+	private final org.springframework.context.ApplicationEventPublisher suKien;
+
 	public OrderService(
 			OrderRepository orderRepository, OrderItemRepository orderItemRepository,
 			OrderStatusHistoryRepository orderStatusHistoryRepository, PaymentRepository paymentRepository,
@@ -73,7 +75,9 @@ public class OrderService {
 			TableSessionRepository tableSessionRepository,
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
 			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService,
-			com.cmc.restaurant.promotions.PromotionService promotionService) {
+			com.cmc.restaurant.promotions.PromotionService promotionService,
+			org.springframework.context.ApplicationEventPublisher suKien) {
+		this.suKien = suKien;
 		this.cartService = cartService;
 		this.promotionService = promotionService;
 		this.realtimeNotifier = realtimeNotifier;
@@ -325,6 +329,13 @@ public class OrderService {
 
 		if (status == OrderStatus.Completed && order.tableSessionId() != null) {
 			closeTableSessionIfLastActiveOrder(order.id(), order.tableSessionId(), now);
+		}
+
+		if (status == OrderStatus.Cancelled) {
+			// Công bố TRƯỚC khi trả lời, và trong cùng transaction: người nghe hoàn điểm cho khách,
+			// và một lệnh huỷ thành công trong khi điểm vẫn mất là kết quả tệ hơn cả hai bên cùng
+			// hỏng.
+			suKien.publishEvent(new DonBiHuyEvent(order.orderCode(), now));
 		}
 
 		realtimeNotifier.orderStatusChanged(

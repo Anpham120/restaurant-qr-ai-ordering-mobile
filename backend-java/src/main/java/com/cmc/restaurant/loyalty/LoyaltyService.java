@@ -108,7 +108,8 @@ public class LoyaltyService {
 
 	/** Phiếu còn dùng được của một thành viên. */
 	List<LoyaltyDtos.VoucherResponse> phieuChuaDung(String memberId) {
-		return phieu.findByMemberIdAndHonouredAtIsNullOrderByCreatedAtAsc(memberId).stream()
+		return phieu.findByMemberIdAndHonouredAtIsNullAndReversedAtIsNullOrderByCreatedAtAsc(memberId)
+				.stream()
 				.map(LoyaltyService::moTaPhieu)
 				.toList();
 	}

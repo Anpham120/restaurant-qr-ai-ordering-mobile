@@ -50,6 +50,10 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "order_code")
 	private String orderCode;
 
+	/** Khác {@code null} nghĩa là điểm đã trả lại và lần đổi này không còn giá trị. */
+	@Column(name = "reversed_at")
+	private OffsetDateTime reversedAt;
+
 	protected LoyaltyRedemptionEntity() {
 	}
 
@@ -87,6 +91,15 @@ public class LoyaltyRedemptionEntity {
 
 	public String getOrderCode() {
 		return orderCode;
+	}
+
+	public OffsetDateTime getReversedAt() {
+		return reversedAt;
+	}
+
+	/** Đơn bị huỷ nên lần đổi này không còn hiệu lực. */
+	void danhDauDaHoan(OffsetDateTime now) {
+		this.reversedAt = now;
 	}
 
 	/**

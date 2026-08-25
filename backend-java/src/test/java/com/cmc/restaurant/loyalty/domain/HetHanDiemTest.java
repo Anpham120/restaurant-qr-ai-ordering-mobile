@@ -39,4 +39,15 @@ class HetHanDiemTest {
 	void chua_co_lo_nao_qua_han() {
 		assertThat(HetHanDiem.canXoa(0, 200)).isZero();
 	}
+
+	@Test
+	@DisplayName("lần đổi đã hoàn KHÔNG được tính là đã tiêu")
+	void lan_doi_da_hoan_khong_tinh_la_da_tieu() {
+		// Khách đổi 300 điểm rồi đơn bị huỷ, điểm trả về ví. Sổ có REDEEM -300 và REVERSE +300.
+		// Nếu phép đếm chỉ cộng REDEEM thì nó thấy 300 đã tiêu, tưởng các lô cũ đã bị dùng hết, và
+		// KHÔNG xoá 500 điểm quá hạn đang nằm đó — quán mang khoản nợ điểm lẽ ra đã hết hạn.
+		int daTieuRong = 0; // -(-300) - (+300)
+
+		assertThat(HetHanDiem.canXoa(500, daTieuRong)).isEqualTo(500);
+	}
 }

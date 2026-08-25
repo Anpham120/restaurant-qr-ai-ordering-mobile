@@ -22,10 +22,20 @@ public interface LoyaltyLedgerRepository extends JpaRepository<LoyaltyLedgerEnti
 			""")
 	int diemTichQuaHan(@Param("memberId") String memberId, @Param("moc") OffsetDateTime moc);
 
-	/** Điểm đã tiêu và đã bị xoá, cộng dồn từ trước tới nay. Trả về số DƯƠNG. */
+	/**
+	 * Điểm đã tiêu RÒNG, cộng dồn từ trước tới nay. Trả về số DƯƠNG.
+	 *
+	 * <p>Tính cả REVERSE, và đó là điểm mấu chốt. Một lần đổi bị huỷ theo đơn để lại hai dòng
+	 * ngược chiều nhau (REDEEM âm, REVERSE dương); bỏ dòng REVERSE ra ngoài sẽ đếm số điểm đó là
+	 * đã tiêu trong khi khách vẫn đang cầm, và {@link com.cmc.restaurant.loyalty.domain.HetHanDiem}
+	 * sẽ tưởng các lô cũ đã bị tiêu hết nên không xoá gì.
+	 *
+	 * <p>Dấu trừ ngoài tổng làm việc này tự nhiên: REDEEM âm thành dương, REVERSE dương thành âm,
+	 * và hai dòng khử nhau đúng bằng 0.
+	 */
 	@Query("""
 			select coalesce(-sum(l.delta), 0) from LoyaltyLedgerEntity l
-			where l.memberId = :memberId and l.reason in ('REDEEM', 'EXPIRE')
+			where l.memberId = :memberId and l.reason in ('REDEEM', 'EXPIRE', 'REVERSE')
 			""")
 	int diemDaTieu(@Param("memberId") String memberId);
 }

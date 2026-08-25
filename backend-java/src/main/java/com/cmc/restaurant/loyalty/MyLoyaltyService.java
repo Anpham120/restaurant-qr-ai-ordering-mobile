@@ -211,9 +211,12 @@ public class MyLoyaltyService {
 		LoyaltyRedemptionEntity ghi = new LoyaltyRedemptionEntity(
 				"red_" + UUID.randomUUID().toString().replace("-", ""),
 				member.getId(), reward, idempotencyKey, now);
-		if (ganMonVaoDon) {
-			// Món đã vào đơn thì phiếu coi như tiêu xong ngay tại đây. Để nó ở trạng thái chờ sẽ
-			// cho khách chìa lại phiếu ở quầy và nhận món lần thứ hai.
+		if (laGiamTien || ganMonVaoDon) {
+			// Đã bám vào một hoá đơn thì tiêu xong ngay tại đây, cho CẢ HAI loại ưu đãi.
+			//
+			// Bỏ sót nhánh giảm tiền là một lỗ thật, không phải chuyện gọn gàng: danh sách phiếu
+			// chờ lọc theo honoured_at is null, nên một khoản giảm đã trừ vào hoá đơn vẫn hiện ở
+			// quầy như phiếu chưa phát, và nhân viên bấm "đã phát" thì khách hưởng hai lần.
 			ghi.heThongGanVaoDon(hoaDon.orderCode(), now);
 		}
 		redemptions.save(ghi);

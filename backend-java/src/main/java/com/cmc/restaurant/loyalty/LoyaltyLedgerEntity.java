@@ -69,6 +69,15 @@ public class LoyaltyLedgerEntity {
 		return new LoyaltyLedgerEntity(id, memberId, -Math.abs(diem), "REDEEM", null, null, now);
 	}
 
+	/** Hoàn điểm cho một lần đổi bị huỷ theo đơn. */
+	public static LoyaltyLedgerEntity hoanLai(
+			String id, String memberId, int diem, String orderCode, OffsetDateTime now) {
+		LoyaltyLedgerEntity r = new LoyaltyLedgerEntity(
+				id, memberId, Math.abs(diem), "REVERSE", null, null, now);
+		r.orderCode = orderCode;
+		return r;
+	}
+
 	/** Xoá điểm quá hạn. */
 	public static LoyaltyLedgerEntity hetHan(String id, String memberId, int diem, OffsetDateTime now) {
 		return new LoyaltyLedgerEntity(id, memberId, -Math.abs(diem), "EXPIRE", null, null, now);
