@@ -244,9 +244,12 @@ public class MyLoyaltyService {
 			return new LoyaltyDtos.MyLoyaltyResponse(
 					false, null, 0, java.util.List.of(),
 					MemberTier.BAC.name(), MemberTier.BAC.tenHienThi(), java.math.BigDecimal.ZERO,
-					MemberTier.BAC.ke().tenHienThi(), MemberTier.BAC.ke().nguong());
+					MemberTier.BAC.ke().tenHienThi(), MemberTier.BAC.ke().nguong(),
+					java.util.List.of());
 		}
 		LoyaltyDtos.LookupResponse lookup = loyaltyService.lookup(phone);
+		// Khách phải xem được phiếu mình đã đổi. Không có màn hình này thì điểm biến mất mà không
+		// để lại gì nhìn thấy được, và khách không có cách nào biết mình còn phiếu chưa dùng.
 		java.math.BigDecimal chiTieu = lookup.spend12m();
 		MemberTier hang = MemberTier.theoChiTieu(chiTieu);
 		MemberTier ke = hang.ke();
@@ -254,6 +257,7 @@ public class MyLoyaltyService {
 				true, phone, lookup.points(), lookup.availableRewards(),
 				hang.name(), hang.tenHienThi(), chiTieu,
 				ke == null ? null : ke.tenHienThi(),
-				MemberTier.conThieuDeLenHang(chiTieu));
+				MemberTier.conThieuDeLenHang(chiTieu),
+				lookup.pendingVouchers());
 	}
 }

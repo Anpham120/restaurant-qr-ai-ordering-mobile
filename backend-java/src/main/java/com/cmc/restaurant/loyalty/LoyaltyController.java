@@ -4,8 +4,11 @@ import com.cmc.restaurant.auth.AuthenticatedPrincipal;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.RequestIdempotency;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.OffsetDateTime;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -74,6 +77,21 @@ public class LoyaltyController {
 		}
 		return myLoyaltyService.redeem(
 				principal.userId(), request.rewardId().trim(), request.orderCode(), key);
+	}
+
+	/**
+	 * Quầy đánh dấu đã phát phiếu.
+	 *
+	 * <p>Cùng nhóm quyền với {@code /lookup}: ai tra được điểm của khách thì cũng là người đứng
+	 * quầy phát món. Khách KHÔNG được tự thu phiếu của mình — đó là lý do đường này nằm ngoài
+	 * {@code /api/loyalty/me}.
+	 */
+	@PostMapping("/api/loyalty/redemptions/{redemptionId}/honour")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
+	public LoyaltyDtos.VoucherResponse thuPhieu(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@PathVariable String redemptionId) {
+		return loyaltyService.thuPhieu(redemptionId, principal.userId(), OffsetDateTime.now());
 	}
 
 	@GetMapping("/api/loyalty/lookup")

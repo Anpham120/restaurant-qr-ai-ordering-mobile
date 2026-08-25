@@ -1,3 +1,17 @@
+/**
+ * Một phiếu khách đã đổi và CHƯA dùng.
+ *
+ * Không có trường "đã dùng": danh sách này chỉ chứa phiếu còn dùng được. Phiếu đã phát biến khỏi
+ * danh sách hẳn, vì với khách nó không còn là thứ dùng được nữa — giữ lại chỉ tạo ra một cái thẻ
+ * trông như bấm được.
+ */
+export interface Voucher {
+  readonly redemptionId: string;
+  readonly rewardName: string;
+  readonly pointsSpent: number;
+  readonly redeemedAt: string;
+}
+
 /** Ba hạng thành viên. Tên hằng khớp `MemberTier` phía backend. */
 export type Hang = 'BAC' | 'VANG' | 'KIM_CUONG';
 
@@ -41,6 +55,8 @@ export interface MyLoyalty {
   readonly tenHangKeTiep: string | null;
   /** Còn phải chi bao nhiêu nữa mới lên hạng; 0 khi đã cao nhất. */
   readonly conThieu: number;
+  /** Phiếu đã đổi mà chưa dùng — thứ khách chìa ra ở quầy. */
+  readonly phieuChuaDung: readonly Voucher[];
 }
 
 /** Kết quả một lần đổi điểm (#34). */
@@ -92,6 +108,17 @@ export function myLoyaltyTuJson(json: unknown): MyLoyalty {
     chiTieu12Thang: typeof o.spend12m === 'number' ? o.spend12m : 0,
     tenHangKeTiep: typeof o.nextTierName === 'string' ? o.nextTierName : null,
     conThieu: typeof o.amountToNextTier === 'number' ? o.amountToNextTier : 0,
+    phieuChuaDung: Array.isArray(o.pendingVouchers) ? o.pendingVouchers.map(voucherTuJson) : [],
+  };
+}
+
+export function voucherTuJson(json: unknown): Voucher {
+  const o = (json ?? {}) as Record<string, unknown>;
+  return {
+    redemptionId: typeof o.redemptionId === 'string' ? o.redemptionId : '',
+    rewardName: typeof o.rewardName === 'string' ? o.rewardName : '',
+    pointsSpent: typeof o.pointsSpent === 'number' ? o.pointsSpent : 0,
+    redeemedAt: typeof o.redeemedAt === 'string' ? o.redeemedAt : '',
   };
 }
 

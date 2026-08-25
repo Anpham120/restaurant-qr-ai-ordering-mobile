@@ -15,6 +15,7 @@ const CHUA_NOI: MyLoyalty = {
   chiTieu12Thang: 0,
   tenHangKeTiep: 'Vàng',
   conThieu: 5_000_000,
+  phieuChuaDung: [],
 };
 
 const DA_NOI: MyLoyalty = {
@@ -37,6 +38,7 @@ const DA_NOI: MyLoyalty = {
   chiTieu12Thang: 1_200_000,
   tenHangKeTiep: 'Vàng',
   conThieu: 3_800_000,
+  phieuChuaDung: [],
 };
 
 function apiVoi(dau: MyLoyalty, ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
@@ -301,5 +303,58 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
 
     expect(daHoiDon).toBe(false);
     expect(maDaGui).toBeUndefined();
+  });
+});
+
+describe('phiếu chưa dùng', () => {
+  const CO_PHIEU: MyLoyalty = {
+    ...DA_NOI,
+    phieuChuaDung: [
+      {
+        redemptionId: 'red_1',
+        rewardName: 'Chè bưởi',
+        pointsSpent: 350,
+        redeemedAt: '2026-08-25T13:40:00.000Z',
+      },
+    ],
+  };
+
+  it('hiện phiếu khách đã đổi', async () => {
+    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CO_PHIEU)} />);
+
+    expect(await screen.findByText('Phiếu chưa dùng')).toBeTruthy();
+    expect(screen.getByText('Chè bưởi')).toBeTruthy();
+  });
+
+  it('không có phiếu nào thì KHÔNG hiện mục đó', async () => {
+    // Một tiêu đề "Phiếu chưa dùng" đứng trên khoảng trống nói rằng có chỗ để nhìn, trong khi
+    // thật ra chưa có gì. DA_NOI không có phiếu nào.
+    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI)} />);
+
+    await screen.findByText('Ưu đãi đổi được ngay');
+    expect(screen.queryByText('Phiếu chưa dùng')).toBeNull();
+  });
+
+  it('ngày đổi hiện theo múi giờ MÁY, không phải UTC', async () => {
+    // 13:40 UTC ngày 25 là 20:40 ngày 25 ở Việt Nam — cùng ngày. Nhưng cắt chuỗi ISO cho phiếu
+    // đổi lúc 22:00 giờ Việt Nam (15:00 UTC hôm trước ở vài múi) sẽ lệch một ngày. Phép kiểm này
+    // chốt việc màn hình đi qua Date chứ không slice chuỗi.
+    const d = new Date('2026-08-25T13:40:00.000Z');
+    const mongDoi = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+
+    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CO_PHIEU)} />);
+
+    expect(await screen.findByText(new RegExp('Đã đổi ' + mongDoi))).toBeTruthy();
+  });
+
+  it('ngày hỏng thì hiện nguyên văn, không hiện Invalid Date', async () => {
+    const hong: MyLoyalty = {
+      ...CO_PHIEU,
+      phieuChuaDung: [{ ...CO_PHIEU.phieuChuaDung[0]!, redeemedAt: '' }],
+    };
+    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(hong)} />);
+
+    await screen.findByText('Chè bưởi');
+    expect(screen.queryByText(/Invalid Date/)).toBeNull();
   });
 });

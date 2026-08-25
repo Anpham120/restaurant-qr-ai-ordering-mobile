@@ -4,6 +4,7 @@ import { useAuth } from "@cmc/auth";
 import { AdminInvoicesPanel } from "../AdminInvoicesPage";
 import { StaffPaymentsPage } from "../StaffPaymentsPage";
 import { CounterShiftPanel } from "./CounterShiftPanel";
+import { CounterVoucherPanel } from "./CounterVoucherPanel";
 import { OpsHubShell } from "../../components/operations/OpsHubShell";
 import { OpsAssistancePanel } from "../../components/operations/OpsAssistancePanel";
 import { useOpsAssistance } from "../../components/operations/OpsAssistanceProvider";
@@ -15,6 +16,7 @@ import "./counter-hub.css";
 
 const COUNTER_STAFF_TABS = [
   { id: "shift", label: "Ca làm việc" },
+  { id: "vouchers", label: "Phiếu tặng món" },
   { id: "assistance", label: "Gọi nhân viên" },
   { id: "payments", label: "Chờ thanh toán" },
   { id: "invoices", label: "Lịch sử hóa đơn" },
@@ -59,6 +61,7 @@ export function CounterHubPage() {
       connectionStatus={connectionStatus}
     >
       {activeTab === "shift" ? <CounterShiftPanel embedded supervisorMode={isSupervisor} /> : null}
+      {activeTab === "vouchers" ? <CounterVoucherPanel /> : null}
       {activeTab === "assistance" ? (
         <OpsAssistancePanel
           emptyLabel="Chưa có bàn nào gọi nhân viên trong phiên này."

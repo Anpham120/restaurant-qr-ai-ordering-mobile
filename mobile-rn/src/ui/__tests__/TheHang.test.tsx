@@ -14,6 +14,7 @@ function mau(them: Partial<MyLoyalty>): MyLoyalty {
     chiTieu12Thang: 1_000_000,
     tenHangKeTiep: 'Vàng',
     conThieu: 4_000_000,
+    phieuChuaDung: [],
     ...them,
   };
 }

@@ -67,7 +67,25 @@ export type LoyaltyMember = { memberId: string; phoneNumber: string; fullName: s
 export type LoyaltyMemberRequest = { phoneNumber: string; fullName?: string | null; points: number };
 export type LoyaltyReward = { rewardId: string; name: string; description: string | null; pointsRequired: number; isActive: boolean; createdAt: string; updatedAt: string };
 export type LoyaltyRewardRequest = { name: string; description?: string | null; pointsRequired: number; isActive: boolean };
-export type LoyaltyLookupResponse = { phoneNumber: string; points: number; lifetimeSpend: number; availableRewards: LoyaltyReward[] };
+/** Một phiếu khách đã đổi. `honouredAt` khác null nghĩa là đã phát rồi. */
+export type LoyaltyVoucher = {
+  redemptionId: string;
+  rewardName: string;
+  pointsSpent: number;
+  redeemedAt: string;
+  honouredAt: string | null;
+};
+
+export type LoyaltyLookupResponse = {
+  phoneNumber: string;
+  points: number;
+  lifetimeSpend: number;
+  spend12m: number;
+  tier: string;
+  tierName: string;
+  availableRewards: LoyaltyReward[];
+  pendingVouchers: LoyaltyVoucher[];
+};
 
 export type TopMenuItemReport = { menuItemId: string; name: string; quantitySold: number; revenue: number };
 export type DailyRevenueReport = { date: string; orderCount: number; revenue: number };

@@ -95,6 +95,7 @@ const API_TRONG = {
       chiTieu12Thang: 0,
       tenHangKeTiep: 'Vàng',
       conThieu: 5_000_000,
+      phieuChuaDung: [],
     }),
     noiSo: async () => ({
       linked: true,
@@ -106,6 +107,7 @@ const API_TRONG = {
       chiTieu12Thang: 0,
       tenHangKeTiep: 'Vàng',
       conThieu: 5_000_000,
+      phieuChuaDung: [],
     }),
     doiDiem: async () => {
       throw new Error('không dùng');

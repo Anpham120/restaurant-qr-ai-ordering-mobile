@@ -31,6 +31,19 @@ export interface LoyaltyScreenProps {
   timDonDangMo?: (() => Promise<string | null>) | undefined;
 }
 
+/**
+ * Ngày đổi, dạng ngắn.
+ *
+ * Chuỗi backend trả về là ISO đầy đủ có múi giờ. Cắt bằng `slice` sẽ hiện giờ UTC — sai một ngày
+ * với phiếu đổi sau 7 giờ tối. Một chuỗi rỗng hay hỏng thì trả về nguyên văn thay vì "Invalid
+ * Date": khách đọc được cái gì đó còn hơn đọc một lỗi.
+ */
+function ngayNgan(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
 /** Điểm thưởng của chính tài khoản đang đăng nhập, và đổi ưu đãi (#34). */
 export function LoyaltyScreen({
   api,
@@ -170,6 +183,35 @@ export function LoyaltyScreen({
         <>
           <TheHang diem={diem} />
           <Text style={kieuChung.chuPhu}>Số đã liên kết: {diem.phoneNumber}</Text>
+
+          {/* Phiếu đã đổi đứng TRƯỚC danh mục: khách mở màn này thường là để chìa phiếu ra ở
+              quầy, không phải để đổi thêm. Thứ cần dùng ngay thì không nên nằm dưới đáy. */}
+          {diem.phieuChuaDung.length === 0 ? null : (
+            <>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: MauQuan.ink, marginTop: 8 }}>
+                Phiếu chưa dùng
+              </Text>
+              <Text style={kieuChung.chuPhu}>
+                Đọc số điện thoại cho nhân viên để nhận. Phiếu biến khỏi đây khi đã nhận.
+              </Text>
+              {diem.phieuChuaDung.map((v) => (
+                <View
+                  key={v.redemptionId}
+                  style={[
+                    kieuChung.the,
+                    { borderLeftColor: MauQuan.success, borderLeftWidth: 4, gap: 2 },
+                  ]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
+                    {v.rewardName}
+                  </Text>
+                  <Text style={kieuChung.chuPhu}>
+                    Đã đổi {ngayNgan(v.redeemedAt)} · {v.pointsSpent} điểm
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
 
           <Text style={{ fontSize: 16, fontWeight: '700', color: MauQuan.ink, marginTop: 8 }}>
             Ưu đãi đổi được ngay

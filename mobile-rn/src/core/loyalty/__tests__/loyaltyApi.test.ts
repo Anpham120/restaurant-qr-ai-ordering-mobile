@@ -239,6 +239,7 @@ describe('đổi được hay chưa', () => {
     chiTieu12Thang: 0,
     tenHangKeTiep: 'Vàng',
     conThieu: 5_000_000,
+    phieuChuaDung: [],
     ...them,
   });
 

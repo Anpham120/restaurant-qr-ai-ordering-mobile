@@ -16,6 +16,7 @@ import type {
   LoyaltyMemberRequest,
   LoyaltyReward,
   LoyaltyRewardRequest,
+  LoyaltyVoucher,
   MenuResponse,
   Order,
   OrderItemStatus,
@@ -226,6 +227,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
     },
     loyalty: {
       lookup: (phone: string) => request<LoyaltyLookupResponse>(`/loyalty/lookup?phone=${encodeURIComponent(phone)}`),
+      /** Quầy đánh dấu đã phát phiếu cho khách. Phiếu đã dùng rồi sẽ trả 409. */
+      honourVoucher: (redemptionId: string) =>
+        request<LoyaltyVoucher>(`/loyalty/redemptions/${encodeURIComponent(redemptionId)}/honour`, { method: "POST" }),
       listMembers: () => request<LoyaltyMember[]>("/admin/loyalty/members"),
       createMember: (payload: LoyaltyMemberRequest) => request<LoyaltyMember>("/admin/loyalty/members", { method: "POST", body: JSON.stringify(payload) }),
       updateMember: (id: string, payload: LoyaltyMemberRequest) => request<LoyaltyMember>(`/admin/loyalty/members/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(payload) }),

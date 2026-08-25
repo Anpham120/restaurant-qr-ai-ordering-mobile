@@ -294,3 +294,34 @@
     justify-content: center;
   }
 }
+
+/* ── Phiếu tặng món (V15) ─────────────────────────────────────────────────── */
+
+.counter-voucher-search {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.counter-voucher-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.counter-voucher-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ops-line, #e3d7cd);
+  /* Viền trái xanh: nhân viên quét mắt xuống một danh sách, và màu ở mép trái đọc nhanh hơn chữ. */
+  border-left: 4px solid var(--ops-success, #2f7251);
+  border-radius: 10px;
+  background: var(--ops-surface, #fff);
+}

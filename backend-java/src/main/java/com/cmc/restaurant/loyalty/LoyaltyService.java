@@ -19,13 +19,15 @@ public class LoyaltyService {
 	private final LoyaltyMemberRepository members;
 	private final LoyaltyRewardRepository rewards;
 	private final LoyaltyLedgerRepository soDiem;
+	private final LoyaltyRedemptionRepository phieu;
 
 	public LoyaltyService(
 			LoyaltyMemberRepository members, LoyaltyRewardRepository rewards,
-			LoyaltyLedgerRepository soDiem) {
+			LoyaltyLedgerRepository soDiem, LoyaltyRedemptionRepository phieu) {
 		this.members = members;
 		this.rewards = rewards;
 		this.soDiem = soDiem;
+		this.phieu = phieu;
 	}
 
 	/**
@@ -93,7 +95,53 @@ public class LoyaltyService {
 				.map(LoyaltyService::moTa)
 				.toList();
 
-		return new LoyaltyDtos.LookupResponse(phone, points, lifetimeSpend, spend12m, available);
+		// Phiếu chưa dùng của CHÍNH thành viên này. Số này chưa có hồ sơ thì không có phiếu nào —
+		// không phải lỗi, chỉ là chưa từng đổi gì.
+		List<LoyaltyDtos.VoucherResponse> conHan = member
+				.map(m -> phieuChuaDung(m.getId()))
+				.orElseGet(List::of);
+
+		return new LoyaltyDtos.LookupResponse(
+				phone, points, lifetimeSpend, spend12m, hang.name(), hang.tenHienThi(),
+				available, conHan);
+	}
+
+	/** Phiếu còn dùng được của một thành viên. */
+	List<LoyaltyDtos.VoucherResponse> phieuChuaDung(String memberId) {
+		return phieu.findByMemberIdAndHonouredAtIsNullOrderByCreatedAtAsc(memberId).stream()
+				.map(LoyaltyService::moTaPhieu)
+				.toList();
+	}
+
+	static LoyaltyDtos.VoucherResponse moTaPhieu(LoyaltyRedemptionEntity r) {
+		return new LoyaltyDtos.VoucherResponse(
+				r.getId(), r.getRewardName(), r.getPointsSpent(), r.getCreatedAt(), r.getHonouredAt());
+	}
+
+	/**
+	 * Nhân viên đánh dấu đã phát phiếu cho khách.
+	 *
+	 * <p>Không nhận số điện thoại: phiếu đã định danh chủ của nó. Nhận thêm số ở đây chỉ mở ra khả
+	 * năng thu nhầm phiếu của người khác vì gõ sai một chữ số.
+	 *
+	 * <p>Phiếu đã phát rồi thì trả lỗi chứ KHÔNG im lặng coi như thành công. Với quầy hai chuyện
+	 * khác hẳn nhau: "vừa phát xong" nghĩa là đưa món ra, còn "phiếu này dùng rồi" nghĩa là đừng
+	 * đưa. Trả về giống nhau là mời quán mất món.
+	 */
+	@Transactional
+	public LoyaltyDtos.VoucherResponse thuPhieu(String redemptionId, String nhanVienId, OffsetDateTime now) {
+		LoyaltyRedemptionEntity r = phieu.findById(redemptionId)
+				.orElseThrow(() -> ApiException.notFound("LOYALTY_VOUCHER_NOT_FOUND",
+						"Không tìm thấy phiếu này."));
+
+		if (phieu.thuPhieuNeuChuaDung(redemptionId, now, nhanVienId) == 0) {
+			throw ApiException.conflict("LOYALTY_VOUCHER_ALREADY_USED",
+					"Phiếu này đã được dùng rồi.");
+		}
+
+		// Đọc lại sau khi ghi: 'thuPhieuNeuChuaDung' xoá sạch persistence context, nên thực thể r
+		// ở trên vẫn mang giá trị cũ và trả về nó là báo cho quầy một phiếu chưa dùng.
+		return moTaPhieu(phieu.findById(redemptionId).orElseThrow());
 	}
 
 	static LoyaltyDtos.RewardResponse moTa(LoyaltyRewardEntity r) {

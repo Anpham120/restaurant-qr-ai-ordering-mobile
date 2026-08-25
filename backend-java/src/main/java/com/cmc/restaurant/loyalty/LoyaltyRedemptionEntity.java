@@ -39,6 +39,13 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
+	/** {@code null} nghĩa là phiếu còn dùng được. */
+	@Column(name = "honoured_at")
+	private OffsetDateTime honouredAt;
+
+	@Column(name = "honoured_by")
+	private String honouredBy;
+
 	protected LoyaltyRedemptionEntity() {
 	}
 
@@ -55,6 +62,23 @@ public class LoyaltyRedemptionEntity {
 
 	public String getId() {
 		return id;
+	}
+
+	public String getMemberId() {
+		return memberId;
+	}
+
+	public OffsetDateTime getHonouredAt() {
+		return honouredAt;
+	}
+
+	public String getHonouredBy() {
+		return honouredBy;
+	}
+
+	/** Phiếu còn dùng được không. */
+	public boolean conDungDuoc() {
+		return honouredAt == null;
 	}
 
 	public String getRewardId() {

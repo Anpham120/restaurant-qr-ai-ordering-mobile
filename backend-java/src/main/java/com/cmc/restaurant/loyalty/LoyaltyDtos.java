@@ -40,7 +40,8 @@ public final class LoyaltyDtos {
 	public record MyLoyaltyResponse(
 			boolean linked, String phoneNumber, int points, List<RewardResponse> availableRewards,
 			String tier, String tierName, BigDecimal spend12m,
-			String nextTierName, BigDecimal amountToNextTier) {
+			String nextTierName, BigDecimal amountToNextTier,
+			List<VoucherResponse> pendingVouchers) {
 	}
 
 	/** Ưu đãi khách muốn đổi. */
@@ -71,8 +72,19 @@ public final class LoyaltyDtos {
 	 * @param lifetimeSpend chi tiêu trọn đời — CHỈ để báo cáo, không dùng xếp hạng
 	 * @param spend12m      chi tiêu 12 tháng gần nhất — cơ sở xếp hạng
 	 */
+	/**
+	 * Một phiếu khách đã đổi.
+	 *
+	 * @param honouredAt {@code null} nghĩa là còn dùng được
+	 */
+	public record VoucherResponse(
+			String redemptionId, String rewardName, int pointsSpent, OffsetDateTime redeemedAt,
+			OffsetDateTime honouredAt) {
+	}
+
 	public record LookupResponse(
 			String phoneNumber, int points, BigDecimal lifetimeSpend, BigDecimal spend12m,
-			List<RewardResponse> availableRewards) {
+			String tier, String tierName,
+			List<RewardResponse> availableRewards, List<VoucherResponse> pendingVouchers) {
 	}
 }
