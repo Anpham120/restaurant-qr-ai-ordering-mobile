@@ -18,10 +18,14 @@ public class LoyaltyService {
 
 	private final LoyaltyMemberRepository members;
 	private final LoyaltyRewardRepository rewards;
+	private final LoyaltyLedgerRepository soDiem;
 
-	public LoyaltyService(LoyaltyMemberRepository members, LoyaltyRewardRepository rewards) {
+	public LoyaltyService(
+			LoyaltyMemberRepository members, LoyaltyRewardRepository rewards,
+			LoyaltyLedgerRepository soDiem) {
 		this.members = members;
 		this.rewards = rewards;
+		this.soDiem = soDiem;
 	}
 
 	/**
@@ -47,7 +51,7 @@ public class LoyaltyService {
 		// ngược lại sẽ cho phép một hoá đơn tự nâng hệ số của chính nó.
 		MemberTier hangCu = entity.getTier();
 		LoyaltyMember member = entity.toDomain();
-		member.accrue(totalAmount, now, hangCu);
+		int diemVuaTich = member.accrue(totalAmount, now, hangCu);
 		entity.applyFrom(member);
 
 		// Cửa sổ 12 tháng: cộng vào rồi xét lại hạng. Việc TRỪ các hoá đơn đã rơi ra khỏi cửa sổ
@@ -55,6 +59,12 @@ public class LoyaltyService {
 		entity.setSpend12m(entity.getSpend12m().add(totalAmount));
 		entity.setTier(MemberTier.theoChiTieu(entity.getSpend12m()));
 		entity.setLastActivityAt(now);
+
+		// Ghi sổ: số dư ở trên chỉ nói khách ĐANG có bao nhiêu, sổ nói khách đã chi bao nhiêu và
+		// khi nào — hai thứ mà tác vụ xét hạng và tác vụ xoá điểm quá hạn đều cần.
+		soDiem.save(LoyaltyLedgerEntity.tich(
+				"lgr_" + UUID.randomUUID().toString().replace("-", ""),
+				entity.getId(), diemVuaTich, totalAmount, now));
 
 		members.save(entity);
 		return Optional.of(member);

@@ -10,8 +10,10 @@
 -- nhiều hồi 2024 rồi biến mất vẫn giữ hạng cao nhất vĩnh viễn — quán trả quyền lợi cho doanh thu
 -- đã chết. `lifetime_spend` được GIỮ LẠI, nhưng chỉ để báo cáo.
 --
--- `last_activity_at` là mốc đếm hạn điểm. Đếm từ lần ghé CUỐI chứ không từ lúc tích: khách còn
--- quay lại thì điểm còn sống, đúng thứ chương trình muốn khuyến khích.
+-- `last_activity_at` ghi lần ghé gần nhất. KHÔNG phải mốc đếm hạn điểm — hạn tính theo từng lô
+-- tích, xem cột `expires_at` của sổ điểm bên dưới. Hai cách khác nhau ở một điểm quan trọng: đếm
+-- từ lần ghé cuối thì một khách ghé đều đặn tích được vô hạn và quán mang một khoản nợ điểm không
+-- có trần; đếm theo lô thì mỗi điểm đều có ngày chết, và tổng nợ bị chặn bởi doanh thu 12 tháng.
 ALTER TABLE public.loyalty_members
     ADD COLUMN tier             character varying(20)  NOT NULL DEFAULT 'BAC',
     ADD COLUMN spend_12m        numeric(18,2)          NOT NULL DEFAULT 0,

@@ -12,8 +12,10 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 @EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, CassoProperties.class, ChatProperties.class,
 		CorsProperties.class,
 		KitchenCapacityProperties.class})

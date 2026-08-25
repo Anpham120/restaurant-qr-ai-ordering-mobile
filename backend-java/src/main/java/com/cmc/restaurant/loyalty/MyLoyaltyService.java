@@ -35,12 +35,14 @@ public class MyLoyaltyService {
 	private final LoyaltyRewardRepository rewards;
 	private final LoyaltyRedemptionRepository redemptions;
 	private final OrderDiscountPort donHang;
+	private final LoyaltyLedgerRepository soDiem;
 
 	public MyLoyaltyService(
 			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService,
 			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions,
-			OrderDiscountPort donHang) {
+			OrderDiscountPort donHang, LoyaltyLedgerRepository soDiem) {
 		this.donHang = donHang;
+		this.soDiem = soDiem;
 		this.users = users;
 		this.members = members;
 		this.loyaltyService = loyaltyService;
@@ -184,6 +186,10 @@ public class MyLoyaltyService {
 		if (laGiamTien) {
 			donHang.congThemGiamGia(hoaDon.orderId(), reward.getDiscountAmount());
 		}
+
+		soDiem.save(LoyaltyLedgerEntity.doi(
+				"lgr_" + UUID.randomUUID().toString().replace("-", ""),
+				member.getId(), reward.getPointsRequired(), now));
 
 		LoyaltyRedemptionEntity ghi = redemptions.save(new LoyaltyRedemptionEntity(
 				"red_" + UUID.randomUUID().toString().replace("-", ""),
