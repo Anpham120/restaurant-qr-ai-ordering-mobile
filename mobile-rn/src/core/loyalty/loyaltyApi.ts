@@ -15,7 +15,12 @@ export interface LoyaltyApi {
    *
    * `khoaIdempotency` BẮT BUỘC: bấm hai lần lúc mạng chập chờn ở đây tiêu điểm THẬT của khách.
    */
-  doiDiem(accessToken: string, rewardId: string, khoaIdempotency: string): Promise<KetQuaDoiDiem>;
+  doiDiem(
+    accessToken: string,
+    rewardId: string,
+    khoaIdempotency: string,
+    orderId?: string,
+  ): Promise<KetQuaDoiDiem>;
 }
 
 /**
@@ -53,6 +58,7 @@ export class HttpLoyaltyApi implements LoyaltyApi {
     accessToken: string,
     rewardId: string,
     khoaIdempotency: string,
+    orderId?: string,
   ): Promise<KetQuaDoiDiem> {
     return ketQuaDoiDiemTuJson(
       await this.goi(`${this.baseUrl}/api/loyalty/me/redeem`, {
@@ -62,7 +68,9 @@ export class HttpLoyaltyApi implements LoyaltyApi {
           Authorization: `Bearer ${accessToken}`,
           'Idempotency-Key': khoaIdempotency,
         },
-        body: JSON.stringify({ rewardId }),
+        // Bỏ hẳn khoá khi không có đơn, thay vì gửi `undefined`. JSON.stringify bỏ qua
+        // `undefined` nên hai cách ra cùng một chuỗi, nhưng viết rõ thì đọc không phải kiểm lại.
+        body: JSON.stringify(orderId === undefined ? { rewardId } : { rewardId, orderId }),
       }),
     );
   }
@@ -103,6 +111,28 @@ function dichLoi(status: number, than: string): AuthException {
       return new AuthException(
         'LOYALTY_NOT_LINKED',
         'Liên kết số điện thoại trước khi đổi ưu đãi nhé.',
+      );
+    case 'LOYALTY_TIER_TOO_LOW':
+      // Giữ nguyên câu của backend: nó có tên hạng cụ thể ("dành cho hạng Vàng trở lên"), còn app
+      // ở đây không biết ưu đãi vừa bấm cần hạng nào.
+      return new AuthException(
+        'LOYALTY_TIER_TOO_LOW',
+        'Ưu đãi này dành cho hạng cao hơn hạng hiện tại của bạn.',
+      );
+    case 'LOYALTY_ORDER_REQUIRED':
+      return new AuthException(
+        'LOYALTY_ORDER_REQUIRED',
+        'Ưu đãi giảm tiền cần áp vào một đơn đang mở. Mở đơn rồi đổi lại nhé.',
+      );
+    case 'LOYALTY_DISCOUNT_OVER_CAP':
+      return new AuthException(
+        'LOYALTY_DISCOUNT_OVER_CAP',
+        'Mỗi hoá đơn chỉ được giảm tối đa 30% giá trị, không quá 200.000đ.',
+      );
+    case 'LOYALTY_ORDER_CLOSED':
+      return new AuthException(
+        'LOYALTY_ORDER_CLOSED',
+        'Đơn này đã kết thúc, không áp ưu đãi được.',
       );
     case 'LOYALTY_REWARD_INACTIVE':
       return new AuthException('LOYALTY_REWARD_INACTIVE', 'Ưu đãi này đã ngừng áp dụng.');

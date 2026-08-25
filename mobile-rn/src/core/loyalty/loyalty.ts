@@ -1,9 +1,19 @@
-/** Một ưu đãi khách đủ điểm để đổi. */
+/** Ba hạng thành viên. Tên hằng khớp `MemberTier` phía backend. */
+export type Hang = 'BAC' | 'VANG' | 'KIM_CUONG';
+
+/** Ưu đãi tặng món hay giảm tiền — app vẽ hai kiểu thẻ khác nhau. */
+export type LoaiUuDai = 'FREE_ITEM' | 'DISCOUNT';
+
+/** Một ưu đãi trong danh mục. */
 export interface Reward {
   readonly rewardId: string;
   readonly name: string;
   readonly description: string | null;
   readonly pointsRequired: number;
+  readonly loai: LoaiUuDai;
+  /** Số tiền giảm; `null` với ưu đãi tặng món. */
+  readonly soTienGiam: number | null;
+  readonly hangToiThieu: Hang;
 }
 
 /**
@@ -23,6 +33,14 @@ export interface MyLoyalty {
   readonly phoneNumber: string | null;
   readonly points: number;
   readonly availableRewards: readonly Reward[];
+  readonly hang: Hang;
+  /** Tên hiển thị tiếng Việt của hạng, do backend đặt để app và web không lệch chữ. */
+  readonly tenHang: string;
+  readonly chiTieu12Thang: number;
+  /** Hạng kế tiếp; `null` khi đã ở hạng cao nhất. */
+  readonly tenHangKeTiep: string | null;
+  /** Còn phải chi bao nhiêu nữa mới lên hạng; 0 khi đã cao nhất. */
+  readonly conThieu: number;
 }
 
 /** Kết quả một lần đổi điểm (#34). */
@@ -46,7 +64,20 @@ export function rewardTuJson(json: unknown): Reward {
     name: o.name as string,
     description: typeof o.description === 'string' ? o.description : null,
     pointsRequired: typeof o.pointsRequired === 'number' ? o.pointsRequired : 0,
+    loai: o.rewardType === 'DISCOUNT' ? 'DISCOUNT' : 'FREE_ITEM',
+    soTienGiam: typeof o.discountAmount === 'number' ? o.discountAmount : null,
+    hangToiThieu: doiHang(o.minTier),
   };
+}
+
+/**
+ * Đọc tên hạng phòng thủ.
+ *
+ * Một giá trị lạ — do backend thêm hạng mới mà app chưa cập nhật — phải rơi về hạng THẤP NHẤT ở
+ * phía khách. Đoán cao lên sẽ vẽ cho khách một quyền lợi họ không có.
+ */
+function doiHang(v: unknown): Hang {
+  return v === 'VANG' || v === 'KIM_CUONG' ? v : 'BAC';
 }
 
 export function myLoyaltyTuJson(json: unknown): MyLoyalty {
@@ -56,6 +87,11 @@ export function myLoyaltyTuJson(json: unknown): MyLoyalty {
     phoneNumber: typeof o.phoneNumber === 'string' ? o.phoneNumber : null,
     points: typeof o.points === 'number' ? o.points : 0,
     availableRewards: Array.isArray(o.availableRewards) ? o.availableRewards.map(rewardTuJson) : [],
+    hang: doiHang(o.tier),
+    tenHang: typeof o.tierName === 'string' ? o.tierName : 'Bạc',
+    chiTieu12Thang: typeof o.spend12m === 'number' ? o.spend12m : 0,
+    tenHangKeTiep: typeof o.nextTierName === 'string' ? o.nextTierName : null,
+    conThieu: typeof o.amountToNextTier === 'number' ? o.amountToNextTier : 0,
   };
 }
 
@@ -78,5 +114,28 @@ export function ketQuaDoiDiemTuJson(json: unknown): KetQuaDoiDiem {
  * chối lẽ ra thấy trước được.
  */
 export function doiDuoc(diem: MyLoyalty, uuDai: Reward): boolean {
-  return diem.linked && diem.points >= uuDai.pointsRequired;
+  return (
+    diem.linked && diem.points >= uuDai.pointsRequired && datHang(diem.hang, uuDai.hangToiThieu)
+  );
+}
+
+/** Thứ tự ba hạng, từ thấp lên cao. Là nguồn duy nhất cho mọi phép so hạng ở app. */
+const THU_TU_HANG: readonly Hang[] = ['BAC', 'VANG', 'KIM_CUONG'];
+
+/** Hạng `cua` có đạt mức `can` không. */
+export function datHang(cua: Hang, can: Hang): boolean {
+  return THU_TU_HANG.indexOf(cua) >= THU_TU_HANG.indexOf(can);
+}
+
+/**
+ * Phần đã đi được tới hạng kế tiếp, từ 0 đến 1.
+ *
+ * Tính từ `conThieu` chứ không từ ngưỡng cứng ghi trong app: ngưỡng là luật nghiệp vụ và nó nằm ở
+ * backend. Chép ngưỡng sang đây sẽ tạo ra hai bản luật, và bản ở app là bản không ai nhớ sửa.
+ */
+export function tienDoLenHang(diem: MyLoyalty): number {
+  if (diem.tenHangKeTiep === null) return 1;
+  const nguong = diem.chiTieu12Thang + diem.conThieu;
+  if (nguong <= 0) return 0;
+  return Math.min(1, Math.max(0, diem.chiTieu12Thang / nguong));
 }

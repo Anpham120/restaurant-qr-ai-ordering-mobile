@@ -12,6 +12,8 @@ import { AuthException } from '../core/auth/authApi';
 import { type MyLoyalty, type Reward, doiDuoc } from '../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { KhoaDatDon } from '../core/orders/khoaDatDon';
+import { tienVnd } from '../core/tien';
+import { TheHang } from './TheHang';
 import { MauQuan, kieuChung } from './theme';
 
 export interface LoyaltyScreenProps {
@@ -145,12 +147,8 @@ export function LoyaltyScreen({
 
       {diem === null ? null : diem.linked ? (
         <>
-          <View style={kieuChung.the}>
-            <Text style={{ fontSize: 24, fontWeight: '700', color: MauQuan.chestnut }}>
-              {diem.points} điểm
-            </Text>
-            <Text style={kieuChung.chuPhu}>Số đã liên kết: {diem.phoneNumber}</Text>
-          </View>
+          <TheHang diem={diem} />
+          <Text style={kieuChung.chuPhu}>Số đã liên kết: {diem.phoneNumber}</Text>
 
           <Text style={{ fontSize: 16, fontWeight: '700', color: MauQuan.ink, marginTop: 8 }}>
             Ưu đãi đổi được ngay
@@ -171,7 +169,17 @@ export function LoyaltyScreen({
                   {r.description !== null ? (
                     <Text style={kieuChung.chuPhu}>{r.description}</Text>
                   ) : null}
-                  <Text style={kieuChung.chuPhu}>{r.pointsRequired} điểm</Text>
+                  <Text style={kieuChung.chuPhu}>
+                    {r.pointsRequired} điểm
+                    {r.loai === 'DISCOUNT' && r.soTienGiam !== null
+                      ? ' · giảm ' + tienVnd(r.soTienGiam)
+                      : ''}
+                  </Text>
+                  {/* Nói trước điều kiện của ưu đãi giảm tiền. Để khách bấm rồi mới nhận
+                      LOYALTY_ORDER_REQUIRED là bắt họ chạm vào một lời từ chối thấy trước được. */}
+                  {r.loai === 'DISCOUNT' ? (
+                    <Text style={kieuChung.chuPhu}>Áp vào đơn đang mở, tối đa 30% hoá đơn</Text>
+                  ) : null}
                 </View>
                 <TouchableOpacity
                   accessibilityLabel={`Đổi ${r.name}`}

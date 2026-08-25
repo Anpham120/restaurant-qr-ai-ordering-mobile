@@ -10,6 +10,11 @@ const CHUA_NOI: MyLoyalty = {
   phoneNumber: null,
   points: 0,
   availableRewards: [],
+  hang: 'BAC',
+  tenHang: 'Bạc',
+  chiTieu12Thang: 0,
+  tenHangKeTiep: 'Vàng',
+  conThieu: 5_000_000,
 };
 
 const DA_NOI: MyLoyalty = {
@@ -17,8 +22,21 @@ const DA_NOI: MyLoyalty = {
   phoneNumber: '0901234567',
   points: 320,
   availableRewards: [
-    { rewardId: 'rw_1', name: 'Trà đào miễn phí', description: 'Một ly', pointsRequired: 200 },
+    {
+      rewardId: 'rw_1',
+      name: 'Trà đào miễn phí',
+      description: 'Một ly',
+      pointsRequired: 200,
+      loai: 'FREE_ITEM',
+      soTienGiam: null,
+      hangToiThieu: 'BAC',
+    },
   ],
+  hang: 'BAC',
+  tenHang: 'Bạc',
+  chiTieu12Thang: 1_200_000,
+  tenHangKeTiep: 'Vàng',
+  conThieu: 3_800_000,
 };
 
 function apiVoi(dau: MyLoyalty, ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
@@ -60,7 +78,7 @@ describe('chưa liên kết số điện thoại', () => {
     await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
     await fireEvent.press(screen.getByLabelText('Liên kết'));
 
-    await screen.findByText('320 điểm');
+    await screen.findByLabelText('320 điểm');
     expect(screen.getByText('Số đã liên kết: 0901234567')).toBeTruthy();
   });
 
@@ -86,7 +104,7 @@ describe('đã liên kết', () => {
   it('hiện điểm và ưu đãi đổi được', async () => {
     await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI)} />);
 
-    await screen.findByText('320 điểm');
+    await screen.findByLabelText('320 điểm');
     expect(screen.getByText('Trà đào miễn phí')).toBeTruthy();
     expect(screen.getByText('200 điểm')).toBeTruthy();
   });
@@ -155,7 +173,7 @@ describe('đổi điểm (#34)', () => {
 
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
 
-    await screen.findByText('120 điểm');
+    await screen.findByLabelText('120 điểm');
     expect(soLanDoc).toBe(1);
     expect(baoTin).toHaveBeenCalledWith('Đã đổi Trà đào miễn phí · -200 điểm');
   });
@@ -195,7 +213,7 @@ describe('đổi điểm (#34)', () => {
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
 
     await screen.findByText('Chưa đủ điểm cho ưu đãi này.');
-    expect(screen.getByText('10 điểm')).toBeTruthy();
+    expect(screen.getByLabelText('10 điểm')).toBeTruthy();
     expect(soLanDoc).toBe(2);
   });
 });

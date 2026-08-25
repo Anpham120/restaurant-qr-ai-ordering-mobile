@@ -85,8 +85,28 @@ const API_TRONG = {
   historyApi: { lichSuCuaToi: async () => [] },
   favouriteApi: { monHayGoi: async () => [] },
   loyaltyApi: {
-    cuaToi: async () => ({ linked: false, phoneNumber: null, points: 0, availableRewards: [] }),
-    noiSo: async () => ({ linked: true, phoneNumber: '090', points: 0, availableRewards: [] }),
+    cuaToi: async () => ({
+      linked: false,
+      phoneNumber: null,
+      points: 0,
+      availableRewards: [],
+      hang: 'BAC' as const,
+      tenHang: 'Bạc',
+      chiTieu12Thang: 0,
+      tenHangKeTiep: 'Vàng',
+      conThieu: 5_000_000,
+    }),
+    noiSo: async () => ({
+      linked: true,
+      phoneNumber: '0901234567',
+      points: 0,
+      availableRewards: [],
+      hang: 'BAC' as const,
+      tenHang: 'Bạc',
+      chiTieu12Thang: 0,
+      tenHangKeTiep: 'Vàng',
+      conThieu: 5_000_000,
+    }),
     doiDiem: async () => {
       throw new Error('không dùng');
     },

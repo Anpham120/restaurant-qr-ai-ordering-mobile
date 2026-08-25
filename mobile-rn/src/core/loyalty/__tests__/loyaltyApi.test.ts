@@ -1,5 +1,5 @@
 import { type GoiMang } from '../../mang/goiMang';
-import { doiDuoc } from '../loyalty';
+import { type MyLoyalty, type Reward, doiDuoc } from '../loyalty';
 import { HttpLoyaltyApi } from '../loyaltyApi';
 
 const CHUA_LIEN_KET = JSON.stringify({
@@ -220,25 +220,47 @@ describe('lỗi chung', () => {
 });
 
 describe('đổi được hay chưa', () => {
-  const uuDai = { rewardId: 'rw_1', name: 'X', description: null, pointsRequired: 200 };
+  const uuDai: Reward = {
+    rewardId: 'rw_1',
+    name: 'X',
+    description: null,
+    pointsRequired: 200,
+    loai: 'FREE_ITEM',
+    soTienGiam: null,
+    hangToiThieu: 'BAC',
+  };
+  const bac = (them: Partial<MyLoyalty>): MyLoyalty => ({
+    linked: true,
+    phoneNumber: '090',
+    points: 0,
+    availableRewards: [],
+    hang: 'BAC',
+    tenHang: 'Bạc',
+    chiTieu12Thang: 0,
+    tenHangKeTiep: 'Vàng',
+    conThieu: 5_000_000,
+    ...them,
+  });
 
   it('đủ điểm VÀ đã liên kết thì đổi được', () => {
-    expect(
-      doiDuoc({ linked: true, phoneNumber: '090', points: 200, availableRewards: [] }, uuDai),
-    ).toBe(true);
+    expect(doiDuoc(bac({ points: 200 }), uuDai)).toBe(true);
   });
 
   it('chưa liên kết thì KHÔNG đổi được, dù thừa điểm', () => {
     // Bật nút rồi để backend trả LOYALTY_NOT_LINKED là bắt khách chạm vào một lời từ chối lẽ ra
     // thấy trước được.
-    expect(
-      doiDuoc({ linked: false, phoneNumber: null, points: 9999, availableRewards: [] }, uuDai),
-    ).toBe(false);
+    expect(doiDuoc(bac({ linked: false, phoneNumber: null, points: 9999 }), uuDai)).toBe(false);
   });
 
   it('thiếu đúng một điểm cũng không đổi được', () => {
-    expect(
-      doiDuoc({ linked: true, phoneNumber: '090', points: 199, availableRewards: [] }, uuDai),
-    ).toBe(false);
+    expect(doiDuoc(bac({ points: 199 }), uuDai)).toBe(false);
+  });
+
+  it('đủ điểm nhưng CHƯA đủ hạng thì không đổi được', () => {
+    // Backend lọc ưu đãi trên hạng khỏi danh sách, nhưng danh sách có thể cũ hơn hạng vừa tụt sau
+    // kỳ xét hạng hằng tháng. Nút phải khoá theo dữ liệu đang cầm, không theo giả định.
+    const chiVang: Reward = { ...uuDai, hangToiThieu: 'VANG' };
+    expect(doiDuoc(bac({ points: 9999 }), chiVang)).toBe(false);
+    expect(doiDuoc(bac({ points: 9999, hang: 'VANG' }), chiVang)).toBe(true);
   });
 });
