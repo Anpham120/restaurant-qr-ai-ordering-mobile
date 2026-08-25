@@ -31,6 +31,9 @@ class ApiGiaLap implements AuthApi {
     if (this.ketQua instanceof AuthException) throw this.ketQua;
     return this.ketQua;
   }
+  async dangKy(): Promise<AuthSession> {
+    return this.dangNhap();
+  }
 }
 
 /**
@@ -48,6 +51,9 @@ class ApiTreo implements AuthApi {
   dangNhap(): Promise<AuthSession> {
     return this.cho;
   }
+  dangKy(): Promise<AuthSession> {
+    return this.cho;
+  }
   hoanThanh(s: AuthSession) {
     this.xong(s);
   }
@@ -56,8 +62,11 @@ class ApiTreo implements AuthApi {
 // Tiêu đề màn hình và nhãn nút cùng là "Đăng nhập", nên tìm theo chữ sẽ khớp hai phần tử. Bản
 // Flutter không gặp chuyện này vì nó tìm theo KIỂU widget. Tìm theo vai trò là bản tương đương
 // gần nhất, và nó còn chốt luôn việc nút thật sự khai mình là nút cho trình đọc màn hình.
+//
+// Từ khi màn hình có thêm nút chuyển sang tạo tài khoản, riêng vai trò không còn đủ — phải kèm
+// tên. Tên khớp CẢ hai trạng thái của nút gửi, để phép kiểm trạng thái "đang gửi" vẫn thấy nó.
 function nutDangNhap() {
-  return screen.getByRole('button');
+  return screen.getByRole('button', { name: /^(Đăng nhập|Đang đăng nhập…)$/ });
 }
 
 function repoVoi(api: AuthApi) {
@@ -121,5 +130,83 @@ describe('màn hình đăng nhập', () => {
     expect(nutDangNhap().props.accessibilityState?.disabled).toBe(true);
 
     api.hoanThanh(PHIEN_HOP_LE);
+  });
+});
+
+describe('tạo tài khoản', () => {
+  /** Ghi lại đúng những gì màn hình gửi xuống, để phân biệt hai đường đăng ký và đăng nhập. */
+  class ApiGhiLai implements AuthApi {
+    daGoi: 'dangNhap' | 'dangKy' | null = null;
+    hoTenDaNhan: string | null = null;
+
+    constructor(private readonly ketQua: AuthSession | AuthException) {}
+
+    async dangNhap(): Promise<AuthSession> {
+      this.daGoi = 'dangNhap';
+      if (this.ketQua instanceof AuthException) throw this.ketQua;
+      return this.ketQua;
+    }
+
+    async dangKy(hoTen: string): Promise<AuthSession> {
+      this.daGoi = 'dangKy';
+      this.hoTenDaNhan = hoTen;
+      if (this.ketQua instanceof AuthException) throw this.ketQua;
+      return this.ketQua;
+    }
+  }
+
+  function nutTao() {
+    return screen.getByRole('button', { name: /^(Tạo tài khoản|Đang tạo tài khoản…)$/ });
+  }
+
+  it('bấm chuyển thì hiện ô họ tên — ô chỉ có ở đường đăng ký', async () => {
+    const api = new ApiGhiLai(PHIEN_HOP_LE);
+    await render(<LoginScreen onDangNhapXong={jest.fn()} repository={repoVoi(api)} />);
+
+    expect(screen.queryByLabelText('Họ tên')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Chưa có tài khoản? Tạo mới' }));
+
+    expect(screen.getByLabelText('Họ tên')).toBeTruthy();
+  });
+
+  it('gửi ở chế độ tạo tài khoản thì gọi dangKy, KHÔNG gọi dangNhap', async () => {
+    // Hai đường đi tới hai endpoint khác nhau. Nếu màn hình gọi nhầm, khách bấm "Tạo tài khoản"
+    // sẽ nhận "Email hoặc mật khẩu không đúng" — một câu vô nghĩa với người chưa có tài khoản.
+    const api = new ApiGhiLai(PHIEN_HOP_LE);
+    await render(<LoginScreen onDangNhapXong={jest.fn()} repository={repoVoi(api)} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Chưa có tài khoản? Tạo mới' }));
+    await fireEvent.changeText(screen.getByLabelText('Họ tên'), '  Nguyễn Văn A  ');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'a@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'MatKhau#123');
+    await fireEvent.press(nutTao());
+
+    expect(api.daGoi).toBe('dangKy');
+    // Bàn phím di động chèn dấu cách sau khi gợi ý; họ tên phải tới backend đã cắt sạch.
+    expect(api.hoTenDaNhan).toBe('Nguyễn Văn A');
+  });
+
+  it('đổi chế độ thì XOÁ câu báo lỗi của chế độ vừa rời đi', async () => {
+    // "Email này đã có tài khoản. Đăng nhập thay vì tạo mới nhé." là lời khuyên bấm sang đăng
+    // nhập. Để câu đó nằm lại trên màn đăng nhập là nói sai ngay sau khi khách vừa làm đúng.
+    const api = new ApiGhiLai(
+      new AuthException('EMAIL_ALREADY_REGISTERED', 'Email này đã có tài khoản.'),
+    );
+    await render(<LoginScreen onDangNhapXong={jest.fn()} repository={repoVoi(api)} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Chưa có tài khoản? Tạo mới' }));
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'a@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'MatKhau#123');
+    await fireEvent.press(nutTao());
+
+    expect(screen.getByText('Email này đã có tài khoản.')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Đã có tài khoản? Đăng nhập' }));
+
+    expect(screen.queryByText('Email này đã có tài khoản.')).toBeNull();
+    // Nhưng email thì GIỮ: khách vừa được bảo là email đó đã có tài khoản, bắt gõ lại là bắt làm
+    // lại việc vừa làm.
+    expect(screen.getByLabelText('Email').props.value).toBe('a@example.com');
   });
 });

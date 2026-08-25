@@ -65,6 +65,9 @@ const authApi: AuthApi = {
   dangNhap: async () => {
     throw new Error('không dùng');
   },
+  dangKy: async () => {
+    throw new Error('không dùng');
+  },
 };
 
 function repoVoi(api: TableSessionApi) {

@@ -20,6 +20,18 @@ export class AuthRepository {
   }
 
   /**
+   * Tạo tài khoản rồi cất phiên, y như đăng nhập.
+   *
+   * Cùng một `trim()` cho email: khách vừa tạo tài khoản mà không đăng nhập được vì một dấu cách
+   * vô hình là cách tệ nhất để mở đầu.
+   */
+  async dangKy(hoTen: string, email: string, password: string): Promise<AuthSession> {
+    const session = await this.api.dangKy(hoTen.trim(), email.trim(), password);
+    await this.store.luu(session);
+    return session;
+  }
+
+  /**
    * Khôi phục phiên lúc mở app.
    *
    * Token hết hạn thì **XOÁ khỏi máy** rồi mới trả `null`. Chỉ trả `null` mà để nguyên là giữ lại
