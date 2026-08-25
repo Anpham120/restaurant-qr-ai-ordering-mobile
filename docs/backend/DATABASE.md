@@ -8,11 +8,17 @@
 
 ## Overview
 
-Hệ thống sử dụng **PostgreSQL 16** làm cơ sở dữ liệu chính, thay thế in-memory store. Entity Framework Core 8 với Npgsql provider được dùng cho data access.
+Hệ thống sử dụng **PostgreSQL 16** làm cơ sở dữ liệu chính. Truy cập dữ liệu qua **Spring Data
+JPA / Hibernate**; lược đồ do **Flyway** quản lý bằng các tệp SQL đánh số trong
+`backend-java/src/main/resources/db/migration/`.
+
+> Tài liệu này trước đây mô tả backend .NET với Entity Framework Core. Backend đã chuyển sang Java
+> ở #59 và bản .NET bị xoá; phần hướng dẫn bên dưới đã viết lại cho Flyway. Ghi lại vì các lệnh
+> `dotnet ef` cũ trỏ vào một thư mục KHÔNG CÒN TỒN TẠI — ai làm theo sẽ hỏng ngay bước đầu.
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- JDK 21 (hoặc dùng `./gradlew` với toolchain tự tải)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (để chạy PostgreSQL qua Docker Compose)
 - Hoặc PostgreSQL 16+ cài trực tiếp trên máy
 
@@ -40,18 +46,18 @@ docker-compose ps
 
 ### 3. Chạy migrations
 
-```bash
-dotnet ef database update \
-  --project src/RestaurantQrAiOrdering.Api/RestaurantQrAiOrdering.Api.csproj
-```
-
-Hoặc tạo migration mới:
+Flyway chạy TỰ ĐỘNG lúc ứng dụng khởi động. Chạy riêng bằng profile `migrate` của Compose:
 
 ```bash
-dotnet ef migrations add <MigrationName> \
-  --project src/RestaurantQrAiOrdering.Api/RestaurantQrAiOrdering.Api.csproj \
-  --output-dir Data/Migrations
+docker compose -f deploy/docker-compose.java.yml --profile migrate run --rm migrate
 ```
+
+Tạo migration mới: thêm một tệp vào `backend-java/src/main/resources/db/migration/` theo đúng quy
+ước tên `V<số>__<mo_ta>.sql`. Số phải LỚN HƠN mọi tệp đang có — hiện cao nhất là `V12`.
+
+Flyway ghi lại tổng kiểm của từng tệp ĐÃ CHẠY, nên sửa một migration đã áp dụng sẽ làm lần khởi
+động sau HỎNG, thay vì âm thầm bỏ qua. Đó là hành vi đúng: một lược đồ đã chạy trên dữ liệu thật
+không sửa lại được bằng cách viết đè.
 
 ### 4. Seed data
 
@@ -72,7 +78,7 @@ Quy ước seed auth:
 ### 5. Khởi động app
 
 ```bash
-dotnet run --project src/RestaurantQrAiOrdering.Api/RestaurantQrAiOrdering.Api.csproj
+docker compose -f deploy/docker-compose.java.yml up -d api
 ```
 
 ## Connection Strings
@@ -167,7 +173,7 @@ Kiểm tra app có thể xử lý request, bao gồm kết nối PostgreSQL.
 | `POSTGRES_PASSWORD` | Password PostgreSQL | `ChangeMe123!` |
 | `POSTGRES_DB` | Database name | `restaurant_qr` |
 | `POSTGRES_USER` | Database user | `restaurant_user` |
-| `EF_CONNECTION_STRING` | Connection string cho dotnet ef | (xem Development) |
+| `SPRING_DATASOURCE_URL` | JDBC URL cho backend Java | (xem Development) |
 
 ## Troubleshooting
 

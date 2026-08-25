@@ -8,7 +8,7 @@ set -euo pipefail
 
 backup_reason="${1:-manual}"
 remote_root="/opt/cmc-restaurant/${DEPLOY_ENV}"
-compose_file="${remote_root}/repo/deploy/docker-compose.yml"
+compose_file="${remote_root}/repo/deploy/docker-compose.java.yml"
 env_file="${remote_root}/.env"
 backup_dir="${remote_root}/backups"
 timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
