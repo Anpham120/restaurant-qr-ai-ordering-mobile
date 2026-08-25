@@ -10,9 +10,15 @@ public final class LoyaltyDtos {
 	private LoyaltyDtos() {
 	}
 
+	/**
+	 * @param rewardType     FREE_ITEM hoặc DISCOUNT — app vẽ hai kiểu thẻ khác nhau
+	 * @param discountAmount số tiền giảm, {@code null} với ưu đãi tặng món
+	 * @param minTier        hạng tối thiểu, để app giải thích vì sao một ưu đãi bị khoá
+	 */
 	public record RewardResponse(
 			String rewardId, String name, String description, int pointsRequired, boolean isActive,
-			OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+			OffsetDateTime createdAt, OffsetDateTime updatedAt,
+			String rewardType, String menuItemId, BigDecimal discountAmount, String minTier) {
 	}
 
 	/**
@@ -24,12 +30,25 @@ public final class LoyaltyDtos {
 	 * <p>{@code linked=false} nghĩa là tài khoản chưa nối số điện thoại nào; đó là trạng thái bình
 	 * thường của mọi tài khoản mới, không phải lỗi.
 	 */
+	/**
+	 * @param tier             tên hằng của hạng, để app đối chiếu
+	 * @param tierName         tên hiển thị tiếng Việt
+	 * @param spend12m         chi tiêu 12 tháng — cơ sở xếp hạng
+	 * @param nextTierName     hạng kế tiếp, {@code null} khi đã cao nhất
+	 * @param amountToNextTier còn phải chi bao nhiêu nữa; 0 khi đã cao nhất
+	 */
 	public record MyLoyaltyResponse(
-			boolean linked, String phoneNumber, int points, List<RewardResponse> availableRewards) {
+			boolean linked, String phoneNumber, int points, List<RewardResponse> availableRewards,
+			String tier, String tierName, BigDecimal spend12m,
+			String nextTierName, BigDecimal amountToNextTier) {
 	}
 
 	/** Ưu đãi khách muốn đổi. */
-	public record RedeemRequest(String rewardId) {
+	/**
+	 * @param orderId đơn để trừ tiền vào — BẮT BUỘC với ưu đãi {@code DISCOUNT}, bỏ trống với ưu đãi
+	 *                tặng món vì phiếu tặng món không gắn với hoá đơn nào
+	 */
+	public record RedeemRequest(String rewardId, String orderId) {
 	}
 
 	/**
@@ -48,7 +67,12 @@ public final class LoyaltyDtos {
 	public record LinkPhoneRequest(String phone) {
 	}
 
+	/**
+	 * @param lifetimeSpend chi tiêu trọn đời — CHỈ để báo cáo, không dùng xếp hạng
+	 * @param spend12m      chi tiêu 12 tháng gần nhất — cơ sở xếp hạng
+	 */
 	public record LookupResponse(
-			String phoneNumber, int points, BigDecimal lifetimeSpend, List<RewardResponse> availableRewards) {
+			String phoneNumber, int points, BigDecimal lifetimeSpend, BigDecimal spend12m,
+			List<RewardResponse> availableRewards) {
 	}
 }

@@ -1,9 +1,13 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.auth.UserEntity;
 import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
+import com.cmc.restaurant.loyalty.domain.TranDoiDiem;
+import com.cmc.restaurant.orders.application.OrderDiscountPort;
 import com.cmc.restaurant.shared.ApiException;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -30,10 +34,13 @@ public class MyLoyaltyService {
 	private final LoyaltyService loyaltyService;
 	private final LoyaltyRewardRepository rewards;
 	private final LoyaltyRedemptionRepository redemptions;
+	private final OrderDiscountPort donHang;
 
 	public MyLoyaltyService(
 			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService,
-			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions) {
+			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions,
+			OrderDiscountPort donHang) {
+		this.donHang = donHang;
 		this.users = users;
 		this.members = members;
 		this.loyaltyService = loyaltyService;
@@ -116,7 +123,8 @@ public class MyLoyaltyService {
 	 * {@code @Transactional} cuộn ngược.
 	 */
 	@Transactional
-	public LoyaltyDtos.RedeemResponse redeem(String userId, String rewardId, String idempotencyKey) {
+	public LoyaltyDtos.RedeemResponse redeem(
+			String userId, String rewardId, String orderId, String idempotencyKey) {
 		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
 		if (daCo != null) {
 			return new LoyaltyDtos.RedeemResponse(
@@ -144,6 +152,24 @@ public class MyLoyaltyService {
 					"This reward is no longer available.");
 		}
 
+		// Chặn hạng ở ĐÂY chứ không chỉ ở danh sách: danh sách là gợi ý hiển thị, còn đây là nơi
+		// điểm thật bị trừ. Một client tự gọi thẳng API với rewardId chép được vẫn phải bị từ chối.
+		MemberTier hang = member.getTier();
+		MemberTier canCo = reward.getMinTier();
+		if (!hang.datToiThieu(canCo)) {
+			throw ApiException.badRequest("LOYALTY_TIER_TOO_LOW",
+					"Ưu đãi này dành cho hạng " + canCo.tenHienThi() + " trở lên.");
+		}
+
+		// Ưu đãi GIẢM TIỀN chỉ có nghĩa khi bám vào một hoá đơn: không có đơn thì điểm bị trừ mà
+		// không đồng nào được giảm. Ưu đãi TẶNG MÓN thì ngược lại — nó là phiếu, quầy phát món khi
+		// khách đưa ra, nên không cần đơn.
+		boolean laGiamTien = "DISCOUNT".equals(reward.getRewardType());
+		OrderDiscountPort.HoaDon hoaDon = null;
+		if (laGiamTien) {
+			hoaDon = kiemHoaDon(orderId, reward.getDiscountAmount());
+		}
+
 		OffsetDateTime now = OffsetDateTime.now();
 		int daTru = members.truDiemNeuDu(member.getId(), reward.getPointsRequired(), now);
 		if (daTru == 0) {
@@ -153,6 +179,12 @@ public class MyLoyaltyService {
 					"Not enough points for this reward.");
 		}
 
+		// Sau khi điểm đã trừ thành công. Cùng một @Transactional, nên nếu bước này ném lỗi thì
+		// điểm cũng được trả lại — không có trạng thái "mất điểm mà đơn không giảm".
+		if (laGiamTien) {
+			donHang.congThemGiamGia(hoaDon.orderId(), reward.getDiscountAmount());
+		}
+
 		LoyaltyRedemptionEntity ghi = redemptions.save(new LoyaltyRedemptionEntity(
 				"red_" + UUID.randomUUID().toString().replace("-", ""),
 				member.getId(), reward, idempotencyKey, now));
@@ -160,6 +192,35 @@ public class MyLoyaltyService {
 		return new LoyaltyDtos.RedeemResponse(
 				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
 				ghi.getCreatedAt(), me(userId));
+	}
+
+	/**
+	 * Hoá đơn có nhận được khoản giảm này không.
+	 *
+	 * <p>Kiểm TRƯỚC khi trừ điểm. Trừ trước rồi mới phát hiện đơn đã thanh toán sẽ phải hoàn điểm,
+	 * và đường hoàn điểm là đường ít được chạy nhất nên cũng là đường dễ sai nhất.
+	 */
+	private OrderDiscountPort.HoaDon kiemHoaDon(String orderId, BigDecimal giam) {
+		if (orderId == null || orderId.isBlank()) {
+			throw ApiException.badRequest("LOYALTY_ORDER_REQUIRED",
+					"Ưu đãi giảm tiền cần một đơn hàng để áp dụng.");
+		}
+		OrderDiscountPort.HoaDon hoaDon = donHang.timHoaDon(orderId.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+
+		// Đơn đã xong hoặc đã huỷ thì tiền đã chốt; giảm thêm vào đó chỉ làm lệch sổ doanh thu.
+		if ("Completed".equals(hoaDon.status()) || "Cancelled".equals(hoaDon.status())) {
+			throw ApiException.badRequest("LOYALTY_ORDER_CLOSED",
+					"Đơn hàng này đã kết thúc, không áp dụng ưu đãi được nữa.");
+		}
+
+		if (!TranDoiDiem.chapNhan(giam, hoaDon.subtotalAmount())) {
+			throw ApiException.badRequest("LOYALTY_DISCOUNT_OVER_CAP",
+					"Mỗi hoá đơn chỉ được giảm tối đa "
+							+ TranDoiDiem.toiDaChoHoaDon(hoaDon.subtotalAmount()).toBigInteger()
+							+ "đ bằng điểm.");
+		}
+		return hoaDon;
 	}
 
 	/** Điểm và ưu đãi đủ điều kiện của tài khoản này. */
@@ -174,10 +235,19 @@ public class MyLoyaltyService {
 		if (phone == null) {
 			// Chưa liên kết KHÔNG phải lỗi: đó là trạng thái của mọi tài khoản mới. App hiện lời
 			// mời liên kết, không hiện màn hình lỗi.
-			return new LoyaltyDtos.MyLoyaltyResponse(false, null, 0, java.util.List.of());
+			return new LoyaltyDtos.MyLoyaltyResponse(
+					false, null, 0, java.util.List.of(),
+					MemberTier.BAC.name(), MemberTier.BAC.tenHienThi(), java.math.BigDecimal.ZERO,
+					MemberTier.BAC.ke().tenHienThi(), MemberTier.BAC.ke().nguong());
 		}
 		LoyaltyDtos.LookupResponse lookup = loyaltyService.lookup(phone);
+		java.math.BigDecimal chiTieu = lookup.spend12m();
+		MemberTier hang = MemberTier.theoChiTieu(chiTieu);
+		MemberTier ke = hang.ke();
 		return new LoyaltyDtos.MyLoyaltyResponse(
-				true, phone, lookup.points(), lookup.availableRewards());
+				true, phone, lookup.points(), lookup.availableRewards(),
+				hang.name(), hang.tenHienThi(), chiTieu,
+				ke == null ? null : ke.tenHienThi(),
+				MemberTier.conThieuDeLenHang(chiTieu));
 	}
 }

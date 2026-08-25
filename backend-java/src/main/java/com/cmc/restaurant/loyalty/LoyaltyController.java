@@ -72,7 +72,8 @@ public class LoyaltyController {
 		if (request == null || request.rewardId() == null || request.rewardId().isBlank()) {
 			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
 		}
-		return myLoyaltyService.redeem(principal.userId(), request.rewardId().trim(), key);
+		return myLoyaltyService.redeem(
+				principal.userId(), request.rewardId().trim(), request.orderId(), key);
 	}
 
 	@GetMapping("/api/loyalty/lookup")

@@ -1,6 +1,7 @@
 package com.cmc.restaurant.loyalty;
 
 import com.cmc.restaurant.loyalty.domain.LoyaltyMember;
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
 import com.cmc.restaurant.shared.ApiException;
 import java.math.BigDecimal;
@@ -41,9 +42,20 @@ public class LoyaltyService {
 				.orElseGet(() -> members.save(new LoyaltyMemberEntity(
 						"loy_" + UUID.randomUUID().toString().replace("-", ""), phone, now)));
 
+		// Tích theo hệ số của hạng ĐANG CÓ, không phải hạng sau khi cộng. Khách chi một hoá đơn to
+		// vừa đủ lên hạng thì hoá đơn đó vẫn tính theo hạng cũ — hệ số mới áp từ lần sau. Tính
+		// ngược lại sẽ cho phép một hoá đơn tự nâng hệ số của chính nó.
+		MemberTier hangCu = entity.getTier();
 		LoyaltyMember member = entity.toDomain();
-		member.accrue(totalAmount, now);
+		member.accrue(totalAmount, now, hangCu);
 		entity.applyFrom(member);
+
+		// Cửa sổ 12 tháng: cộng vào rồi xét lại hạng. Việc TRỪ các hoá đơn đã rơi ra khỏi cửa sổ
+		// là của job xét hạng hằng tháng, không phải của luồng thanh toán.
+		entity.setSpend12m(entity.getSpend12m().add(totalAmount));
+		entity.setTier(MemberTier.theoChiTieu(entity.getSpend12m()));
+		entity.setLastActivityAt(now);
+
 		members.save(entity);
 		return Optional.of(member);
 	}
@@ -60,14 +72,24 @@ public class LoyaltyService {
 		Optional<LoyaltyMemberEntity> member = members.findByPhoneNumber(phone);
 		int points = member.map(LoyaltyMemberEntity::getPoints).orElse(0);
 		BigDecimal lifetimeSpend = member.map(LoyaltyMemberEntity::getLifetimeSpend).orElse(BigDecimal.ZERO);
+		BigDecimal spend12m = member.map(LoyaltyMemberEntity::getSpend12m).orElse(BigDecimal.ZERO);
 
+		// Đủ điểm CHƯA đủ để đổi: ưu đãi còn gắn hạng tối thiểu. Lọc ở đây để danh sách "đổi được
+		// ngay" đúng nghĩa — app không phải đoán, và khách không thấy nút bấm rồi bị từ chối.
+		MemberTier hang = member.map(LoyaltyMemberEntity::getTier).orElse(MemberTier.BAC);
 		List<LoyaltyDtos.RewardResponse> available = rewards
 				.findByActiveTrueAndPointsRequiredLessThanEqualOrderByPointsRequiredAsc(points).stream()
-				.map(r -> new LoyaltyDtos.RewardResponse(
-						r.getId(), r.getName(), r.getDescription(), r.getPointsRequired(), r.isActive(),
-						r.getCreatedAt(), r.getUpdatedAt()))
+				.filter(r -> hang.datToiThieu(r.getMinTier()))
+				.map(LoyaltyService::moTa)
 				.toList();
 
-		return new LoyaltyDtos.LookupResponse(phone, points, lifetimeSpend, available);
+		return new LoyaltyDtos.LookupResponse(phone, points, lifetimeSpend, spend12m, available);
+	}
+
+	static LoyaltyDtos.RewardResponse moTa(LoyaltyRewardEntity r) {
+		return new LoyaltyDtos.RewardResponse(
+				r.getId(), r.getName(), r.getDescription(), r.getPointsRequired(), r.isActive(),
+				r.getCreatedAt(), r.getUpdatedAt(),
+				r.getRewardType(), r.getMenuItemId(), r.getDiscountAmount(), r.getMinTier().name());
 	}
 }

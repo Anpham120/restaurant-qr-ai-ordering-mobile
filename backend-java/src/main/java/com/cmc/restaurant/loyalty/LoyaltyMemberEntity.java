@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
@@ -28,6 +29,28 @@ public class LoyaltyMemberEntity {
 	@Column(name = "lifetime_spend", nullable = false)
 	private BigDecimal lifetimeSpend;
 
+	/**
+	 * Hạng thành viên, lưu dạng tên hằng của {@link MemberTier}.
+	 *
+	 * <p>Lưu thay vì tính lại mỗi lần đọc vì hạng phải ỔN ĐỊNH: khách xem app lúc 8h thấy hạng
+	 * Vàng thì 9h vẫn phải là Vàng, kể cả khi một hoá đơn cũ vừa rơi ra khỏi cửa sổ 12 tháng giữa
+	 * hai lần xem. Job xét hạng là nơi duy nhất đổi cột này.
+	 */
+	@Column(nullable = false)
+	private String tier;
+
+	/**
+	 * Chi tiêu 12 tháng gần nhất — CƠ SỞ DUY NHẤT để xếp hạng.
+	 *
+	 * <p>Khác {@code lifetimeSpend} ở chỗ nó GIẢM được. Xem javadoc của {@link MemberTier}.
+	 */
+	@Column(name = "spend_12m", nullable = false)
+	private BigDecimal spend12m;
+
+	/** Lần phát sinh giao dịch cuối — mốc đếm hạn điểm. */
+	@Column(name = "last_activity_at")
+	private OffsetDateTime lastActivityAt;
+
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
@@ -42,6 +65,9 @@ public class LoyaltyMemberEntity {
 		this.phoneNumber = phoneNumber;
 		this.points = 0;
 		this.lifetimeSpend = BigDecimal.ZERO;
+		this.tier = MemberTier.BAC.name();
+		this.spend12m = BigDecimal.ZERO;
+		this.lastActivityAt = now;
 		this.createdAt = now;
 		this.updatedAt = now;
 	}
@@ -92,6 +118,36 @@ public class LoyaltyMemberEntity {
 
 	public int getPoints() {
 		return points;
+	}
+
+	public MemberTier getTier() {
+		// Đọc phòng thủ: một giá trị lạ trong cột (nhập tay, migration hỏng) không được làm sập
+		// màn hình điểm thưởng của khách — coi như hạng thấp nhất là hướng an toàn.
+		try {
+			return tier == null ? MemberTier.BAC : MemberTier.valueOf(tier);
+		} catch (IllegalArgumentException e) {
+			return MemberTier.BAC;
+		}
+	}
+
+	void setTier(MemberTier value) {
+		this.tier = value.name();
+	}
+
+	public BigDecimal getSpend12m() {
+		return spend12m == null ? BigDecimal.ZERO : spend12m;
+	}
+
+	void setSpend12m(BigDecimal value) {
+		this.spend12m = value;
+	}
+
+	public OffsetDateTime getLastActivityAt() {
+		return lastActivityAt;
+	}
+
+	void setLastActivityAt(OffsetDateTime value) {
+		this.lastActivityAt = value;
 	}
 
 	public BigDecimal getLifetimeSpend() {
