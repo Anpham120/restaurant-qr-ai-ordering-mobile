@@ -22,6 +22,13 @@ export interface LoyaltyScreenProps {
   onBaoTin?: ((tin: string) => void) | undefined;
   /** Hỏi xác nhận trước khi tiêu điểm. Tiêm được để test đọc được cả nhánh từ chối. */
   hoiXacNhan?: ((tieuDe: string, noiDung: string) => Promise<boolean>) | undefined;
+  /**
+   * Tìm mã đơn đang mở, cho ưu đãi giảm tiền.
+   *
+   * Hàm chứ không phải giá trị: đơn mở ra và đóng lại trong lúc màn hình này đang hiện, nên phải
+   * hỏi vào ĐÚNG lúc bấm đổi. Một mã lấy sẵn từ lúc mở màn hình có thể đã thanh toán xong.
+   */
+  timDonDangMo?: (() => Promise<string | null>) | undefined;
 }
 
 /** Điểm thưởng của chính tài khoản đang đăng nhập, và đổi ưu đãi (#34). */
@@ -30,6 +37,7 @@ export function LoyaltyScreen({
   accessToken,
   onBaoTin,
   hoiXacNhan = async () => true,
+  timDonDangMo,
 }: LoyaltyScreenProps) {
   const [diem, setDiem] = useState<MyLoyalty | null>(null);
   const [so, setSo] = useState('');
@@ -108,7 +116,20 @@ export function LoyaltyScreen({
       setDangDoi(uu.rewardId);
       setLoi(null);
       try {
-        const kq = await api.doiDiem(accessToken, uu.rewardId, khoa.khoaCho(uu.rewardId));
+        // Ưu đãi giảm tiền phải bám một hoá đơn. Hỏi mã đơn TRƯỚC khi gọi đổi: không có đơn nào
+        // đang mở thì dừng ở đây, thay vì để backend trả LOYALTY_ORDER_REQUIRED sau khi khách đã
+        // xác nhận "điểm đã trừ không hoàn lại".
+        let maDon: string | undefined;
+        if (uu.loai === 'DISCOUNT') {
+          const ma = (await timDonDangMo?.()) ?? null;
+          if (ma === null) {
+            setLoi('Chưa có đơn nào đang mở. Gọi món trước rồi dùng ưu đãi giảm tiền nhé.');
+            return;
+          }
+          maDon = ma;
+        }
+
+        const kq = await api.doiDiem(accessToken, uu.rewardId, khoa.khoaCho(uu.rewardId), maDon);
         khoa.quen();
         // Số dư mới đến kèm phản hồi — không gọi thêm một lượt, vì lượt đó tạo ra khoảng thời
         // gian màn hình còn hiện số dư CŨ, đúng lúc khách đang nhìn xem điểm đã trừ chưa.
@@ -127,7 +148,7 @@ export function LoyaltyScreen({
         setDangDoi(null);
       }
     },
-    [accessToken, api, dangDoi, hoiXacNhan, khoa, onBaoTin, taiGiuLoi],
+    [accessToken, api, dangDoi, hoiXacNhan, khoa, onBaoTin, taiGiuLoi, timDonDangMo],
   );
 
   if (loiNang !== null) throw loiNang;

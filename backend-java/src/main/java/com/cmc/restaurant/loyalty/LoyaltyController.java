@@ -73,7 +73,7 @@ public class LoyaltyController {
 			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
 		}
 		return myLoyaltyService.redeem(
-				principal.userId(), request.rewardId().trim(), request.orderId(), key);
+				principal.userId(), request.rewardId().trim(), request.orderCode(), key);
 	}
 
 	@GetMapping("/api/loyalty/lookup")

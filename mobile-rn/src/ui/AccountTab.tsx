@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { type AuthSession } from '../core/auth/authSession';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
+import { maDonDangMo } from '../core/orders/order';
+import { type OrderApi } from '../core/orders/orderApi';
 import { type FavouriteApi } from '../core/orders/favouriteApi';
 import { type OrderHistoryApi } from '../core/orders/orderHistoryApi';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
@@ -22,6 +24,7 @@ export interface AccountTabProps {
   historyApi: OrderHistoryApi;
   favouriteApi: FavouriteApi;
   loyaltyApi: LoyaltyApi;
+  orderApi: OrderApi;
   themVaoGio: (menuItemId: string, quantity: number) => Promise<void>;
   onMoCaiDat: () => void;
   onRoiBan: () => void;
@@ -51,6 +54,14 @@ function Dong({ tieuDe, phu, onPress }: { tieuDe: string; phu?: string; onPress:
 export function AccountTab(p: AccountTabProps) {
   const [manCon, setManCon] = useState<ManCon>(null);
   const ses = p.dangNhap;
+
+  // Hỏi lúc bấm chứ không nạp sẵn: đơn mở ra và đóng lại trong lúc tab này đang hiện.
+  const { orderApi, phienBan } = p;
+  const timDonDangMo = useCallback(
+    async () =>
+      maDonDangMo(await orderApi.donCuaPhien(phienBan.sessionId, phienBan.tableSessionToken)),
+    [orderApi, phienBan],
+  );
 
   if (manCon === 'thanhToan') {
     return (
@@ -82,7 +93,12 @@ export function AccountTab(p: AccountTabProps) {
   if (manCon === 'diem' && ses !== null) {
     return (
       <ManConCoNutVe onVe={() => setManCon(null)}>
-        <LoyaltyScreen accessToken={ses.accessToken} api={p.loyaltyApi} onBaoTin={p.onBaoTin} />
+        <LoyaltyScreen
+          accessToken={ses.accessToken}
+          api={p.loyaltyApi}
+          onBaoTin={p.onBaoTin}
+          timDonDangMo={timDonDangMo}
+        />
       </ManConCoNutVe>
     );
   }

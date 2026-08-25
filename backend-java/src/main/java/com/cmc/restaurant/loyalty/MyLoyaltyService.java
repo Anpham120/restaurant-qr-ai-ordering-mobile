@@ -126,7 +126,7 @@ public class MyLoyaltyService {
 	 */
 	@Transactional
 	public LoyaltyDtos.RedeemResponse redeem(
-			String userId, String rewardId, String orderId, String idempotencyKey) {
+			String userId, String rewardId, String orderCode, String idempotencyKey) {
 		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
 		if (daCo != null) {
 			return new LoyaltyDtos.RedeemResponse(
@@ -169,7 +169,7 @@ public class MyLoyaltyService {
 		boolean laGiamTien = "DISCOUNT".equals(reward.getRewardType());
 		OrderDiscountPort.HoaDon hoaDon = null;
 		if (laGiamTien) {
-			hoaDon = kiemHoaDon(orderId, reward.getDiscountAmount());
+			hoaDon = kiemHoaDon(orderCode, reward.getDiscountAmount());
 		}
 
 		OffsetDateTime now = OffsetDateTime.now();
@@ -184,7 +184,7 @@ public class MyLoyaltyService {
 		// Sau khi điểm đã trừ thành công. Cùng một @Transactional, nên nếu bước này ném lỗi thì
 		// điểm cũng được trả lại — không có trạng thái "mất điểm mà đơn không giảm".
 		if (laGiamTien) {
-			donHang.congThemGiamGia(hoaDon.orderId(), reward.getDiscountAmount());
+			donHang.congThemGiamGia(hoaDon.orderCode(), reward.getDiscountAmount());
 		}
 
 		soDiem.save(LoyaltyLedgerEntity.doi(
@@ -206,12 +206,12 @@ public class MyLoyaltyService {
 	 * <p>Kiểm TRƯỚC khi trừ điểm. Trừ trước rồi mới phát hiện đơn đã thanh toán sẽ phải hoàn điểm,
 	 * và đường hoàn điểm là đường ít được chạy nhất nên cũng là đường dễ sai nhất.
 	 */
-	private OrderDiscountPort.HoaDon kiemHoaDon(String orderId, BigDecimal giam) {
-		if (orderId == null || orderId.isBlank()) {
+	private OrderDiscountPort.HoaDon kiemHoaDon(String orderCode, BigDecimal giam) {
+		if (orderCode == null || orderCode.isBlank()) {
 			throw ApiException.badRequest("LOYALTY_ORDER_REQUIRED",
 					"Ưu đãi giảm tiền cần một đơn hàng để áp dụng.");
 		}
-		OrderDiscountPort.HoaDon hoaDon = donHang.timHoaDon(orderId.trim())
+		OrderDiscountPort.HoaDon hoaDon = donHang.timHoaDon(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
 		// Đơn đã xong hoặc đã huỷ thì tiền đã chốt; giảm thêm vào đó chỉ làm lệch sổ doanh thu.

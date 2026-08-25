@@ -45,10 +45,10 @@ public final class LoyaltyDtos {
 
 	/** Ưu đãi khách muốn đổi. */
 	/**
-	 * @param orderId đơn để trừ tiền vào — BẮT BUỘC với ưu đãi {@code DISCOUNT}, bỏ trống với ưu đãi
-	 *                tặng món vì phiếu tặng món không gắn với hoá đơn nào
+	 * @param orderCode mã đơn để trừ tiền vào — BẮT BUỘC với ưu đãi {@code DISCOUNT}, bỏ trống với
+	 *                  ưu đãi tặng món vì phiếu tặng món không gắn với hoá đơn nào
 	 */
-	public record RedeemRequest(String rewardId, String orderId) {
+	public record RedeemRequest(String rewardId, String orderCode) {
 	}
 
 	/**

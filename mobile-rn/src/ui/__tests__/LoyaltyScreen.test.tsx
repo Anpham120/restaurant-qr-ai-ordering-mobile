@@ -217,3 +217,89 @@ describe('đổi điểm (#34)', () => {
     expect(soLanDoc).toBe(2);
   });
 });
+
+describe('ưu đãi giảm tiền cần một đơn', () => {
+  const GIAM: MyLoyalty = {
+    ...DA_NOI,
+    availableRewards: [
+      {
+        rewardId: 'rw_disc_50',
+        name: 'Giảm 50.000đ',
+        description: null,
+        pointsRequired: 200,
+        loai: 'DISCOUNT',
+        soTienGiam: 50_000,
+        hangToiThieu: 'BAC',
+      },
+    ],
+  };
+
+  it('không có đơn đang mở thì DỪNG, không gọi đổi điểm', async () => {
+    // Khách đã bấm qua hộp xác nhận "điểm đã trừ không hoàn lại". Để backend từ chối sau bước đó
+    // là bắt họ chịu một khoảnh khắc tưởng rằng điểm vừa mất.
+    let soLanDoi = 0;
+    const api = apiVoi(GIAM, {
+      doiDiem: async () => {
+        soLanDoi++;
+        throw new Error('lẽ ra không được gọi');
+      },
+    });
+
+    await render(<LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => null} />);
+    await screen.findByLabelText('Đổi Giảm 50.000đ');
+    await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
+
+    expect(soLanDoi).toBe(0);
+    expect(screen.getByText(/Chưa có đơn nào đang mở/)).toBeTruthy();
+  });
+
+  it('có đơn đang mở thì gửi kèm MÃ ĐƠN xuống backend', async () => {
+    let maDaGui: string | undefined = 'chua-goi';
+    const api = apiVoi(GIAM, {
+      doiDiem: async (_t: string, _r: string, _k: string, orderId?: string) => {
+        maDaGui = orderId;
+        return { redemptionId: 'rd', rewardName: 'Giảm 50.000đ', pointsSpent: 200, soDuMoi: GIAM };
+      },
+    });
+
+    await render(
+      <LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => 'ORD-1042'} />,
+    );
+    await screen.findByLabelText('Đổi Giảm 50.000đ');
+    await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
+
+    expect(maDaGui).toBe('ORD-1042');
+  });
+
+  it('ưu đãi TẶNG MÓN không hỏi đơn — phiếu tặng món không gắn hoá đơn nào', async () => {
+    let daHoiDon = false;
+    let maDaGui: string | undefined = 'chua-goi';
+    const api = apiVoi(DA_NOI, {
+      doiDiem: async (_t: string, _r: string, _k: string, orderId?: string) => {
+        maDaGui = orderId;
+        return {
+          redemptionId: 'rd',
+          rewardName: 'Trà đào miễn phí',
+          pointsSpent: 200,
+          soDuMoi: DA_NOI,
+        };
+      },
+    });
+
+    await render(
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        timDonDangMo={async () => {
+          daHoiDon = true;
+          return 'ORD-1042';
+        }}
+      />,
+    );
+    await screen.findByLabelText('Đổi Trà đào miễn phí');
+    await fireEvent.press(screen.getByLabelText('Đổi Trà đào miễn phí'));
+
+    expect(daHoiDon).toBe(false);
+    expect(maDaGui).toBeUndefined();
+  });
+});

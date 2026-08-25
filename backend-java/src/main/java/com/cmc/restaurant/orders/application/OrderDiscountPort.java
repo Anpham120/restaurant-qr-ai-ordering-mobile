@@ -22,10 +22,17 @@ public interface OrderDiscountPort {
 	 * <p>Có {@code discountAmount} vì nơi gọi phải biết đơn ĐÃ được giảm bao nhiêu — một mã khuyến
 	 * mãi áp lúc đặt món cộng thêm một khoản đổi điểm có thể vượt quá giá trị đơn.
 	 */
-	record HoaDon(String orderId, String status, BigDecimal subtotalAmount, BigDecimal discountAmount) {
+	record HoaDon(String orderCode, String status, BigDecimal subtotalAmount, BigDecimal discountAmount) {
 	}
 
-	Optional<HoaDon> timHoaDon(String orderId);
+	/**
+	 * Tìm theo MÃ ĐƠN, không phải khoá chính.
+	 *
+	 * Mã đơn ("ORD-1042") là thứ khách nhìn thấy và là thứ toàn bộ bề mặt API dành cho khách đã
+	 * dùng sẵn. Khoá chính là chi tiết lưu trữ của Orders; bắt module khác cầm nó là làm rò đúng
+	 * thứ mà {@link OrderLookup} sinh ra để che.
+	 */
+	Optional<HoaDon> timHoaDon(String orderCode);
 
 	/**
 	 * Cộng thêm {@code themGiam} vào khoản giảm của đơn và tính lại tổng.
@@ -33,5 +40,5 @@ public interface OrderDiscountPort {
 	 * <p>Cộng dồn chứ không ghi đè: đơn có thể đã mang sẵn giảm giá từ mã khuyến mãi, và ghi đè sẽ
 	 * âm thầm xoá khoản đó đi.
 	 */
-	void congThemGiamGia(String orderId, BigDecimal themGiam);
+	void congThemGiamGia(String orderCode, BigDecimal themGiam);
 }

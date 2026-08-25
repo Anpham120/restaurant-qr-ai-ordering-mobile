@@ -19,15 +19,15 @@ public class OrderDiscountAdapter implements OrderDiscountPort {
 
 	@Override
 	@Transactional(readOnly = true)
-	public Optional<HoaDon> timHoaDon(String orderId) {
-		return orders.findById(orderId).map(o -> new HoaDon(
-				o.getId(), o.getStatus().name(), o.getSubtotalAmount(), o.getDiscountAmount()));
+	public Optional<HoaDon> timHoaDon(String orderCode) {
+		return orders.findByOrderCode(orderCode).map(o -> new HoaDon(
+				o.getOrderCode(), o.getStatus().name(), o.getSubtotalAmount(), o.getDiscountAmount()));
 	}
 
 	@Override
 	@Transactional
-	public void congThemGiamGia(String orderId, BigDecimal themGiam) {
-		OrderEntity order = orders.findById(orderId)
+	public void congThemGiamGia(String orderCode, BigDecimal themGiam) {
+		OrderEntity order = orders.findByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
 		BigDecimal giamMoi = order.getDiscountAmount().add(themGiam);

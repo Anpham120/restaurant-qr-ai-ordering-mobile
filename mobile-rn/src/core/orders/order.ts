@@ -74,6 +74,25 @@ export function customerOrderTuJson(json: unknown): CustomerOrder {
  * trước khi app kịp cập nhật; hiện "Đang xử lý" cho mọi thứ chưa biết sẽ giấu mất chuyện đó và
  * không ai phát hiện app đã lạc hậu.
  */
+/**
+ * Mã của đơn đang mở trong phiên, để áp ưu đãi giảm tiền vào.
+ *
+ * "Đang mở" = chưa {@code Completed} và chưa {@code Cancelled} — cùng định nghĩa backend dùng khi
+ * từ chối `LOYALTY_ORDER_CLOSED`. Hai bên lệch nhau thì app sẽ chào một đơn mà backend từ chối.
+ *
+ * Nhiều đơn cùng mở là chuyện bình thường: một bàn gọi thêm vài lượt. Lấy đơn MỚI NHẤT vì đó là
+ * đơn khách vừa gọi và đang nghĩ tới.
+ */
+export function maDonDangMo(don: readonly CustomerOrder[]): string | null {
+  for (let i = don.length - 1; i >= 0; i--) {
+    const d = don[i];
+    if (d !== undefined && d.status !== 'Completed' && d.status !== 'Cancelled') {
+      return d.orderCode;
+    }
+  }
+  return null;
+}
+
 export function nhanTrangThaiDon(status: string): string {
   switch (status) {
     case 'Draft':
