@@ -21,7 +21,7 @@ jobs:
   backend-java-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `backend-java/.gitignore` từng có dòng `out/` không neo, nên nó khớp luôn
       # `src/main/java/.../orders/adapter/out/` — thư mục outbound adapter của §5.3. Hệ quả:
