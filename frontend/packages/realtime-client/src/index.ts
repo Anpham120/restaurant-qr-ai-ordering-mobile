@@ -32,6 +32,7 @@ export type TableInvoicePaymentConfirmedEvent = {
     status: string;
     subtotalAmount: number;
     discountAmount: number;
+    loyaltyDiscountAmount: number | null;
     totalAmount: number;
     promotionCode: string | null;
     customerPhoneNumber: string | null;

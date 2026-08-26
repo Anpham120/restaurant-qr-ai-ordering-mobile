@@ -59,9 +59,13 @@ public final class LoyaltyDtos {
 	 * khách muốn thấy ngay là số dư còn lại. Bắt gọi lần hai tạo ra một khoảng thời gian mà màn
 	 * hình còn hiện số dư CŨ.
 	 */
+	/**
+	 * @param code mã khách đọc ở quầy hoặc gõ vào ô giảm giá; {@code null} với ưu đãi tặng món
+	 *             (món đó đã vào đơn rồi, không có gì để cầm đi)
+	 */
 	public record RedeemResponse(
 			String redemptionId, String rewardId, String rewardName, int pointsSpent,
-			OffsetDateTime redeemedAt, MyLoyaltyResponse soDuMoi) {
+			OffsetDateTime redeemedAt, String code, MyLoyaltyResponse soDuMoi) {
 	}
 
 	/** Số điện thoại khách muốn nối vào tài khoản. */
@@ -79,7 +83,7 @@ public final class LoyaltyDtos {
 	 */
 	public record VoucherResponse(
 			String redemptionId, String rewardName, int pointsSpent, OffsetDateTime redeemedAt,
-			OffsetDateTime honouredAt) {
+			OffsetDateTime honouredAt, String code) {
 	}
 
 	public record LookupResponse(

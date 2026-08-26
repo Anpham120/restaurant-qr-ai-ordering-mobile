@@ -38,24 +38,6 @@ public class OrderLoyaltyAdapter implements OrderLoyaltyPort {
 
 	@Override
 	@Transactional
-	public void congThemGiamGia(String orderCode, BigDecimal themGiam) {
-		OrderEntity order = orders.findByOrderCode(orderCode)
-				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
-
-		BigDecimal giamMoi = order.getDiscountAmount().add(themGiam);
-		if (giamMoi.compareTo(order.getSubtotalAmount()) > 0) {
-			// Nơi gọi đã phải kiểm trần trước khi tới đây. Chặn lần nữa ở sát chỗ ghi vì đây là nơi
-			// duy nhất còn thấy được cả hai con số — một tổng âm sẽ chảy thẳng vào bảng thanh toán.
-			throw ApiException.badRequest("ORDER_DISCOUNT_EXCEEDS_TOTAL",
-					"Tổng giảm giá vượt quá giá trị đơn hàng.");
-		}
-		order.setDiscountAmount(giamMoi);
-		order.setTotalAmount(order.getSubtotalAmount().subtract(giamMoi));
-		orders.save(order);
-	}
-
-	@Override
-	@Transactional
 	public String themMonTang(String orderCode, String menuItemId) {
 		OrderEntity order = orders.findByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));

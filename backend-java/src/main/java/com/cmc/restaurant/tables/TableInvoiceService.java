@@ -106,7 +106,8 @@ public class TableInvoiceService {
 
 		return new InvoiceResponse(
 				sessionId, invoice == null ? null : invoice.getInvoiceCode(), tableCode,
-				invoice == null ? "NotRequested" : invoice.getStatus(), subtotal, discount, total,
+				invoice == null ? "NotRequested" : invoice.getStatus(), subtotal, discount,
+				invoice == null ? null : invoice.getLoyaltyDiscountAmount(), total,
 				invoice == null ? null : invoice.getPromotionCode(),
 				invoice == null ? null : invoice.getCustomerPhoneNumber(),
 				invoice == null ? "Unselected" : invoice.getMethod(), orderRounds, items, vietQr);

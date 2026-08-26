@@ -49,6 +49,7 @@ function apiVoi(dau: MyLoyalty, ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
       redemptionId: 'rd',
       rewardName: 'Trà đào miễn phí',
       pointsSpent: 200,
+      ma: null,
       soDuMoi: { ...DA_NOI, points: 120, availableRewards: [] },
     }),
     ...ghiDe,
@@ -220,7 +221,7 @@ describe('đổi điểm (#34)', () => {
   });
 });
 
-describe('ưu đãi giảm tiền cần một đơn', () => {
+describe('ưu đãi giảm tiền sinh ra mã', () => {
   const GIAM: MyLoyalty = {
     ...DA_NOI,
     availableRewards: [
@@ -236,14 +237,21 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
     ],
   };
 
-  it('không có đơn đang mở thì DỪNG, không gọi đổi điểm', async () => {
-    // Khách đã bấm qua hộp xác nhận "điểm đã trừ không hoàn lại". Để backend từ chối sau bước đó
-    // là bắt họ chịu một khoảnh khắc tưởng rằng điểm vừa mất.
+  it('KHÔNG cần đơn đang mở — ưu đãi giảm tiền nay sinh ra một mã', async () => {
+    // Đảo ngược hành vi cũ, và đó là chủ ý. Trước đây ưu đãi giảm tiền ghi thẳng vào
+    // orders.discount_amount, mà hoá đơn bàn không bao giờ đọc cấp đó — khách mất điểm và vẫn
+    // trả đủ tiền. Nay nó ra một mã, tiêu ở cấp hoá đơn, nên không phụ thuộc vào đơn nào cả.
     let soLanDoi = 0;
     const api = apiVoi(GIAM, {
       doiDiem: async () => {
         soLanDoi++;
-        throw new Error('lẽ ra không được gọi');
+        return {
+          redemptionId: 'rd',
+          rewardName: 'Giảm 50.000đ',
+          pointsSpent: 200,
+          ma: 'A7K2M9X3',
+          soDuMoi: GIAM,
+        };
       },
     });
 
@@ -251,16 +259,23 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
     await screen.findByLabelText('Đổi Giảm 50.000đ');
     await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
 
-    expect(soLanDoi).toBe(0);
-    expect(screen.getByText(/Chưa có đơn nào đang mở/)).toBeTruthy();
+    expect(soLanDoi).toBe(1);
+    expect(screen.queryByText(/Chưa có đơn nào đang mở/)).toBeNull();
   });
 
-  it('có đơn đang mở thì gửi kèm MÃ ĐƠN xuống backend', async () => {
+  it('giảm tiền KHÔNG gửi mã đơn, kể cả khi bàn đang có đơn mở', async () => {
+    // Gửi mã đơn ở đây là nối lại đúng cấp giảm giá vừa bị gỡ bỏ vì nó ăn mất tiền của khách.
     let maDaGui: string | undefined = 'chua-goi';
     const api = apiVoi(GIAM, {
       doiDiem: async (_t: string, _r: string, _k: string, orderId?: string) => {
         maDaGui = orderId;
-        return { redemptionId: 'rd', rewardName: 'Giảm 50.000đ', pointsSpent: 200, soDuMoi: GIAM };
+        return {
+          redemptionId: 'rd',
+          rewardName: 'Giảm 50.000đ',
+          pointsSpent: 200,
+          ma: null,
+          soDuMoi: GIAM,
+        };
       },
     });
 
@@ -270,7 +285,7 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
     await screen.findByLabelText('Đổi Giảm 50.000đ');
     await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
 
-    expect(maDaGui).toBe('ORD-1042');
+    expect(maDaGui).toBeUndefined();
   });
 
   it('TẶNG MÓN có đơn đang mở thì gửi kèm mã đơn — món vào đơn, bếp làm ngay', async () => {
@@ -282,6 +297,7 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
           redemptionId: 'rd',
           rewardName: 'Trà đào miễn phí',
           pointsSpent: 200,
+          ma: null,
           soDuMoi: DA_NOI,
         };
       },
@@ -309,6 +325,7 @@ describe('ưu đãi giảm tiền cần một đơn', () => {
           redemptionId: 'rd',
           rewardName: 'Trà đào miễn phí',
           pointsSpent: 200,
+          ma: null,
           soDuMoi: DA_NOI,
         };
       },
@@ -332,6 +349,7 @@ describe('phiếu chưa dùng', () => {
         rewardName: 'Chè bưởi',
         pointsSpent: 350,
         redeemedAt: '2026-08-25T13:40:00.000Z',
+        ma: null,
       },
     ],
   };
@@ -401,7 +419,11 @@ describe('câu nói trước khi trừ điểm', () => {
     expect(cau).not.toContain('bếp');
   });
 
-  it('giảm tiền: nói giảm vào đơn nào', () => {
-    expect(moTaViecSeXayRa(giamTien, 'ORD-7')).toContain('ORD-7');
+  it('giảm tiền: nói khách sẽ nhận một MÃ, không nhắc tới đơn', () => {
+    // Nhắc tới đơn đang mở là nói sai: mã dùng được ở bất kỳ hoá đơn nào, kể cả hoá đơn khách
+    // thanh toán trên web bằng máy người khác.
+    const cau = moTaViecSeXayRa(giamTien, 'ORD-7');
+    expect(cau).toContain('mã');
+    expect(cau).not.toContain('ORD-7');
   });
 });

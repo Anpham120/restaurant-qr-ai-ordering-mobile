@@ -37,8 +37,9 @@ export type PaymentRequestResponse = { payment: Payment; vietQr: VietQrPayment |
 export type TableInvoiceLine = { menuItemId: string; name: string; unitPrice: number; quantity: number; lineTotal: number };
 export type TableInvoiceOrderRound = { orderCode: string; status: OrderStatus; subtotalAmount: number; createdAt: string };
 export type TableInvoiceVietQr = { invoiceCode: string; amount: number; transferContent: string; quickLink: string; qrImageDataUri: string };
-export type TableInvoice = { tableSessionId: string; invoiceCode: string | null; tableCode: string | null; status: PaymentStatus; subtotalAmount: number; discountAmount: number; totalAmount: number; promotionCode: string | null; customerPhoneNumber: string | null; method: PaymentMethod; orderRounds: TableInvoiceOrderRound[]; items: TableInvoiceLine[]; vietQr: TableInvoiceVietQr | null };
-export type TableInvoicePaymentRequest = { method: "COD" | "VietQR"; promotionCode?: string | null; customerPhoneNumber?: string | null };
+export type TableInvoice = { tableSessionId: string; invoiceCode: string | null; tableCode: string | null; status: PaymentStatus; subtotalAmount: number; discountAmount: number; loyaltyDiscountAmount: number | null; totalAmount: number; promotionCode: string | null; customerPhoneNumber: string | null; method: PaymentMethod; orderRounds: TableInvoiceOrderRound[]; items: TableInvoiceLine[]; vietQr: TableInvoiceVietQr | null };
+/** `loyaltyCode` là mã đổi bằng điểm — cùng ô nhập với `promotionCode`, cộng dồn, cắt theo trần tổng. */
+export type TableInvoicePaymentRequest = { method: "COD" | "VietQR"; promotionCode?: string | null; customerPhoneNumber?: string | null; loyaltyCode?: string | null };
 export type TableInvoicePaymentRequestResponse = { invoice: TableInvoice; payment: { paymentId: string; status: PaymentStatus; method: PaymentMethod; amount: number }; vietQr: TableInvoiceVietQr | null };
 export type OrderCreatedEvent = { orderId: string; orderCode: string; orderType: OrderType; tableCode: string | null; status: OrderStatus; createdAt: string };
 export type OrderStatusChangedEvent = { orderId: string; orderCode: string; status: OrderStatus; updatedAt: string };

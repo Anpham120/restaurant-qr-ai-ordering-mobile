@@ -19,7 +19,8 @@ public final class TableInvoiceDtos {
 
 	public record InvoiceResponse(
 			String tableSessionId, String invoiceCode, String tableCode, String status, BigDecimal subtotalAmount,
-			BigDecimal discountAmount, BigDecimal totalAmount, String promotionCode, String customerPhoneNumber,
+			BigDecimal discountAmount, BigDecimal loyaltyDiscountAmount,
+			BigDecimal totalAmount, String promotionCode, String customerPhoneNumber,
 			String method, List<OrderRoundResponse> orderRounds, List<LineResponse> items,
 			VietQrResponse vietQr) {
 	}
@@ -42,6 +43,6 @@ public final class TableInvoiceDtos {
 	}
 
 	public record TableInvoicePaymentRequest(
-			String method, String promotionCode, String customerPhoneNumber) {
+			String method, String promotionCode, String customerPhoneNumber, String loyaltyCode) {
 	}
 }

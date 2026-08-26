@@ -40,7 +40,9 @@ export interface LoyaltyScreenProps {
  */
 export function moTaViecSeXayRa(uu: Reward, maDonDangMo: string | null): string {
   if (uu.loai === 'DISCOUNT') {
-    return `Giảm trực tiếp vào đơn ${maDonDangMo ?? ''} đang mở.`.replace('  ', ' ');
+    // Không nhắc tới đơn đang mở nữa: mã dùng được ở bất kỳ hoá đơn nào, kể cả hoá đơn khách
+    // thanh toán trên web bằng máy người khác.
+    return 'Bạn sẽ nhận một mã. Gõ mã đó ở bước thanh toán để được giảm.';
   }
   return maDonDangMo === null
     ? 'Bạn sẽ nhận một phiếu. Đọc số điện thoại cho nhân viên khi muốn dùng.'
@@ -142,11 +144,6 @@ export function LoyaltyScreen({
       // khác nhau với khách, nên phải nói rõ trước khi họ đồng ý trừ điểm.
       const maDonDangMo = (await timDonDangMo?.()) ?? null;
 
-      if (uu.loai === 'DISCOUNT' && maDonDangMo === null) {
-        setLoi('Chưa có đơn nào đang mở. Gọi món trước rồi dùng ưu đãi giảm tiền nhé.');
-        return;
-      }
-
       const dongY = await hoiXacNhan(
         'Đổi ưu đãi?',
         `${uu.name}\n\n${moTaViecSeXayRa(uu, maDonDangMo)}\n\nSẽ trừ ${uu.pointsRequired} điểm. Điểm đã trừ không hoàn lại.`,
@@ -156,13 +153,21 @@ export function LoyaltyScreen({
       setDangDoi(uu.rewardId);
       setLoi(null);
       try {
-        const maDon = maDonDangMo ?? undefined;
+        // Chỉ ưu đãi tặng món mới bám vào đơn. Giảm tiền sinh mã, và mã tiêu ở cấp hoá đơn —
+        // gửi kèm mã đơn ở đây là nối lại đúng cấp vừa bị gỡ bỏ vì nó ăn mất tiền của khách.
+        const maDon = uu.loai === 'DISCOUNT' ? undefined : (maDonDangMo ?? undefined);
         const kq = await api.doiDiem(accessToken, uu.rewardId, khoa.khoaCho(uu.rewardId), maDon);
         khoa.quen();
         // Số dư mới đến kèm phản hồi — không gọi thêm một lượt, vì lượt đó tạo ra khoảng thời
         // gian màn hình còn hiện số dư CŨ, đúng lúc khách đang nhìn xem điểm đã trừ chưa.
         setDiem(kq.soDuMoi);
-        onBaoTin?.(`Đã đổi ${kq.rewardName} · -${kq.pointsSpent} điểm`);
+        // Với ưu đãi giảm tiền, mã LÀ thứ khách vừa mua bằng điểm. Báo mỗi "đã trừ 500 điểm" là
+        // báo phần mất mà giấu phần được.
+        onBaoTin?.(
+          kq.ma === null
+            ? `Đã đổi ${kq.rewardName} · -${kq.pointsSpent} điểm`
+            : `Đã đổi ${kq.rewardName} · mã ${kq.ma}`,
+        );
       } catch (e) {
         if (!(e instanceof AuthException)) {
           setLoiNang(e);
@@ -207,7 +212,9 @@ export function LoyaltyScreen({
                 Phiếu chưa dùng
               </Text>
               <Text style={kieuChung.chuPhu}>
-                Đọc số điện thoại cho nhân viên để nhận. Phiếu biến khỏi đây khi đã nhận.
+                Phiếu có mã: đọc mã cho nhân viên lúc thanh toán. Phiếu tặng món: đọc số điện thoại.
+                {'\n'}
+                Phiếu biến khỏi đây khi đã dùng.
               </Text>
               {diem.phieuChuaDung.map((v) => (
                 <View
@@ -223,6 +230,21 @@ export function LoyaltyScreen({
                   <Text style={kieuChung.chuPhu}>
                     Đã đổi {ngayNgan(v.redeemedAt)} · {v.pointsSpent} điểm
                   </Text>
+                  {v.ma === null ? null : (
+                    <Text
+                      accessibilityLabel={`Mã ưu đãi ${v.ma.split('').join(' ')}`}
+                      selectable
+                      style={{
+                        fontSize: 22,
+                        fontWeight: '700',
+                        letterSpacing: 3,
+                        color: MauQuan.chestnut,
+                        marginTop: 4,
+                      }}
+                    >
+                      {v.ma}
+                    </Text>
+                  )}
                 </View>
               ))}
             </>
@@ -256,7 +278,9 @@ export function LoyaltyScreen({
                   {/* Nói trước điều kiện của ưu đãi giảm tiền. Để khách bấm rồi mới nhận
                       LOYALTY_ORDER_REQUIRED là bắt họ chạm vào một lời từ chối thấy trước được. */}
                   {r.loai === 'DISCOUNT' ? (
-                    <Text style={kieuChung.chuPhu}>Áp vào đơn đang mở, tối đa 30% hoá đơn</Text>
+                    <Text style={kieuChung.chuPhu}>
+                      Nhận mã, gõ khi thanh toán · tối đa 30% hoá đơn
+                    </Text>
                   ) : null}
                 </View>
                 <TouchableOpacity

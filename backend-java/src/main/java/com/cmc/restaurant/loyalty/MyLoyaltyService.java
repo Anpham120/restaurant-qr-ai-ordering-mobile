@@ -1,10 +1,10 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.loyalty.domain.MaUuDai;
 import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.auth.UserEntity;
 import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
-import com.cmc.restaurant.loyalty.domain.TranDoiDiem;
 import com.cmc.restaurant.orders.application.OrderLoyaltyPort;
 import com.cmc.restaurant.shared.ApiException;
 import java.math.BigDecimal;
@@ -131,7 +131,7 @@ public class MyLoyaltyService {
 		if (daCo != null) {
 			return new LoyaltyDtos.RedeemResponse(
 					daCo.getId(), daCo.getRewardId(), daCo.getRewardName(), daCo.getPointsSpent(),
-					daCo.getCreatedAt(), me(userId));
+					daCo.getCreatedAt(), daCo.getCode(), me(userId));
 		}
 
 		UserEntity user = users.findById(userId)
@@ -163,21 +163,24 @@ public class MyLoyaltyService {
 					"Ưu đãi này dành cho hạng " + canCo.tenHienThi() + " trở lên.");
 		}
 
-		// Hai loại ưu đãi bám vào hoá đơn theo hai kiểu khác nhau.
+		// Hai loại ưu đãi đi hai đường khác hẳn nhau.
 		//
-		// GIẢM TIỀN: BẮT BUỘC có đơn. Không có đơn thì điểm bị trừ mà không đồng nào được giảm.
+		// GIẢM TIỀN: sinh ra một MÃ, không chạm vào đơn hàng nào. Mã đó nhập ở bước tất toán, cùng
+		// ô với mã khuyến mãi của quán, và trừ vào `table_invoices` — nơi tiền thật sự được chốt.
+		//
+		// Trước đây nó ghi vào `orders.discount_amount`, mà hoá đơn bàn tính lại tạm tính từ dòng
+		// món rồi chỉ trừ cấp hoá đơn — nên khách mất điểm và vẫn trả đủ tiền. Đó là lý do cấp đơn
+		// hàng bị bỏ hẳn ở đây thay vì chỉ sửa chỗ đọc.
 		//
 		// TẶNG MÓN: có đơn thì gắn món vào đơn để bếp làm ngay; không có đơn thì phiếu nằm chờ và
 		// quầy phát bằng tay. Cả hai đều hợp lệ — khách ngồi tại bàn muốn ăn luôn, khách đổi ở nhà
-		// muốn để dành. Ép phải có đơn sẽ chặn mất trường hợp thứ hai.
+		// muốn để dành.
 		boolean laGiamTien = "DISCOUNT".equals(reward.getRewardType());
 		boolean coDon = orderCode != null && !orderCode.isBlank();
 		boolean ganMonVaoDon = !laGiamTien && coDon;
 
 		OrderLoyaltyPort.HoaDon hoaDon = null;
-		if (laGiamTien) {
-			hoaDon = kiemHoaDon(orderCode, reward.getDiscountAmount());
-		} else if (ganMonVaoDon) {
+		if (ganMonVaoDon) {
 			hoaDon = kiemDonConMo(orderCode);
 			if (reward.getMenuItemId() == null) {
 				// Ưu đãi tặng món mà không trỏ tới món nào là dữ liệu hỏng, không phải trạng thái
@@ -198,10 +201,8 @@ public class MyLoyaltyService {
 		}
 
 		// Sau khi điểm đã trừ thành công. Cùng một @Transactional, nên nếu bước này ném lỗi thì
-		// điểm cũng được trả lại — không có trạng thái "mất điểm mà đơn không giảm".
-		if (laGiamTien) {
-			donHang.congThemGiamGia(hoaDon.orderCode(), reward.getDiscountAmount());
-		} else if (ganMonVaoDon) {
+		// điểm cũng được trả lại.
+		if (ganMonVaoDon) {
 			maDongDon = donHang.themMonTang(hoaDon.orderCode(), reward.getMenuItemId());
 		}
 
@@ -212,19 +213,20 @@ public class MyLoyaltyService {
 		LoyaltyRedemptionEntity ghi = new LoyaltyRedemptionEntity(
 				"red_" + UUID.randomUUID().toString().replace("-", ""),
 				member.getId(), reward, idempotencyKey, now);
-		if (laGiamTien || ganMonVaoDon) {
-			// Đã bám vào một hoá đơn thì tiêu xong ngay tại đây, cho CẢ HAI loại ưu đãi.
-			//
-			// Bỏ sót nhánh giảm tiền là một lỗ thật, không phải chuyện gọn gàng: danh sách phiếu
-			// chờ lọc theo honoured_at is null, nên một khoản giảm đã trừ vào hoá đơn vẫn hiện ở
-			// quầy như phiếu chưa phát, và nhân viên bấm "đã phát" thì khách hưởng hai lần.
+		if (ganMonVaoDon) {
+			// Món đã vào đơn thì phiếu tiêu xong ngay tại đây. Để nó ở trạng thái chờ sẽ cho khách
+			// chìa lại phiếu ở quầy và nhận món lần thứ hai.
 			ghi.heThongGanVaoDon(hoaDon.orderCode(), maDongDon, now);
+		} else if (laGiamTien) {
+			// Giảm tiền thì CHƯA tiêu: khách cầm mã, tiêu lúc tất toán. Phiếu ở trạng thái chờ là
+			// đúng — nó vẫn là thứ khách đang cầm và dùng được.
+			ghi.capMa(MaUuDai.sinh(), reward.getDiscountAmount());
 		}
 		redemptions.save(ghi);
 
 		return new LoyaltyDtos.RedeemResponse(
 				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
-				ghi.getCreatedAt(), me(userId));
+				ghi.getCreatedAt(), ghi.getCode(), me(userId));
 	}
 
 	/**
@@ -233,11 +235,12 @@ public class MyLoyaltyService {
 	 * <p>Kiểm TRƯỚC khi trừ điểm. Trừ trước rồi mới phát hiện đơn đã thanh toán sẽ phải hoàn điểm,
 	 * và đường hoàn điểm là đường ít được chạy nhất nên cũng là đường dễ sai nhất.
 	 */
+
 	/**
 	 * Đơn còn nhận thêm được không.
 	 *
-	 * <p>Tách riêng khỏi phép kiểm trần vì món tặng KHÔNG có trần — trần là luật về tiền, còn món
-	 * tặng đã bị chặn sẵn bằng số điểm và hạng của ưu đãi.
+	 * <p>Chỉ ưu đãi TẶNG MÓN đi qua đây. Ưu đãi giảm tiền không chạm vào đơn nữa — nó sinh ra một
+	 * mã, và mã đó trừ ở cấp hoá đơn lúc tất toán.
 	 */
 	private OrderLoyaltyPort.HoaDon kiemDonConMo(String orderCode) {
 		OrderLoyaltyPort.HoaDon hoaDon = donHang.timHoaDon(orderCode.trim())
@@ -247,22 +250,6 @@ public class MyLoyaltyService {
 		if ("Completed".equals(hoaDon.status()) || "Cancelled".equals(hoaDon.status())) {
 			throw ApiException.badRequest("LOYALTY_ORDER_CLOSED",
 					"Đơn hàng này đã kết thúc, không áp dụng ưu đãi được nữa.");
-		}
-		return hoaDon;
-	}
-
-	private OrderLoyaltyPort.HoaDon kiemHoaDon(String orderCode, BigDecimal giam) {
-		if (orderCode == null || orderCode.isBlank()) {
-			throw ApiException.badRequest("LOYALTY_ORDER_REQUIRED",
-					"Ưu đãi giảm tiền cần một đơn hàng để áp dụng.");
-		}
-		OrderLoyaltyPort.HoaDon hoaDon = kiemDonConMo(orderCode);
-
-		if (!TranDoiDiem.chapNhan(giam, hoaDon.subtotalAmount())) {
-			throw ApiException.badRequest("LOYALTY_DISCOUNT_OVER_CAP",
-					"Mỗi hoá đơn chỉ được giảm tối đa "
-							+ TranDoiDiem.toiDaChoHoaDon(hoaDon.subtotalAmount()).toBigInteger()
-							+ "đ bằng điểm.");
 		}
 		return hoaDon;
 	}

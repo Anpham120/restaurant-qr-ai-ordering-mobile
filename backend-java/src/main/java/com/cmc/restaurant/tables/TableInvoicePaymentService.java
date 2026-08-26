@@ -15,6 +15,10 @@ import com.cmc.restaurant.payments.PaymentTransactionRepository;
 import com.cmc.restaurant.payments.VietQrProvider;
 import com.cmc.restaurant.payments.domain.PaymentMethod;
 import com.cmc.restaurant.payments.domain.PaymentStatus;
+import com.cmc.restaurant.loyalty.LoyaltyRedemptionEntity;
+import com.cmc.restaurant.loyalty.domain.MaUuDai;
+import com.cmc.restaurant.loyalty.domain.TranDoiDiem;
+import com.cmc.restaurant.tables.domain.TranGiamGiaHoaDon;
 import com.cmc.restaurant.promotions.PromotionService;
 import com.cmc.restaurant.promotions.domain.Promotion;
 import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
@@ -64,6 +68,7 @@ public class TableInvoicePaymentService {
 	private final JwtProperties jwtProperties;
 	private final VietQrProvider vietQrProvider;
 	private final PromotionService promotionService;
+	private final com.cmc.restaurant.loyalty.LoyaltyRedemptionRepository phieuDoiDiem;
 	private final LoyaltyService loyaltyService;
 	private final CounterService counterService;
 	private final ChatSessionRepository chatSessionRepository;
@@ -77,6 +82,7 @@ public class TableInvoicePaymentService {
 			RestaurantTableRepository tableRepository, PaymentRepository paymentRepository,
 			PaymentTransactionRepository transactionRepository, TableSessionCapability capability,
 			JwtProperties jwtProperties, VietQrProvider vietQrProvider, PromotionService promotionService,
+			com.cmc.restaurant.loyalty.LoyaltyRedemptionRepository phieuDoiDiem,
 			LoyaltyService loyaltyService, CounterService counterService,
 			ChatSessionRepository chatSessionRepository, OrderLookup orderLookup, OrderService orderService,
 			OrderRealtimeNotifier realtimeNotifier, TableInvoiceService invoiceReader) {
@@ -89,6 +95,7 @@ public class TableInvoicePaymentService {
 		this.jwtProperties = jwtProperties;
 		this.vietQrProvider = vietQrProvider;
 		this.promotionService = promotionService;
+		this.phieuDoiDiem = phieuDoiDiem;
 		this.loyaltyService = loyaltyService;
 		this.counterService = counterService;
 		this.chatSessionRepository = chatSessionRepository;
@@ -135,8 +142,11 @@ public class TableInvoicePaymentService {
 
 		String promotionCode = Promotion.normalizeCode(request == null ? null : request.promotionCode());
 		String phone = PhoneNumber.normalize(request == null ? null : request.customerPhoneNumber());
+		// Mã đổi điểm nằm TRONG dấu vân tay: gửi lại cùng khoá idempotency nhưng thêm một mã ưu đãi
+		// là một yêu cầu KHÁC, và trả về kết quả cũ sẽ nuốt mất khoản giảm khách vừa thêm.
+		String maDoiDiem = MaUuDai.chuanHoa(request == null ? null : request.loyaltyCode());
 		String fingerprint = RequestIdempotency.computeFingerprint(
-				new Fingerprint(sessionId, method.name(), promotionCode, phone, subtotal));
+				new Fingerprint(sessionId, method.name(), promotionCode, phone, subtotal, maDoiDiem));
 
 		Optional<TableInvoiceEntity> existing = invoiceRepository.findByTableSessionId(sessionId);
 
@@ -163,15 +173,27 @@ public class TableInvoicePaymentService {
 
 		Optional<Promotion.Discount> discount =
 				promotionService.tryApply(promotionCode, subtotal, OffsetDateTime.now());
-		BigDecimal discountAmount = discount.map(Promotion.Discount::discountAmount).orElse(BigDecimal.ZERO);
-		BigDecimal total = discount.map(Promotion.Discount::totalAmount).orElse(subtotal);
+		BigDecimal giamCuaQuan = discount.map(Promotion.Discount::discountAmount).orElse(BigDecimal.ZERO);
+
+		// Ưu đãi đổi bằng điểm trừ ở ĐÂY, cùng cấp với mã của quán. Trước đây nó ghi vào
+		// `orders.discount_amount`, mà hoá đơn bàn tính lại tạm tính từ dòng món rồi chỉ trừ cấp hoá
+		// đơn — nên khách mất điểm và vẫn trả đủ tiền.
+		LoyaltyRedemptionEntity phieu = timPhieuDungDuoc(maDoiDiem, subtotal);
+		BigDecimal giamDoiDiem = phieu == null ? BigDecimal.ZERO : phieu.getDiscountAmount();
+
+		// Từng nguồn đã nằm trong hạn mức riêng, nhưng cộng lại vẫn ăn quá sâu vào giá vốn.
+		BigDecimal tongTruocCat = giamCuaQuan.add(giamDoiDiem);
+		BigDecimal discountAmount = TranGiamGiaHoaDon.cat(tongTruocCat, subtotal);
+		BigDecimal total = subtotal.subtract(discountAmount).max(BigDecimal.ZERO);
 
 		OffsetDateTime now = OffsetDateTime.now();
 		TableInvoiceEntity invoice = existing.orElseGet(() -> new TableInvoiceEntity(
 				"tinv_" + UUID.randomUUID().toString().replace("-", ""),
 				buildInvoiceCode(now), sessionId, now));
 		invoice.applyPaymentRequest(
-				subtotal, discountAmount, total, promotionCode, phone, method.name(), now);
+				subtotal, discountAmount, total, promotionCode, phone, method.name(),
+				phieu == null ? null : phieu.getId(),
+				phieu == null ? null : giamDoiDiem, now);
 		invoiceRepository.save(invoice);
 
 		PaymentEntity payment = paymentRepository.findByTableInvoiceId(invoice.getId())
@@ -242,6 +264,19 @@ public class TableInvoicePaymentService {
 		// Từ đây trở xuống là việc PHỤ TRỢ — tiền đã ghi xong. Thứ tự theo bản .NET.
 		List<OrderDtos.OrderResponse> completed =
 				orderService.completeOrdersForTableSession(sessionId, actor);
+		// THU MÃ ĐỔI ĐIỂM. Không thu thì cùng một mã dùng được ở mọi hoá đơn về sau — khách trả một
+		// lần điểm rồi được giảm mãi mãi. Thu ở bước XÁC NHẬN chứ không ở bước yêu cầu thanh toán:
+		// yêu cầu có thể bị huỷ, và huỷ rồi mà mã đã mất thì khách mất trắng.
+		//
+		// UPDATE có điều kiện, cùng khuôn với truDiemNeuDu: hai hoá đơn cùng gõ một mã sẽ có đúng
+		// một cái thắng.
+		String maDaDung = s.invoice().getLoyaltyRedemptionId();
+		if (maDaDung != null
+				&& phieuDoiDiem.thuPhieuNeuChuaDung(maDaDung, now, actor.userId()) == 0) {
+			throw ApiException.conflict("LOYALTY_CODE_ALREADY_USED",
+					"Mã ưu đãi trên hoá đơn này vừa được dùng ở nơi khác.");
+		}
+
 		loyaltyService.accrue(s.invoice().getCustomerPhoneNumber(), s.invoice().getTotalAmount(), now);
 		chatSessionRepository.deleteAll(
 				chatSessionRepository.findByTableSessionIdAndClosedFalse(sessionId));
@@ -304,7 +339,8 @@ public class TableInvoicePaymentService {
 	// --- helper ----------------------------------------------------------------------------------
 
 	private record Fingerprint(
-			String sessionId, String method, String promotionCode, String phone, BigDecimal subtotal) {
+			String sessionId, String method, String promotionCode, String phone, BigDecimal subtotal,
+			String loyaltyCode) {
 	}
 
 	private record Settlement(
@@ -353,6 +389,38 @@ public class TableInvoicePaymentService {
 	private static ApiException paymentNotFound() {
 		return ApiException.notFound(
 				"TABLE_INVOICE_PAYMENT_NOT_FOUND", "Table invoice payment was not found.");
+	}
+
+	/**
+	 * Tra mã đổi điểm khách gõ vào ô giảm giá.
+	 *
+	 * <p>Trả {@code null} khi không có mã — không phải lỗi, phần lớn hoá đơn không dùng ưu đãi.
+	 * Mã sai hoặc đã dùng thì NÉM lỗi: khách gõ mã vì tin nó còn giá trị, và im lặng bỏ qua sẽ thu
+	 * đủ tiền trong khi khách tưởng đã được giảm.
+	 *
+	 * <p>Mã là vật mang quyền, không kiểm nó thuộc về ai: hội viên nhờ người khác trả hộ là tình
+	 * huống thật, và bắt người trả tiền phải đăng nhập bằng tài khoản của người khác thì tệ hơn.
+	 */
+	private LoyaltyRedemptionEntity timPhieuDungDuoc(String ma, BigDecimal tamTinh) {
+		if (ma == null || ma.isEmpty()) {
+			return null;
+		}
+		LoyaltyRedemptionEntity phieu = phieuDoiDiem.findByCode(ma)
+				.orElseThrow(() -> ApiException.badRequest("LOYALTY_CODE_NOT_FOUND",
+						"Mã ưu đãi không đúng."));
+		if (phieu.getHonouredAt() != null) {
+			throw ApiException.conflict("LOYALTY_CODE_ALREADY_USED", "Mã ưu đãi này đã dùng rồi.");
+		}
+		if (phieu.getReversedAt() != null) {
+			throw ApiException.badRequest("LOYALTY_CODE_REVERSED",
+					"Mã ưu đãi này đã được hoàn điểm, không dùng được nữa.");
+		}
+		if (!TranDoiDiem.chapNhan(phieu.getDiscountAmount(), tamTinh)) {
+			throw ApiException.badRequest("LOYALTY_DISCOUNT_OVER_CAP",
+					"Hoá đơn này chỉ được giảm tối đa "
+							+ TranDoiDiem.toiDaChoHoaDon(tamTinh).toBigInteger() + "đ bằng điểm.");
+		}
+		return phieu;
 	}
 
 	private static ApiException attemptClosed() {

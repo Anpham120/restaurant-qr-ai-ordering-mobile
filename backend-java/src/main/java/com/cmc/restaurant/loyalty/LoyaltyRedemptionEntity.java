@@ -50,6 +50,19 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "order_code")
 	private String orderCode;
 
+	/**
+	 * Mã khách đọc ra hoặc gõ vào; chỉ ưu đãi GIẢM TIỀN mới có.
+	 *
+	 * <p>Ưu đãi tặng món để trống: nó thành một dòng 0đ trong đơn ngay lúc đổi, không có gì để
+	 * khách cầm đi.
+	 */
+	@Column(name = "code")
+	private String code;
+
+	/** Số tiền giảm, chụp lại lúc đổi; {@code null} với ưu đãi tặng món. */
+	@Column(name = "discount_amount")
+	private java.math.BigDecimal discountAmount;
+
 	/** Dòng đơn do ưu đãi tặng món sinh ra; {@code null} với ưu đãi giảm tiền. */
 	@Column(name = "order_item_id")
 	private String orderItemId;
@@ -95,6 +108,20 @@ public class LoyaltyRedemptionEntity {
 
 	public String getOrderCode() {
 		return orderCode;
+	}
+
+	public String getCode() {
+		return code;
+	}
+
+	public java.math.BigDecimal getDiscountAmount() {
+		return discountAmount;
+	}
+
+	/** Ưu đãi giảm tiền: sinh mã và chụp lại số tiền, chưa gắn vào hoá đơn nào. */
+	void capMa(String ma, java.math.BigDecimal soTien) {
+		this.code = ma;
+		this.discountAmount = soTien;
 	}
 
 	public OffsetDateTime getReversedAt() {

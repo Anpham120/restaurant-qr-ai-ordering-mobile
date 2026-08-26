@@ -10,6 +10,8 @@ export interface Voucher {
   readonly rewardName: string;
   readonly pointsSpent: number;
   readonly redeemedAt: string;
+  /** Mã khách đọc ở quầy hoặc gõ vào ô giảm giá; `null` với ưu đãi tặng món. */
+  readonly ma: string | null;
 }
 
 /** Ba hạng thành viên. Tên hằng khớp `MemberTier` phía backend. */
@@ -64,6 +66,8 @@ export interface KetQuaDoiDiem {
   readonly redemptionId: string;
   readonly rewardName: string;
   readonly pointsSpent: number;
+  /** Mã vừa sinh ra với ưu đãi giảm tiền; `null` với ưu đãi tặng món. */
+  readonly ma: string | null;
   /**
    * Số dư SAU khi đổi, do backend trả kèm.
    *
@@ -119,6 +123,7 @@ export function voucherTuJson(json: unknown): Voucher {
     rewardName: typeof o.rewardName === 'string' ? o.rewardName : '',
     pointsSpent: typeof o.pointsSpent === 'number' ? o.pointsSpent : 0,
     redeemedAt: typeof o.redeemedAt === 'string' ? o.redeemedAt : '',
+    ma: typeof o.code === 'string' ? o.code : null,
   };
 }
 
@@ -128,6 +133,7 @@ export function ketQuaDoiDiemTuJson(json: unknown): KetQuaDoiDiem {
     redemptionId: typeof o.redemptionId === 'string' ? o.redemptionId : '',
     rewardName: typeof o.rewardName === 'string' ? o.rewardName : '',
     pointsSpent: typeof o.pointsSpent === 'number' ? o.pointsSpent : 0,
+    ma: typeof o.code === 'string' ? o.code : null,
     soDuMoi: myLoyaltyTuJson(o.soDuMoi),
   };
 }

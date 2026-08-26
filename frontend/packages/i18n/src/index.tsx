@@ -152,6 +152,8 @@ export const EN_COPY: Record<string, string> = {
   "Lần gọi món tiếp theo": "Next order round",
   "Lịch sử xử lý": "Status history",
   "Lỗi kết nối": "Connection error",
+  "Mã đổi điểm": "Points reward code",
+  "Mã bạn đổi bằng điểm trong ứng dụng": "The code you redeemed with points in the app",
   "Mã ưu đãi": "Promotion code",
   "Mã ưu đãi, tích điểm và thanh toán được áp dụng một lần cho toàn bộ món trong phiên bàn.": "Promotions, loyalty points and payment apply once to the entire table session.",
   "Mã VietQR cho hóa đơn {code}": "VietQR code for bill {code}",

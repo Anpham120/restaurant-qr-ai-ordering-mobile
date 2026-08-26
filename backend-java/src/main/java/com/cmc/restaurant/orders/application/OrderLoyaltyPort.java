@@ -36,14 +36,6 @@ public interface OrderLoyaltyPort {
 	Optional<HoaDon> timHoaDon(String orderCode);
 
 	/**
-	 * Cộng thêm {@code themGiam} vào khoản giảm của đơn và tính lại tổng.
-	 *
-	 * <p>Cộng dồn chứ không ghi đè: đơn có thể đã mang sẵn giảm giá từ mã khuyến mãi, và ghi đè sẽ
-	 * âm thầm xoá khoản đó đi.
-	 */
-	void congThemGiamGia(String orderCode, BigDecimal themGiam);
-
-	/**
 	 * Thêm một dòng món tặng vào đơn, đơn giá 0đ.
 	 *
 	 * <p>Đơn giá 0 chứ không phải giá gốc kèm một khoản giảm bằng đúng giá đó: món tặng KHÔNG phải

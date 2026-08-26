@@ -116,7 +116,8 @@ public class LoyaltyService {
 
 	static LoyaltyDtos.VoucherResponse moTaPhieu(LoyaltyRedemptionEntity r) {
 		return new LoyaltyDtos.VoucherResponse(
-				r.getId(), r.getRewardName(), r.getPointsSpent(), r.getCreatedAt(), r.getHonouredAt());
+				r.getId(), r.getRewardName(), r.getPointsSpent(), r.getCreatedAt(), r.getHonouredAt(),
+				r.getCode());
 	}
 
 	/**

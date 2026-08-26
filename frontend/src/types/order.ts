@@ -169,7 +169,10 @@ export type TableInvoice = {
   tableCode: TableCode | null;
   status: PaymentStatus;
   subtotalAmount: number;
+  /** TỔNG mọi khoản giảm — mã của quán cộng ưu đãi đổi điểm, đã cắt theo trần. */
   discountAmount: number;
+  /** Phần do đổi điểm, tách ra để biên nhận giải thích được con số tổng. */
+  loyaltyDiscountAmount: number | null;
   totalAmount: number;
   promotionCode: string | null;
   customerPhoneNumber: string | null;
@@ -191,6 +194,8 @@ export type TableInvoicePaymentRequest = {
   method: RequestedPaymentMethod;
   promotionCode?: string | null;
   customerPhoneNumber?: string | null;
+  /** Mã đổi bằng điểm — cùng ô nhập với promotionCode, cộng dồn rồi cắt theo trần tổng. */
+  loyaltyCode?: string | null;
 };
 
 export type TableInvoicePaymentRequestResponse = {
