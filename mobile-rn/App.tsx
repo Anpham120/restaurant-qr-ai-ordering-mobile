@@ -1,6 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+// SafeAreaView của react-native là NO-OP trên Android: nó chỉ chừa lề trên iOS. Trên máy Android
+// thật, tiêu đề mọi màn hình bị thanh trạng thái đè lên — và jest render vào cây ảo nên không có
+// thanh nào để đè, phép kiểm nào cũng xanh. Bản của react-native-safe-area-context đọc lề thật từ
+// hệ điều hành ở cả hai nền tảng, và là thứ Expo khuyến nghị.
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { HttpAuthApi } from './src/core/auth/authApi';
 import { AuthRepository } from './src/core/auth/authRepository';
@@ -65,6 +70,14 @@ function dungClient(cauHinh: CauHinhMayChu) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <NoiDungApp />
+    </SafeAreaProvider>
+  );
+}
+
+function NoiDungApp() {
   const [cauHinh, setCauHinh] = useState<CauHinhMayChu | null>(null);
   const [dangNhap, setDangNhap] = useState<AuthSession | null>(null);
   const [phienBan, setPhienBan] = useState<TableSession | null>(null);

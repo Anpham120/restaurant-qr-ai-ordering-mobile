@@ -112,7 +112,9 @@ describe('vào bàn bằng cách nhập tay', () => {
     };
     await render(<OpenTableScreen onMoPhienXong={xong} repository={repoVoi(api)} />);
 
-    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'sai');
+    // Phải dài từ 4 ký tự thì mới qua được bộ phân tích phía app và tới được máy chủ — phép
+    // kiểm này nói về câu trả lời CỦA MÁY CHỦ, không phải về việc app tự chặn.
+    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'cmc-table-sai');
     await fireEvent.press(screen.getByLabelText('Vào bàn'));
 
     await screen.findByText('Mã QR không đúng hoặc bàn đã ngừng phục vụ.');
@@ -216,5 +218,42 @@ describe('nói rõ đơn có được gắn tài khoản không', () => {
 
     expect(screen.queryByLabelText('Đăng nhập để tích điểm')).toBeNull();
     expect(screen.getByText(/sẽ được cộng vào tài khoản/)).toBeTruthy();
+  });
+
+  it('DÁN NGUYÊN URL trên tem cũng vào được bàn', async () => {
+    // Tem QR chứa một URL. Ai đọc tem bằng app khác rồi dán vào đây — thứ tự nhiên nhất để làm —
+    // trước đây luôn nhận "Mã QR không đúng", vì ô này gửi thẳng cả chuỗi lên máy chủ trong khi
+    // đường QUÉT thì bóc `?qr=` ra. Hai đường vào cùng một ô, hai luật khác nhau.
+    const api = new ApiTot();
+    const xong = jest.fn();
+    await render(<OpenTableScreen onMoPhienXong={xong} repository={repoVoi(api)} />);
+
+    await fireEvent.changeText(
+      screen.getByLabelText('Mã QR của bàn'),
+      'http://192.168.1.9:8080/table/T01?qr=cmc-table-t01-qr',
+    );
+    await fireEvent.press(screen.getByLabelText('Vào bàn'));
+
+    expect(api.qrDaNhan).toBe('cmc-table-t01-qr');
+    expect(xong).toHaveBeenCalled();
+  });
+
+  it('chuỗi không phải mã cũng không phải URL thì chặn NGAY, không gọi máy chủ', async () => {
+    // Quét nhầm mã wifi hay danh thiếp là chuyện thường. Gửi lên máy chủ rồi nhận lỗi khó hiểu
+    // tệ hơn nói thẳng tại chỗ.
+    let daGoi = false;
+    const api: TableSessionApi = {
+      moPhien: async () => {
+        daGoi = true;
+        return PHIEN;
+      },
+    };
+    await render(<OpenTableScreen onMoPhienXong={jest.fn()} repository={repoVoi(api)} />);
+
+    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'a b c');
+    await fireEvent.press(screen.getByLabelText('Vào bàn'));
+
+    expect(daGoi).toBe(false);
+    expect(screen.getByText(/Mã không đọc được/)).toBeTruthy();
   });
 });

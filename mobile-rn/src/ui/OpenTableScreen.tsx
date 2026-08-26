@@ -5,6 +5,7 @@ import { AuthException } from '../core/auth/authApi';
 import { type AuthSession } from '../core/auth/authSession';
 import { type TableSession } from '../core/tables/tableSession';
 import { type TableSessionRepository } from '../core/tables/tableSessionRepository';
+import { phanTichQrBan } from '../core/tables/quetQr';
 import { QrScanScreen } from './QrScanScreen';
 import { MauQuan, kieuChung } from './theme';
 
@@ -41,7 +42,16 @@ export function OpenTableScreen({
   const [dangQuet, setDangQuet] = useState(false);
 
   const mo = useCallback(
-    async (token: string) => {
+    async (nhapVao: string) => {
+      // Chạy qua CÙNG bộ phân tích với đường quét. Trước đây ô này gửi thẳng thứ khách gõ lên máy
+      // chủ, nên dán nguyên URL trên tem QR — thứ tự nhiên nhất để dán — luôn trả QR_NOT_FOUND.
+      // Hai đường vào cùng một ô, hai luật khác nhau.
+      const ma = phanTichQrBan(nhapVao);
+      if (ma === null) {
+        setLoi('Mã không đọc được. Quét lại tem, hoặc dán đúng đường dẫn trên tem.');
+        return;
+      }
+      const token = ma.qrToken;
       if (dangGui) return;
       setDangGui(true);
       setLoi(null);
@@ -114,7 +124,9 @@ export function OpenTableScreen({
           style={kieuChung.oNhap}
           value={qr}
         />
-        <Text style={kieuChung.chuPhu}>Dùng khi tem QR bị mờ hoặc không bật được camera</Text>
+        <Text style={kieuChung.chuPhu}>
+          Dán đường dẫn trên tem, hoặc mã in kèm. Dùng khi không bật được camera.
+        </Text>
       </View>
 
       {/*
