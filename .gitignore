@@ -58,3 +58,5 @@ pr_dev_body.txt
 site-demo/
 tmp/
 tools/
+.tmp-seed/
+.tmp-expo.log
