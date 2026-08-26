@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@cmc/i18n";
 import { localizeMenuItemName } from "@cmc/i18n/menu";
 import { Banknote, QrCode, ReceiptText, X } from "lucide-react";
+import type { Promotion } from "@cmc/shared-types";
+import { api } from "../services/apiClient";
 import { validatePromotion } from "../services/orderService";
 import type {
   RequestedPaymentMethod,
@@ -26,6 +28,23 @@ export function TableInvoicePaymentModal({ invoice, onClose, onRequest }: Props)
   const [promotionCode, setPromotionCode] = useState("");
   const [customerPhoneNumber, setCustomerPhoneNumber] = useState("");
   const [loyaltyCode, setLoyaltyCode] = useState("");
+  const [maDangChay, setMaDangChay] = useState<Promotion[]>([]);
+
+  // Nạp mã đang chạy để khách CHỌN thay vì phải biết trước. Endpoint này có từ trước nhưng chỉ
+  // app di động gọi — web có ô nhập mà không có đường nào cho khách biết mã nào đang có.
+  useEffect(() => {
+    let huy = false;
+    void api.promotions
+      .listActive()
+      .then((r) => {
+        if (!huy) setMaDangChay(r.items ?? []);
+      })
+      // Không có mã nào cũng không sao, và lỗi ở đây không được chặn việc trả tiền.
+      .catch(() => undefined);
+    return () => {
+      huy = true;
+    };
+  }, []);
   const [promotionPreview, setPromotionPreview] = useState<PromotionPreview | null>(null);
   const [isApplyingPromotion, setIsApplyingPromotion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,6 +160,19 @@ export function TableInvoicePaymentModal({ invoice, onClose, onRequest }: Props)
                   {isApplyingPromotion ? t("Đang kiểm tra") : t("Áp dụng")}
                 </button>
               </div>
+              {maDangChay.length === 0 ? null : (
+                <div className="table-invoice-promotion-chips">
+                  {maDangChay.map((km) => (
+                    <button
+                      key={km.code}
+                      onClick={() => { setPromotionCode(km.code); setPromotionPreview(null); }}
+                      type="button"
+                    >
+                      {km.code}
+                    </button>
+                  ))}
+                </div>
+              )}
             </label>
             <label>
               <span>{t("Mã đổi điểm")} <small>{t("(tùy chọn)")}</small></span>

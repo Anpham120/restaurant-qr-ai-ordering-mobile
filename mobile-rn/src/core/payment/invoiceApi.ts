@@ -9,13 +9,27 @@ export interface InvoiceApi {
    *
    * KHÔNG phải xác nhận đã trả tiền — khách không có quyền đó.
    */
+  /**
+   * @param maKhuyenMai mã của quán, ai cũng dùng được
+   * @param maDoiDiem   mã khách đổi bằng điểm
+   *
+   * Hai mã cộng dồn, và tổng bị cắt theo trần của hoá đơn ở phía máy chủ. App không tự tính lại —
+   * trần là luật nghiệp vụ và nó sống ở backend.
+   */
   yeuCauThanhToan(
     sessionId: string,
     tableSessionToken: string,
     method: string,
     khoaIdempotency: string,
     soDienThoai?: string | null,
+    maKhuyenMai?: string | null,
+    maDoiDiem?: string | null,
   ): Promise<Invoice>;
+}
+
+/** Cắt khoảng trắng và gạch nối, viết hoa — cùng luật với `MaUuDai.chuanHoa` bên máy chủ. */
+function chuanHoaMa(ma?: string | null): string {
+  return (ma ?? '').trim().toUpperCase().replace(/[-s]/g, '');
 }
 
 export class HttpInvoiceApi implements InvoiceApi {
@@ -42,11 +56,19 @@ export class HttpInvoiceApi implements InvoiceApi {
     method: string,
     khoaIdempotency: string,
     soDienThoai?: string | null,
+    maKhuyenMai?: string | null,
+    maDoiDiem?: string | null,
   ): Promise<Invoice> {
     const than: Record<string, string> = { method };
     // Số điện thoại đi kèm hoá đơn là thứ quyết định đơn này có được tích điểm hay không (§9.7).
     // Chỉ gửi khi thật sự có.
     if (soDienThoai != null && soDienThoai.length > 0) than.customerPhoneNumber = soDienThoai;
+    // Chuẩn hoá GIỐNG HỆT phía máy chủ: khách đọc mã theo cụm nên hay gõ kèm gạch nối hoặc khoảng
+    // trắng, và từ chối vì một dấu gạch là bắt họ sửa thứ đáng lẽ hệ thống tự hiểu.
+    const km = chuanHoaMa(maKhuyenMai);
+    if (km.length > 0) than.promotionCode = km;
+    const dd = chuanHoaMa(maDoiDiem);
+    if (dd.length > 0) than.loyaltyCode = dd;
 
     const res = await this.gui(`${this.goc(sessionId)}/payment-request`, {
       method: 'POST',

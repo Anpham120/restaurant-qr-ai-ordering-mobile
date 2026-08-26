@@ -298,3 +298,28 @@
   .ordering-header .brand-wordmark-copy { display: none; }
   .ordering-table span { display: none; }
 }
+
+/* Mã đang chạy, chạm là điền — khách không phải biết trước mã nào đang có. */
+.table-invoice-promotion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.table-invoice-promotion-chips button {
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ordering-line, #e3d7cd);
+  background: transparent;
+  color: var(--ordering-accent, #6f3d2c);
+  cursor: pointer;
+}
+
+.table-invoice-promotion-chips button:hover,
+.table-invoice-promotion-chips button:focus-visible {
+  border-color: var(--ordering-accent, #6f3d2c);
+}

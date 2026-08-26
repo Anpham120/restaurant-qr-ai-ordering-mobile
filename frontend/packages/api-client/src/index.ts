@@ -218,6 +218,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
       delete: (id: string) => request<void>(`/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" }),
     },
     promotions: {
+      /**
+       * Mã đang chạy, cho KHÁCH xem — khác `list()` phía dưới vốn là đường quản trị.
+       *
+       * Endpoint này có từ trước nhưng chỉ app di động gọi; web chưa bao giờ gọi tới, nên khách
+       * web chỉ gõ được mã họ đã biết từ tờ rơi hay biển trong quán.
+       */
+      listActive: () => request<{ items: Promotion[] }>("/promotions/active"),
       validate: (payload: ValidatePromotionRequest) => request<ValidatePromotionResponse>("/promotions/validate", { method: "POST", body: JSON.stringify(payload) }),
       list: () => request<Promotion[]>("/admin/promotions"),
       get: (id: string) => request<Promotion>(`/admin/promotions/${encodeURIComponent(id)}`),

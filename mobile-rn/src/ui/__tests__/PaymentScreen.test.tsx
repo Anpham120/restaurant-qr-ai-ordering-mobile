@@ -4,6 +4,8 @@ import { AuthException } from '../../core/auth/authApi';
 import { type Invoice } from '../../core/payment/invoice';
 import { type InvoiceApi } from '../../core/payment/invoiceApi';
 import { type TableSession } from '../../core/tables/tableSession';
+import { type Promotion } from '../../core/promotions/promotion';
+import { type PromotionApi } from '../../core/promotions/promotionApi';
 import { PaymentScreen } from '../PaymentScreen';
 
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn().mockResolvedValue(true) }));
@@ -96,7 +98,17 @@ describe('yêu cầu thanh toán', () => {
 
     await fireEvent.press(await screen.findByText('Trả tiền mặt tại quầy'));
 
-    expect(yeuCau).toHaveBeenCalledWith('ts_abc', 'tst', 'COD', expect.any(String), null);
+    expect(yeuCau).toHaveBeenCalledWith(
+      'ts_abc',
+      'tst',
+      'COD',
+      expect.any(String),
+      null,
+      // Hai mã để trống khi khách không nhập gì — nhưng vẫn được TRUYỀN, vì trước đây màn này
+      // không gửi mã nào cả và khách không có cách nào áp ưu đãi lúc thanh toán.
+      '',
+      '',
+    );
     await screen.findByText(/Mời bạn trả tiền mặt/);
   });
 
@@ -216,5 +228,50 @@ describe('chờ chuyển khoản VietQR', () => {
     await fireEvent.press(await screen.findByText('Kiểm tra lại trạng thái'));
 
     await screen.findByText('Cảm ơn bạn. Hẹn gặp lại!');
+  });
+});
+
+describe('mã ưu đãi lúc thanh toán', () => {
+  const KM: PromotionApi = {
+    dangChay: async () => [
+      { code: 'GIAM10', name: 'Giảm 10%', description: null } as unknown as Promotion,
+    ],
+  };
+
+  it('gõ cả hai mã thì CẢ HAI được gửi lên', async () => {
+    // Trước đây màn này không gửi mã nào cả: khách không có cách nào áp ưu đãi lúc thanh toán,
+    // dù web có ô nhập và backend nhận cả hai.
+    const goi = jest.fn(async () => hoaDon());
+    await render(<PaymentScreen api={apiVoi(hoaDon(), goi)} phienBan={PHIEN} promotionApi={KM} />);
+
+    await fireEvent.changeText(await screen.findByLabelText('Mã ưu đãi của quán'), 'giam10');
+    await fireEvent.changeText(screen.getByLabelText('Mã đổi bằng điểm'), 'a7k2-m9x3');
+    await fireEvent.press(screen.getByText('Trả tiền mặt tại quầy'));
+
+    expect(goi).toHaveBeenCalledWith(
+      'ts_abc',
+      'tst',
+      'COD',
+      expect.any(String),
+      null,
+      'giam10',
+      'a7k2-m9x3',
+    );
+  });
+
+  it('chạm vào mã đang chạy thì ĐIỀN vào ô, không bắt gõ lại', async () => {
+    // Bắt gõ lại một mã đang hiện ngay trên màn hình là bắt làm một việc máy làm được.
+    await render(<PaymentScreen api={apiVoi(hoaDon())} phienBan={PHIEN} promotionApi={KM} />);
+
+    await fireEvent.press(await screen.findByLabelText('Dùng mã GIAM10'));
+
+    expect(screen.getByLabelText('Mã ưu đãi của quán').props.value).toBe('GIAM10');
+  });
+
+  it('không có promotionApi thì màn vẫn chạy, chỉ không có danh sách mã', async () => {
+    await render(<PaymentScreen api={apiVoi(hoaDon())} phienBan={PHIEN} />);
+
+    expect(await screen.findByLabelText('Mã ưu đãi của quán')).toBeTruthy();
+    expect(screen.queryByLabelText('Dùng mã GIAM10')).toBeNull();
   });
 });

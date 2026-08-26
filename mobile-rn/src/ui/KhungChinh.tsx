@@ -154,6 +154,7 @@ export function KhungChinh(p: KhungChinhProps) {
         nhan: 'Tài khoản',
         man: () => (
           <AccountTab
+            promotionApi={p.promotionApi}
             orderApi={p.orderApi}
             cauHinh={p.cauHinh}
             dangNhap={p.dangNhap}

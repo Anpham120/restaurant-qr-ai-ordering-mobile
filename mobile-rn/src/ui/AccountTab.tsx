@@ -4,6 +4,7 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { type AuthSession } from '../core/auth/authSession';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
+import { type PromotionApi } from '../core/promotions/promotionApi';
 import { maDonDangMo } from '../core/orders/order';
 import { type OrderApi } from '../core/orders/orderApi';
 import { type FavouriteApi } from '../core/orders/favouriteApi';
@@ -24,6 +25,7 @@ export interface AccountTabProps {
   historyApi: OrderHistoryApi;
   favouriteApi: FavouriteApi;
   loyaltyApi: LoyaltyApi;
+  promotionApi: PromotionApi;
   orderApi: OrderApi;
   themVaoGio: (menuItemId: string, quantity: number) => Promise<void>;
   onMoCaiDat: () => void;
@@ -67,6 +69,7 @@ export function AccountTab(p: AccountTabProps) {
     return (
       <ManConCoNutVe onVe={() => setManCon(null)}>
         <PaymentScreen
+          promotionApi={p.promotionApi}
           api={p.invoiceApi}
           onBaoTin={p.onBaoTin}
           phienBan={p.phienBan}
