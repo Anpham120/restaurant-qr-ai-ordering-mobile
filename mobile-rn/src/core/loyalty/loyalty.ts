@@ -46,6 +46,14 @@ export interface MyLoyalty {
    * mời liên kết chứ không hiện thông báo hỏng.
    */
   readonly linked: boolean;
+  /**
+   * Số đó đã có HỒ SƠ TÍCH ĐIỂM chưa — khác hẳn linked.
+   *
+   * Nối số chỉ ghi số vào tài khoản. Hồ sơ sinh ra ở lần thanh toán ĐẦU TIÊN có kèm số đó. Gộp
+   * hai thứ làm một khiến màn hình hiện "hạng Bạc, 0 điểm" cho người chưa từng có hồ sơ — trông
+   * y hệt một hội viên mới, nên khách tưởng đã ghi danh xong.
+   */
+  readonly coHoSo: boolean;
   readonly phoneNumber: string | null;
   readonly points: number;
   readonly availableRewards: readonly Reward[];
@@ -104,6 +112,7 @@ export function myLoyaltyTuJson(json: unknown): MyLoyalty {
   const o = (json ?? {}) as Record<string, unknown>;
   return {
     linked: typeof o.linked === 'boolean' ? o.linked : false,
+    coHoSo: typeof o.hasProfile === 'boolean' ? o.hasProfile : false,
     phoneNumber: typeof o.phoneNumber === 'string' ? o.phoneNumber : null,
     points: typeof o.points === 'number' ? o.points : 0,
     availableRewards: Array.isArray(o.availableRewards) ? o.availableRewards.map(rewardTuJson) : [],

@@ -31,6 +31,24 @@ export function TheHang({ diem }: TheHangProps) {
   const mau = MAU_HANG[diem.hang];
   const tienDo = tienDoLenHang(diem);
 
+  // Đã nối số nhưng CHƯA có hồ sơ: đừng vẽ thẻ hạng. Một thẻ "Bạc · 0 điểm" trông y hệt hội viên
+  // mới, nên khách tưởng đã ghi danh xong rồi đi ăn mà quên đọc số ở quầy — và lần đó không có gì
+  // được ghi. Nói thẳng việc còn phải làm thay vì vẽ một cái hạng chưa tồn tại.
+  if (!diem.coHoSo) {
+    return (
+      <View style={[kieuChung.the, { backgroundColor: MauQuan.beige, gap: 8 }]}>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: MauQuan.ink }}>
+          Chưa bắt đầu tích điểm
+        </Text>
+        <Text style={kieuChung.chu}>
+          Số của bạn đã liên kết, nhưng chưa có lần tích điểm nào. Đọc số này ở quầy khi thanh toán
+          để bắt đầu.
+        </Text>
+        <Text style={kieuChung.chuPhu}>Hoá đơn từ 10.000đ mới được tính điểm.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[kieuChung.the, { backgroundColor: mau, gap: 10 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

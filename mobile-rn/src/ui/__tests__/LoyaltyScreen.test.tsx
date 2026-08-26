@@ -7,6 +7,7 @@ import { LoyaltyScreen, moTaViecSeXayRa } from '../LoyaltyScreen';
 
 const CHUA_NOI: MyLoyalty = {
   linked: false,
+  coHoSo: false,
   phoneNumber: null,
   points: 0,
   availableRewards: [],
@@ -20,6 +21,7 @@ const CHUA_NOI: MyLoyalty = {
 
 const DA_NOI: MyLoyalty = {
   linked: true,
+  coHoSo: true,
   phoneNumber: '0901234567',
   points: 320,
   availableRewards: [

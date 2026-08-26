@@ -37,8 +37,18 @@ public final class LoyaltyDtos {
 	 * @param nextTierName     hạng kế tiếp, {@code null} khi đã cao nhất
 	 * @param amountToNextTier còn phải chi bao nhiêu nữa; 0 khi đã cao nhất
 	 */
+	/**
+	 * @param linked     tài khoản đã nối một số điện thoại chưa
+	 * @param hasProfile số đó đã có HỒ SƠ TÍCH ĐIỂM chưa — khác hẳn {@code linked}
+	 *
+	 *                   <p>Nối số chỉ ghi số vào tài khoản. Hồ sơ tích điểm sinh ra ở lần thanh
+	 *                   toán ĐẦU TIÊN có kèm số đó, và hoá đơn phải đủ lớn để ra ít nhất một điểm.
+	 *                   Gộp hai thứ làm một khiến màn hình hiện "hạng Bạc" cho người chưa từng có
+	 *                   hồ sơ nào — khách tưởng đã ghi danh xong rồi đi ăn mà quên đọc số ở quầy.
+	 */
 	public record MyLoyaltyResponse(
-			boolean linked, String phoneNumber, int points, List<RewardResponse> availableRewards,
+			boolean linked, boolean hasProfile, String phoneNumber, int points,
+			List<RewardResponse> availableRewards,
 			String tier, String tierName, BigDecimal spend12m,
 			String nextTierName, BigDecimal amountToNextTier,
 			List<VoucherResponse> pendingVouchers) {
@@ -87,7 +97,8 @@ public final class LoyaltyDtos {
 	}
 
 	public record LookupResponse(
-			String phoneNumber, int points, BigDecimal lifetimeSpend, BigDecimal spend12m,
+			String phoneNumber, boolean hasProfile, int points, BigDecimal lifetimeSpend,
+			BigDecimal spend12m,
 			String tier, String tierName,
 			List<RewardResponse> availableRewards, List<VoucherResponse> pendingVouchers) {
 	}

@@ -4,6 +4,7 @@ import { HttpLoyaltyApi } from '../loyaltyApi';
 
 const CHUA_LIEN_KET = JSON.stringify({
   linked: false,
+  coHoSo: false,
   phoneNumber: null,
   points: 0,
   availableRewards: [],
@@ -11,6 +12,7 @@ const CHUA_LIEN_KET = JSON.stringify({
 
 const DA_LIEN_KET = JSON.stringify({
   linked: true,
+  coHoSo: true,
   phoneNumber: '0901234567',
   points: 320,
   availableRewards: [
@@ -231,6 +233,7 @@ describe('đổi được hay chưa', () => {
   };
   const bac = (them: Partial<MyLoyalty>): MyLoyalty => ({
     linked: true,
+    coHoSo: true,
     phoneNumber: '090',
     points: 0,
     availableRewards: [],

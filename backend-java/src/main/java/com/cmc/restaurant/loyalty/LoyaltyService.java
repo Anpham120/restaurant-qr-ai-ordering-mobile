@@ -102,8 +102,8 @@ public class LoyaltyService {
 				.orElseGet(List::of);
 
 		return new LoyaltyDtos.LookupResponse(
-				phone, points, lifetimeSpend, spend12m, hang.name(), hang.tenHienThi(),
-				available, conHan);
+				phone, member.isPresent(), points, lifetimeSpend, spend12m,
+				hang.name(), hang.tenHienThi(), available, conHan);
 	}
 
 	/** Phiếu còn dùng được của một thành viên. */

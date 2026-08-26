@@ -87,6 +87,7 @@ const API_TRONG = {
   loyaltyApi: {
     cuaToi: async () => ({
       linked: false,
+      coHoSo: false,
       phoneNumber: null,
       points: 0,
       availableRewards: [],
@@ -99,6 +100,7 @@ const API_TRONG = {
     }),
     noiSo: async () => ({
       linked: true,
+      coHoSo: true,
       phoneNumber: '0901234567',
       points: 0,
       availableRewards: [],

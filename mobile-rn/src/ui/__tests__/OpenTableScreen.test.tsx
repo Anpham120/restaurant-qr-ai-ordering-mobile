@@ -184,4 +184,37 @@ describe('nói rõ đơn có được gắn tài khoản không', () => {
     expect(screen.getByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeTruthy();
     expect(screen.getByText('a@example.com')).toBeTruthy();
   });
+
+  it('chưa đăng nhập thì hộp kia BẤM ĐƯỢC, dẫn tới màn đăng nhập', async () => {
+    // Hộp đó khuyên "đăng nhập trước khi vào bàn nếu muốn tích điểm". Trước đây nó là chữ chết:
+    // đăng nhập chỉ mở được từ tab Tài khoản, tức SAU khi đã vào bàn — quá muộn để làm theo lời
+    // khuyên của chính nó.
+    const moDangNhap = jest.fn();
+    await render(
+      <OpenTableScreen
+        onDangNhap={moDangNhap}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Đăng nhập để tích điểm'));
+
+    expect(moDangNhap).toHaveBeenCalledTimes(1);
+  });
+
+  it('ĐÃ đăng nhập thì không còn nút đó, chỉ còn dòng báo tài khoản', async () => {
+    const moDangNhap = jest.fn();
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onDangNhap={moDangNhap}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Đăng nhập để tích điểm')).toBeNull();
+    expect(screen.getByText(/sẽ được cộng vào tài khoản/)).toBeTruthy();
+  });
 });

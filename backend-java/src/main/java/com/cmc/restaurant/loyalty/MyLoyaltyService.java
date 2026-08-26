@@ -267,7 +267,7 @@ public class MyLoyaltyService {
 			// Chưa liên kết KHÔNG phải lỗi: đó là trạng thái của mọi tài khoản mới. App hiện lời
 			// mời liên kết, không hiện màn hình lỗi.
 			return new LoyaltyDtos.MyLoyaltyResponse(
-					false, null, 0, java.util.List.of(),
+					false, false, null, 0, java.util.List.of(),
 					MemberTier.BAC.name(), MemberTier.BAC.tenHienThi(), java.math.BigDecimal.ZERO,
 					MemberTier.BAC.ke().tenHienThi(), MemberTier.BAC.ke().nguong(),
 					java.util.List.of());
@@ -279,7 +279,7 @@ public class MyLoyaltyService {
 		MemberTier hang = MemberTier.theoChiTieu(chiTieu);
 		MemberTier ke = hang.ke();
 		return new LoyaltyDtos.MyLoyaltyResponse(
-				true, phone, lookup.points(), lookup.availableRewards(),
+				true, lookup.hasProfile(), phone, lookup.points(), lookup.availableRewards(),
 				hang.name(), hang.tenHienThi(), chiTieu,
 				ke == null ? null : ke.tenHienThi(),
 				MemberTier.conThieuDeLenHang(chiTieu),

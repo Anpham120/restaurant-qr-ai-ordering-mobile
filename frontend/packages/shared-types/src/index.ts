@@ -110,6 +110,8 @@ export type LoyaltyVoucher = {
 
 export type LoyaltyLookupResponse = {
   phoneNumber: string;
+  /** Số này đã có HỒ SƠ tích điểm chưa — khác với việc đã nối vào một tài khoản app. */
+  hasProfile: boolean;
   points: number;
   lifetimeSpend: number;
   spend12m: number;

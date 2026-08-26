@@ -198,6 +198,7 @@ export default function App() {
         <StatusBar style="dark" />
         <OpenTableScreen
           dangNhapVoi={dangNhap}
+          onDangNhap={() => setManNgoai('dangNhap')}
           onMoPhienXong={(ban) => {
             setPhienBan(ban);
             // Phiên vừa mở đã kèm token nếu khách đã đăng nhập, nên chỉ cần đọc số điện thoại —

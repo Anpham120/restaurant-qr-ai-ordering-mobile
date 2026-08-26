@@ -5,6 +5,7 @@ import { type MyLoyalty } from '../loyalty';
 
 const DIEM: MyLoyalty = {
   linked: true,
+  coHoSo: true,
   phoneNumber: '0901234567',
   points: 1200,
   availableRewards: [],

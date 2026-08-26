@@ -6,6 +6,7 @@ import { TheHang } from '../TheHang';
 function mau(them: Partial<MyLoyalty>): MyLoyalty {
   return {
     linked: true,
+    coHoSo: true,
     phoneNumber: '0901234567',
     points: 320,
     availableRewards: [],
@@ -73,5 +74,25 @@ describe('Thẻ hạng thành viên', () => {
     await render(<TheHang diem={mau({ chiTieu12Thang: 0, conThieu: 0, tenHangKeTiep: 'Vàng' })} />);
 
     expect(screen.getByLabelText('Tiến độ lên hạng: 0%')).toBeTruthy();
+  });
+
+  it('đã nối số nhưng CHƯA có hồ sơ thì KHÔNG vẽ thẻ hạng', async () => {
+    // Đây là lỗi nặng nhất về mặt hiểu nhầm. Nối số chỉ ghi số vào tài khoản; hồ sơ tích điểm
+    // sinh ra ở lần thanh toán ĐẦU TIÊN có kèm số đó. Vẽ "Bạc · 0 điểm" trông y hệt một hội viên
+    // mới, nên khách tưởng đã ghi danh xong rồi đi ăn mà quên đọc số ở quầy.
+    await render(<TheHang diem={mau({ coHoSo: false, points: 0, chiTieu12Thang: 0 })} />);
+
+    expect(screen.getByText('Chưa bắt đầu tích điểm')).toBeTruthy();
+    expect(screen.queryByText('HẠNG THÀNH VIÊN')).toBeNull();
+    expect(screen.queryByLabelText(/Tiến độ lên hạng/)).toBeNull();
+  });
+
+  it('nói rõ việc còn phải làm và ngưỡng tối thiểu', async () => {
+    // Không nói ngưỡng thì khách gọi một ly trà 8.000đ, đọc số, và không thành thành viên —
+    // không màn nào cho biết vì sao.
+    await render(<TheHang diem={mau({ coHoSo: false })} />);
+
+    expect(screen.getByText(/Đọc số này ở quầy khi thanh toán/)).toBeTruthy();
+    expect(screen.getByText(/10.000đ/)).toBeTruthy();
   });
 });
