@@ -14,8 +14,9 @@ set -euo pipefail
 
 API="${API:-http://localhost:8081}"
 DB=cmc-restaurant-java-local-postgres-1
-PHONE="${1:-09$(date +%H%M%S)$(( RANDOM % 10 ))}"
-PHONE="${PHONE:0:10}"
+# 10 chữ số: "09" + 6 chữ số giờ-phút-giây + 2 chữ số ngẫu nhiên. Đếm sai ở đây cho ra số 9
+# chữ số — backend vẫn nhận, nhưng nó hiện lên màn hình khách và trông như dữ liệu hỏng.
+PHONE="${1:-09$(date +%H%M%S)$(printf %02d $(( RANDOM % 100 )))}"
 EMAIL="thu.$(date +%s)@local.test"
 MATKHAU="ThuNghiem#123"
 
