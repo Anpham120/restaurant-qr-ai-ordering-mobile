@@ -10,6 +10,7 @@ import { HttpCartApi } from './src/core/cart/cartApi';
 import { type CauHinhMayChu } from './src/core/cauHinh/cauHinh';
 import { CauHinhStore } from './src/core/cauHinh/cauHinhStore';
 import { HttpChatApi } from './src/core/chat/chatApi';
+import { dongBoTaiKhoan } from './src/core/loyalty/dongBoTaiKhoan';
 import { HttpLoyaltyApi } from './src/core/loyalty/loyaltyApi';
 import { HttpMenuApi } from './src/core/menu/menuApi';
 import { HttpCreateOrderApi } from './src/core/orders/createOrderApi';
@@ -74,6 +75,22 @@ export default function App() {
 
   const client = useMemo(() => (cauHinh === null ? null : dungClient(cauHinh)), [cauHinh]);
 
+  /**
+   * Gọi luật ở {@link dongBoTaiKhoan} rồi đổ kết quả vào state.
+   *
+   * Luật nằm ở core chứ không ở đây, vì `App.tsx` không có phép kiểm nào — và đó chính là chỗ lỗi
+   * "đơn không mang số điện thoại" đã sống suốt nhiều lượt xây tính năng mà không ai thấy.
+   */
+  const dongBo = useCallback(
+    async (ses: AuthSession | null, ban: TableSession | null) => {
+      if (client === null) return;
+      const kq = await dongBoTaiKhoan(client.loyaltyApi, client.ban, ses?.accessToken ?? null, ban);
+      setSoDienThoai(kq.soDienThoai);
+      if (kq.phienBan !== null) setPhienBan(kq.phienBan);
+    },
+    [client],
+  );
+
   // Khôi phục cấu hình, phiên đăng nhập và phiên bàn — theo đúng thứ tự đó, vì hai thứ sau cần
   // địa chỉ máy chủ mới đọc được.
   useEffect(() => {
@@ -96,11 +113,15 @@ export default function App() {
       if (huy) return;
       setDangNhap(ses);
       setPhienBan(ban);
+      // Mở lại app cũng phải đồng bộ: số điện thoại KHÔNG được cất xuống máy, nên không khôi phục
+      // được cùng hai thứ kia.
+      void dongBo(ses, ban);
     });
     return () => {
       huy = true;
     };
-  }, [client]);
+    // `dongBo` chỉ đổi khi `client` đổi, nên thêm nó vào đây không làm effect chạy thêm lần nào.
+  }, [client, dongBo]);
 
   const luuCauHinh = useCallback(async (moi: CauHinhMayChu) => {
     await cauHinhStore.luu(moi);
@@ -159,6 +180,9 @@ export default function App() {
           onDangNhapXong={(ses) => {
             setDangNhap(ses);
             setManNgoai(null);
+            // Đăng nhập GIỮA chừng phiên bàn là đường đi thường gặp nhất, vì app không cho đăng
+            // nhập trước khi vào bàn.
+            void dongBo(ses, phienBan);
           }}
           repository={client.auth}
         />
@@ -176,14 +200,9 @@ export default function App() {
           dangNhapVoi={dangNhap}
           onMoPhienXong={(ban) => {
             setPhienBan(ban);
-            // Số điện thoại đã liên kết đọc được ngay sau khi có phiên — nó quyết định đơn có
-            // tích điểm hay không (§9.7), và phải có TRƯỚC khi khách bấm đặt món.
-            if (dangNhap !== null) {
-              void client.loyaltyApi
-                .cuaToi(dangNhap.accessToken)
-                .then((d) => setSoDienThoai(d.linked ? d.phoneNumber : null))
-                .catch(() => setSoDienThoai(null));
-            }
+            // Phiên vừa mở đã kèm token nếu khách đã đăng nhập, nên chỉ cần đọc số điện thoại —
+            // nhưng vẫn đi qua cùng một hàm để không có nhánh nào lệch luật với nhánh khác.
+            void dongBo(dangNhap, null);
           }}
           repository={client.ban}
         />
