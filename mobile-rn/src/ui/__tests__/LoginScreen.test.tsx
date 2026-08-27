@@ -34,6 +34,9 @@ class ApiGiaLap implements AuthApi {
   async dangKy(): Promise<AuthSession> {
     return this.dangNhap();
   }
+  async dangNhapGoogle(): Promise<AuthSession> {
+    return this.dangNhap();
+  }
 }
 
 /**
@@ -54,6 +57,9 @@ class ApiTreo implements AuthApi {
   dangKy(): Promise<AuthSession> {
     return this.cho;
   }
+  dangNhapGoogle(): Promise<AuthSession> {
+    return this.cho;
+  }
   hoanThanh(s: AuthSession) {
     this.xong(s);
   }
@@ -67,6 +73,21 @@ class ApiTreo implements AuthApi {
 // tên. Tên khớp CẢ hai trạng thái của nút gửi, để phép kiểm trạng thái "đang gửi" vẫn thấy nó.
 function nutDangNhap() {
   return screen.getByRole('button', { name: /^(Đăng nhập|Đang đăng nhập…)$/ });
+}
+
+class ApiGhiLaiToken implements AuthApi {
+  tokenDaNhan: string | null = null;
+  constructor(private readonly ketQua: AuthSession) {}
+  async dangNhap(): Promise<AuthSession> {
+    return this.ketQua;
+  }
+  async dangKy(): Promise<AuthSession> {
+    return this.ketQua;
+  }
+  async dangNhapGoogle(idToken: string): Promise<AuthSession> {
+    this.tokenDaNhan = idToken;
+    return this.ketQua;
+  }
 }
 
 function repoVoi(api: AuthApi) {
@@ -136,13 +157,19 @@ describe('màn hình đăng nhập', () => {
 describe('tạo tài khoản', () => {
   /** Ghi lại đúng những gì màn hình gửi xuống, để phân biệt hai đường đăng ký và đăng nhập. */
   class ApiGhiLai implements AuthApi {
-    daGoi: 'dangNhap' | 'dangKy' | null = null;
+    daGoi: 'dangNhap' | 'dangKy' | 'google' | null = null;
     hoTenDaNhan: string | null = null;
 
     constructor(private readonly ketQua: AuthSession | AuthException) {}
 
     async dangNhap(): Promise<AuthSession> {
       this.daGoi = 'dangNhap';
+      if (this.ketQua instanceof AuthException) throw this.ketQua;
+      return this.ketQua;
+    }
+
+    async dangNhapGoogle(): Promise<AuthSession> {
+      this.daGoi = 'google';
       if (this.ketQua instanceof AuthException) throw this.ketQua;
       return this.ketQua;
     }
@@ -208,5 +235,106 @@ describe('tạo tài khoản', () => {
     // Nhưng email thì GIỮ: khách vừa được bảo là email đó đã có tài khoản, bắt gõ lại là bắt làm
     // lại việc vừa làm.
     expect(screen.getByLabelText('Email').props.value).toBe('a@example.com');
+  });
+});
+
+describe('đăng nhập bằng Google', () => {
+  const PHIEN: AuthSession = {
+    accessToken: 'jwt-google',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    user: { userId: 'usr_1', fullName: 'An Phạm', email: 'an@gmail.com', role: 'Customer' },
+  };
+
+  function nutGoogle() {
+    return screen.getByLabelText('Tiếp tục với Google');
+  }
+
+  it('KHÔNG hiện nút khi máy chủ chưa bật Google', async () => {
+    // Nút bấm không ra gì tệ hơn không có nút: khách bấm, không thấy phản ứng, kết luận app hỏng.
+    await render(
+      <LoginScreen repository={repoVoi(new ApiGiaLap(PHIEN))} onDangNhapXong={jest.fn()} />,
+    );
+
+    expect(screen.queryByLabelText('Tiếp tục với Google')).toBeNull();
+  });
+
+  it('lấy được token thì vào app', async () => {
+    const xong = jest.fn();
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={xong}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(xong).toHaveBeenCalledWith(PHIEN);
+  });
+
+  it('gửi ĐÚNG token nhận từ Google, không phải chuỗi nào khác', async () => {
+    const api = new ApiGhiLaiToken(PHIEN);
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(api)}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(api.tokenDaNhan).toBe('id-token-tu-google');
+  });
+
+  it('khách bấm huỷ thì KHÔNG báo lỗi và KHÔNG vào app', async () => {
+    // Huỷ là đổi ý, không phải hỏng. Hiện câu đỏ ở đây là phạt khách vì đã đổi ý.
+    const xong = jest.fn();
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => null}
+        onDangNhapXong={xong}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(xong).not.toHaveBeenCalled();
+    expect(screen.queryByText(/không thành công|không hợp lệ|lỗi/i)).toBeNull();
+  });
+
+  it('máy chủ chưa cấu hình thì nói rõ là lỗi máy chủ, không bảo khách thử lại', async () => {
+    const api = new ApiGiaLap(
+      new AuthException(
+        'GOOGLE_NOT_CONFIGURED',
+        'Đăng nhập Google chưa được bật trên máy chủ này.',
+      ),
+    );
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(api)}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(screen.getByText('Đăng nhập Google chưa được bật trên máy chủ này.')).toBeTruthy();
+  });
+
+  it('nói TRƯỚC rằng Google không tự mang điểm cũ sang', async () => {
+    // Không nói thì khách đăng nhập xong thấy 0 điểm và tưởng hệ thống nuốt mất điểm của mình.
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'x'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    expect(screen.getByText(/liên kết số điện thoại/)).toBeTruthy();
   });
 });

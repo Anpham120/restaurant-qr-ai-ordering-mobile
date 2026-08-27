@@ -6,12 +6,26 @@ import { type AuthRepository } from '../core/auth/authRepository';
 import { type AuthSession } from '../core/auth/authSession';
 import { MauQuan, kieuChung } from './theme';
 
+/**
+ * Mở màn chọn tài khoản Google và trả về ID token.
+ *
+ * Trả `null` khi khách bấm huỷ — huỷ KHÔNG phải lỗi và không được hiện câu báo lỗi nào.
+ */
+export type LayTokenGoogle = () => Promise<string | null>;
+
 export interface LoginScreenProps {
   repository: AuthRepository;
   onDangNhapXong: (session: AuthSession) => void;
+  /**
+   * Vắng mặt thì nút Google KHÔNG hiện.
+   *
+   * Hiện một nút không bấm được còn tệ hơn không có nút: khách sẽ bấm, không thấy gì xảy ra, và
+   * kết luận là app hỏng. Máy chủ chưa cấu hình Google thì thà chỉ thấy đường email.
+   */
+  layTokenGoogle?: LayTokenGoogle | undefined;
 }
 
-export function LoginScreen({ repository, onDangNhapXong }: LoginScreenProps) {
+export function LoginScreen({ repository, onDangNhapXong, layTokenGoogle }: LoginScreenProps) {
   const [dangKy, setDangKy] = useState(false);
   const [hoTen, setHoTen] = useState('');
   const [email, setEmail] = useState('');
@@ -39,6 +53,23 @@ export function LoginScreen({ repository, onDangNhapXong }: LoginScreenProps) {
       setDangGui(false);
     }
   }, [dangGui, dangKy, email, hoTen, matKhau, onDangNhapXong, repository]);
+
+  const guiGoogle = useCallback(async () => {
+    if (dangGui || layTokenGoogle === undefined) return;
+    setDangGui(true);
+    setLoi(null);
+    try {
+      const idToken = await layTokenGoogle();
+      // Huỷ giữa chừng là chuyện bình thường. Báo lỗi ở đây nghĩa là phạt khách vì đổi ý.
+      if (idToken === null) return;
+      onDangNhapXong(await repository.dangNhapGoogle(idToken));
+    } catch (error) {
+      if (!(error instanceof AuthException)) throw error;
+      setLoi(error.message);
+    } finally {
+      setDangGui(false);
+    }
+  }, [dangGui, layTokenGoogle, onDangNhapXong, repository]);
 
   /**
    * Đổi giữa hai chế độ.
@@ -118,6 +149,38 @@ export function LoginScreen({ repository, onDangNhapXong }: LoginScreenProps) {
               : 'Đăng nhập'}
         </Text>
       </TouchableOpacity>
+
+      {/*
+        Nút Google đặt DƯỚI đường email, không phải trên.
+        Đây là app tích điểm cho một quán ăn, không phải một dịch vụ mà ai cũng đã có sẵn tài
+        khoản. Đẩy Google lên đầu ngụ ý đó là đường chính và đường email là hạng hai — trong khi
+        khách không có tài khoản Google trên máy sẽ thấy mình bị đẩy vào ngõ cụt.
+      */}
+      {layTokenGoogle === undefined ? null : (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: MauQuan.clayLine }} />
+            <Text style={kieuChung.chuPhu}>hoặc</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: MauQuan.clayLine }} />
+          </View>
+
+          <TouchableOpacity
+            accessibilityLabel="Tiếp tục với Google"
+            accessibilityRole="button"
+            disabled={dangGui}
+            onPress={guiGoogle}
+            style={[kieuChung.nutVien, dangGui ? kieuChung.nutTat : null]}
+          >
+            <Text style={kieuChung.chuNutVien}>Tiếp tục với Google</Text>
+          </TouchableOpacity>
+
+          {/* Nói rõ Google KHÔNG tự mang điểm sang. Không nói thì khách đăng nhập Google xong,
+              thấy 0 điểm, và tưởng hệ thống nuốt mất điểm của mình. */}
+          <Text style={kieuChung.chuPhu}>
+            Đăng nhập xong vẫn cần liên kết số điện thoại ở mục Điểm thưởng để nhận điểm cũ.
+          </Text>
+        </>
+      )}
 
       <TouchableOpacity
         accessibilityRole="button"

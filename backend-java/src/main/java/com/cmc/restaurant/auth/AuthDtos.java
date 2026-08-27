@@ -11,6 +11,10 @@ public final class AuthDtos {
 	public record RegisterRequest(String fullName, String email, String password) {
 	}
 
+	/** ID token do Google phát cho app, app gửi thẳng lên đây. */
+	public record GoogleLoginRequest(String idToken) {
+	}
+
 	public record LoginRequest(String email, String password) {
 	}
 

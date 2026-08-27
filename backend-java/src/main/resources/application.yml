@@ -58,6 +58,11 @@ chat:
     internal-token: ${AI_INTERNAL_TOKEN:}
     timeout-seconds: ${BACKEND_AI_TIMEOUT_SECONDS:12}
 
+google:
+  # KHÔNG có mặc định. Chưa cấu hình thì GoogleClaimsRule từ chối mọi lời gọi — một triển khai
+  # quên cấu hình phải từ chối tất cả, không phải nhận tất cả. Cùng luật với AI_INTERNAL_TOKEN.
+  client-id: ${GOOGLE_CLIENT_ID:}
+
 jwt:
   issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
   audience: ${JWT_AUDIENCE:RestaurantQrAiOrdering.Client}

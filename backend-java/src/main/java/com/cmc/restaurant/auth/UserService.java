@@ -43,6 +43,54 @@ public class UserService {
 	}
 
 	/**
+	 * Signs a customer in with a Google identity, creating the account on first sight.
+	 *
+	 * <p>Matching is by {@code sub}, never by email: a user can change the email on their Google
+	 * account, but {@code sub} is permanent. Keying on email would drop a returning customer into
+	 * a blank account and lose their points.
+	 *
+	 * <p>When the email already belongs to a password account, the two are MERGED and the old
+	 * password is cleared. Registration never verified email ownership, so that password account
+	 * may well have been opened by someone else using this address; Google has just proven who
+	 * actually owns it. Leaving the password in place would let the impostor keep their way in.
+	 *
+	 * @param sub   the Google {@code sub} claim, already verified by {@link GoogleTokenVerifier}
+	 * @param email the verified email on that Google account
+	 */
+	public UserEntity signInWithGoogle(String sub, String email, String fullName) {
+		Optional<UserEntity> bySub = userRepository.findByGoogleSub(sub);
+		if (bySub.isPresent()) {
+			return bySub.get();
+		}
+
+		String normalizedEmail = normalizeEmail(email);
+		OffsetDateTime now = OffsetDateTime.now();
+
+		Optional<UserEntity> byEmail = userRepository.findByEmailIgnoreCase(normalizedEmail);
+		if (byEmail.isPresent()) {
+			UserEntity existing = byEmail.get();
+			existing.setGoogleSub(sub);
+			existing.setPasswordHash(null);
+			// Cũng gỡ khoá: đếm sai mật khẩu là của chủ tài khoản CŨ, giữ lại nghĩa là chủ thật
+			// vừa được Google xác minh xong lại bị khoá ngoài vì lỗi của người khác.
+			existing.setFailedLoginCount(0);
+			existing.setLockoutEndAt(null);
+			existing.setUpdatedAt(now);
+			return userRepository.save(existing);
+		}
+
+		UserEntity user = new UserEntity(
+				"usr_" + UUID.randomUUID().toString().replace("-", ""),
+				normalizedEmail,
+				fullName == null || fullName.isBlank() ? normalizedEmail : fullName.trim(),
+				null,
+				UserRole.CUSTOMER,
+				now);
+		user.setGoogleSub(sub);
+		return userRepository.save(user);
+	}
+
+	/**
 	 * Returns empty on any rejection (unknown email, locked account, wrong password) — callers
 	 * must not distinguish these cases in the response, same as the .NET version, so a caller
 	 * cannot probe which emails are registered.
@@ -57,6 +105,16 @@ public class UserService {
 		OffsetDateTime now = OffsetDateTime.now();
 
 		if (user.getLockoutEndAt() != null && user.getLockoutEndAt().isAfter(now)) {
+			return Optional.empty();
+		}
+
+		// Tài khoản chỉ đăng nhập bằng Google thì không có mật khẩu để so.
+		//
+		// Phải trả về rỗng Y HỆT mọi ca từ chối khác. Bỏ nhánh này thì
+		// PasswordHasher.verifyPassword gọi passwordHash.split(...) và ném NPE -> 500, trong khi
+		// email lạ trả 401. Chênh lệch đó đủ để dò xem email nào đã đăng ký, đúng thứ javadoc
+		// ngay trên phương thức này nói phải tránh.
+		if (user.getPasswordHash() == null) {
 			return Optional.empty();
 		}
 

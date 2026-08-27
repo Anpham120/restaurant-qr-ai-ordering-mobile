@@ -30,8 +30,19 @@ public class UserEntity {
 	@Column(name = "phone_number")
 	private String phoneNumber;
 
-	@Column(name = "password_hash", nullable = false)
+	/** NULL với tài khoản chỉ đăng nhập bằng Google. Xem V21 và {@code ck_users_co_duong_dang_nhap}. */
+	@Column(name = "password_hash")
 	private String passwordHash;
+
+	/**
+	 * Định danh Google (claim {@code sub}), NULL nếu tài khoản không nối Google.
+	 *
+	 * <p>Không dùng email làm khoá nối: người dùng đổi được email của tài khoản Google, còn
+	 * {@code sub} thì không đổi. Nối theo email nghĩa là một ngày nào đó khách đổi email rồi
+	 * đăng nhập lại sẽ rơi vào một tài khoản trắng, mất sạch điểm.
+	 */
+	@Column(name = "google_sub")
+	private String googleSub;
 
 	@Column(nullable = false)
 	private String role;
@@ -86,6 +97,14 @@ public class UserEntity {
 
 	public String getPasswordHash() {
 		return passwordHash;
+	}
+
+	public String getGoogleSub() {
+		return googleSub;
+	}
+
+	public void setGoogleSub(String googleSub) {
+		this.googleSub = googleSub;
 	}
 
 	public void setPasswordHash(String passwordHash) {

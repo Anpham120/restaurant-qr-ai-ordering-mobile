@@ -15,6 +15,13 @@ export class AuthException extends Error {
 export interface AuthApi {
   dangNhap(email: string, password: string): Promise<AuthSession>;
   /**
+   * Đăng nhập bằng Google. Lần đầu thì backend tạo tài khoản luôn, không có bước đăng ký riêng.
+   *
+   * KHÔNG thay thế bước nối số điện thoại: Google chứng minh khách sở hữu một tài khoản Google,
+   * nó không nói gì về số điện thoại, nên luật của màn Điểm thưởng giữ nguyên.
+   */
+  dangNhapGoogle(idToken: string): Promise<AuthSession>;
+  /**
    * Tạo tài khoản rồi đăng nhập luôn.
    *
    * Backend trả 201 kèm hồ sơ chứ KHÔNG kèm phiên, nên phải gọi tiếp `/login`. Gộp hai lượt vào
@@ -52,6 +59,28 @@ export class HttpAuthApi implements AuthApi {
     // trên: nếu backend chuẩn hoá email khác cách app cắt, lượt đăng nhập này phải hỏng ngay ở
     // đây chứ không im lặng cho ra một phiên của tài khoản khác.
     return this.dangNhap(email, password);
+  }
+
+  async dangNhapGoogle(idToken: string): Promise<AuthSession> {
+    let res: Awaited<ReturnType<GoiMang>>;
+    try {
+      res = await this.goiMang(`${this.baseUrl}/api/auth/google`, {
+        method: 'POST',
+        headers: HEADER_JSON,
+        body: JSON.stringify({ idToken }),
+      });
+    } catch {
+      throw new AuthException(
+        'NETWORK_ERROR',
+        'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
+      );
+    }
+
+    const than = await res.text();
+    if (res.status === 200) {
+      return authSessionTuJson(JSON.parse(than));
+    }
+    throw dichLoiGoogle(res.status, than);
   }
 
   async dangNhap(email: string, password: string): Promise<AuthSession> {
@@ -105,6 +134,38 @@ function dichLoiDangKy(status: number, than: string): AuthException {
   }
 
   const chung = loiChungHttp(status, maLoi(than), 'Tạo tài khoản không thành công');
+  return new AuthException(chung.code, chung.message);
+}
+
+/**
+ * Lỗi đăng nhập Google.
+ *
+ * Tách riêng vì hai ca ở đây khách KHÔNG tự sửa được, và nói sai thì họ sẽ ngồi thử lại mãi:
+ * máy chủ chưa cấu hình client ID, và không liên hệ được Google. Câu chữ phải chỉ đúng ai cần
+ * làm gì tiếp.
+ */
+function dichLoiGoogle(status: number, than: string): AuthException {
+  switch (maLoi(than)) {
+    case 'GOOGLE_NOT_CONFIGURED':
+      // Lỗi của người dựng máy chủ, không phải của khách. Đừng bảo họ thử lại.
+      return new AuthException(
+        'GOOGLE_NOT_CONFIGURED',
+        'Đăng nhập Google chưa được bật trên máy chủ này.',
+      );
+    case 'GOOGLE_UNREACHABLE':
+      return new AuthException(
+        'GOOGLE_UNREACHABLE',
+        'Máy chủ không liên hệ được Google. Thử lại sau ít phút.',
+      );
+    case 'GOOGLE_TOKEN_INVALID':
+    case 'GOOGLE_TOKEN_REQUIRED':
+      return new AuthException(
+        'GOOGLE_TOKEN_INVALID',
+        'Đăng nhập Google không thành công. Thử lại.',
+      );
+  }
+
+  const chung = loiChungHttp(status, maLoi(than), 'Đăng nhập Google không thành công');
   return new AuthException(chung.code, chung.message);
 }
 

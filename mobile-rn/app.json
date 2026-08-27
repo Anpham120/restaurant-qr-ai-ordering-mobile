@@ -30,7 +30,8 @@
           "cameraPermission": "Ứng dụng dùng camera để quét mã QR trên bàn."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-google-signin/google-signin"
     ],
     "scheme": "viangoi"
   }

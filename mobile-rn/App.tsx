@@ -30,6 +30,7 @@ import { HttpTableSessionApi } from './src/core/tables/tableSessionApi';
 import { TableSessionRepository } from './src/core/tables/tableSessionRepository';
 import { SecureTableSessionStore } from './src/core/tables/tableSessionStore';
 import { KhungChinh } from './src/ui/KhungChinh';
+import { layTokenGoogleThat } from './src/core/auth/googleSignIn';
 import { LoginScreen } from './src/ui/LoginScreen';
 import { OpenTableScreen } from './src/ui/OpenTableScreen';
 import { ServerSettingsScreen } from './src/ui/ServerSettingsScreen';
@@ -68,6 +69,14 @@ function dungClient(cauHinh: CauHinhMayChu) {
     loyaltyApi: new HttpLoyaltyApi(api),
   };
 }
+
+/**
+ * Tính MỘT lần lúc nạp module, không tính lại mỗi lần vẽ lại.
+ *
+ * Hàm này chạm vào require của thư viện native; gọi nó trong thân component nghĩa là mỗi lần vẽ
+ * lại đều dựng một hàm mới, và LoginScreen sẽ thấy prop đổi liên tục.
+ */
+const LAY_TOKEN_GOOGLE = layTokenGoogleThat();
 
 export default function App() {
   return (
@@ -197,6 +206,7 @@ function NoiDungApp() {
             // nhập trước khi vào bàn.
             void dongBo(ses, phienBan);
           }}
+          layTokenGoogle={LAY_TOKEN_GOOGLE}
           repository={client.auth}
         />
       </SafeAreaView>

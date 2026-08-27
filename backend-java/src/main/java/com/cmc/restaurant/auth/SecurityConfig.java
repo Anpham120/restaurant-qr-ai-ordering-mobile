@@ -38,7 +38,7 @@ public class SecurityConfig {
 						.authenticationEntryPoint(authenticationEntryPoint)
 						.accessDeniedHandler(accessDeniedHandler))
 				.authorizeHttpRequests(authorize -> authorize
-						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/error").permitAll()
+						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/api/auth/google", "/error").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/tables/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()

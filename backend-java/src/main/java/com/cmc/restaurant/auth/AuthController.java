@@ -2,6 +2,7 @@ package com.cmc.restaurant.auth;
 
 import com.cmc.restaurant.auth.AuthDtos.AuthUserResponse;
 import com.cmc.restaurant.auth.AuthDtos.ChangePasswordRequest;
+import com.cmc.restaurant.auth.AuthDtos.GoogleLoginRequest;
 import com.cmc.restaurant.auth.AuthDtos.LoginRequest;
 import com.cmc.restaurant.auth.AuthDtos.LoginResponse;
 import com.cmc.restaurant.auth.AuthDtos.RegisterRequest;
@@ -26,10 +27,13 @@ public class AuthController {
 
 	private final UserService userService;
 	private final JwtService jwtService;
+	private final GoogleTokenVerifier googleVerifier;
 
-	public AuthController(UserService userService, JwtService jwtService) {
+	public AuthController(UserService userService, JwtService jwtService,
+			GoogleTokenVerifier googleVerifier) {
 		this.userService = userService;
 		this.jwtService = jwtService;
+		this.googleVerifier = googleVerifier;
 	}
 
 	@PostMapping("/register")
@@ -48,6 +52,34 @@ public class AuthController {
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(
 				new RegisterResponse(user.getId(), user.getFullName(), user.getEmail(), user.getRole()));
+	}
+
+	/**
+	 * Đăng nhập bằng Google — tạo tài khoản ngay lần đầu, không có bước đăng ký riêng.
+	 *
+	 * <p>Trả về ĐÚNG dạng của {@code /login}. App không cần biết khách vào bằng đường nào, và mọi
+	 * thứ phía sau (tích điểm, nối số) chỉ làm việc với JWT.
+	 *
+	 * <p>Cổng này KHÔNG thay thế bước nối số điện thoại. Google chứng minh khách sở hữu một tài
+	 * khoản Google, nó không nói gì về số điện thoại — nên luật LOYALTY_PHONE_ALREADY_MEMBER và
+	 * mã nối tại quầy giữ nguyên vai trò.
+	 */
+	@PostMapping("/google")
+	public LoginResponse loginWithGoogle(@RequestBody(required = false) GoogleLoginRequest request) {
+		if (request == null || isBlank(request.idToken())) {
+			throw ApiException.badRequest("GOOGLE_TOKEN_REQUIRED", "Thiếu token Google.");
+		}
+
+		GoogleIdentity danhTinh = googleVerifier.xacMinh(request.idToken());
+		UserEntity user = userService.signInWithGoogle(
+				danhTinh.sub(), danhTinh.email(), danhTinh.fullName());
+
+		JwtService.IssuedToken token = jwtService.issueToken(user);
+
+		return new LoginResponse(
+				token.accessToken(),
+				token.expiresAt(),
+				new AuthUserResponse(user.getId(), user.getFullName(), user.getEmail(), user.getRole()));
 	}
 
 	@PostMapping("/login")

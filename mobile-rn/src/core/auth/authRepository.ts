@@ -20,6 +20,17 @@ export class AuthRepository {
   }
 
   /**
+   * Đăng nhập bằng Google rồi cất phiên, y như hai đường kia.
+   *
+   * Không `trim()` gì cả: token do thư viện Google trả về, không phải thứ khách gõ tay.
+   */
+  async dangNhapGoogle(idToken: string): Promise<AuthSession> {
+    const session = await this.api.dangNhapGoogle(idToken);
+    await this.store.luu(session);
+    return session;
+  }
+
+  /**
    * Tạo tài khoản rồi cất phiên, y như đăng nhập.
    *
    * Cùng một `trim()` cho email: khách vừa tạo tài khoản mà không đăng nhập được vì một dấu cách

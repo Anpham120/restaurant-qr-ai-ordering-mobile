@@ -47,6 +47,11 @@ class ApiGiaLap implements AuthApi {
   async dangKy(_hoTen: string, email: string): Promise<AuthSession> {
     return this.dangNhap(email);
   }
+
+  async dangNhapGoogle(): Promise<AuthSession> {
+    if (this.ketQua instanceof AuthException) throw this.ketQua;
+    return this.ketQua;
+  }
 }
 
 describe('AuthRepository', () => {
