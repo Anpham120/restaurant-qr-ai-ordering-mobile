@@ -76,6 +76,9 @@ export function LoyaltyScreen({
   const [dangGui, setDangGui] = useState(false);
   const [dangDoi, setDangDoi] = useState<string | null>(null);
   const [loiNang, setLoiNang] = useState<unknown>(null);
+  // Mã nối số hiện ra ĐÚNG chỗ khách vừa bị từ chối. Bảo họ "nhờ quầy nối hộ" rồi bắt tự đi tìm
+  // nơi lấy mã là dẫn khách đến giữa đường rồi bỏ đó.
+  const [maNoiSo, setMaNoiSo] = useState<string | null>(null);
 
   // Một khoá cho suốt vòng đời màn hình, gắn với ưu đãi đang đổi. Tạo mới mỗi lượt dựng là mất
   // hẳn tác dụng — và ở đây mất tác dụng nghĩa là tiêu điểm THẬT của khách hai lần.
@@ -130,6 +133,15 @@ export function LoyaltyScreen({
         return;
       }
       setLoi(e.message);
+      // Số đã có hồ sơ từ trước là đường của khách quen CŨ, không phải lỗi gõ nhầm. Đưa luôn mã
+      // để họ đọc ở quầy, thay vì để họ gõ lại số mãi.
+      if (e.code === 'LOYALTY_PHONE_ALREADY_MEMBER') {
+        try {
+          setMaNoiSo((await api.xinMaNoiSo(accessToken)).ma);
+        } catch {
+          // Không xin được mã thì câu hướng dẫn ở trên vẫn còn; đừng nuốt nó bằng một lỗi khác.
+        }
+      }
     } finally {
       setDangGui(false);
     }
@@ -198,6 +210,25 @@ export function LoyaltyScreen({
     <ScrollView style={kieuChung.man} contentContainerStyle={{ padding: 16, gap: 12 }}>
       <Text style={kieuChung.tieuDe}>Điểm thưởng</Text>
       {loi !== null ? <Text style={{ color: MauQuan.danger }}>{loi}</Text> : null}
+
+      {maNoiSo === null ? null : (
+        <View style={[kieuChung.the, { gap: 6, alignItems: 'center' }]}>
+          <Text style={kieuChung.chuPhu}>Đọc mã này cho nhân viên tại quầy</Text>
+          <Text
+            accessibilityLabel={`Mã nối tài khoản ${maNoiSo.split('').join(' ')}`}
+            selectable
+            style={{
+              fontSize: 32,
+              fontWeight: '700',
+              letterSpacing: 6,
+              color: MauQuan.chestnut,
+            }}
+          >
+            {maNoiSo}
+          </Text>
+          <Text style={kieuChung.chuPhu}>Mã sống 5 phút và chỉ dùng được một lần.</Text>
+        </View>
+      )}
 
       {diem === null ? null : diem.linked ? (
         <>

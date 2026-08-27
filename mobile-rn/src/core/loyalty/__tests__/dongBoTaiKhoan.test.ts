@@ -28,6 +28,7 @@ function apiVoi(ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
   return {
     cuaToi: async () => DIEM,
     noiSo: async () => DIEM,
+    xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     doiDiem: async () => {
       throw new Error('không dùng tới');
     },

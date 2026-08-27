@@ -47,6 +47,7 @@ function apiVoi(dau: MyLoyalty, ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
   return {
     cuaToi: async () => dau,
     noiSo: async () => DA_NOI,
+    xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     doiDiem: async () => ({
       redemptionId: 'rd',
       rewardName: 'Trà đào miễn phí',
@@ -94,6 +95,50 @@ describe('chưa liên kết số điện thoại', () => {
           'LOYALTY_PHONE_ALREADY_MEMBER',
           'Số này đã có tài khoản tích điểm. Nhờ nhân viên tại quầy nối vào tài khoản của bạn.',
         );
+      },
+    });
+    await render(<LoyaltyScreen accessToken="jwt" api={api} />);
+
+    await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
+    await fireEvent.press(screen.getByLabelText('Liên kết'));
+
+    await screen.findByText(/Nhờ nhân viên tại quầy/);
+  });
+
+  it('số đã là thành viên: đưa LUÔN mã để đọc ở quầy', async () => {
+    // Câu "nhờ nhân viên nối hộ" mà không kèm mã thì khách phải tự đi tìm nơi lấy mã — và trong
+    // app không có nơi nào khác cấp mã cả. Mã phải hiện ngay tại chỗ khách vừa bị từ chối.
+    const api = apiVoi(CHUA_NOI, {
+      noiSo: async () => {
+        throw new AuthException(
+          'LOYALTY_PHONE_ALREADY_MEMBER',
+          'Số này đã có tài khoản tích điểm.',
+        );
+      },
+      xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
+    });
+    await render(<LoyaltyScreen accessToken="jwt" api={api} />);
+
+    await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
+    await fireEvent.press(screen.getByLabelText('Liên kết'));
+
+    await screen.findByText('261860');
+    // Đọc từng chữ số: mã đọc miệng cho nhân viên, "hai sáu một tám sáu không" mới là thứ khách
+    // cần nghe, chứ không phải "hai trăm sáu mươi mốt nghìn tám trăm sáu mươi".
+    expect(screen.getByLabelText('Mã nối tài khoản 2 6 1 8 6 0')).toBeTruthy();
+  });
+
+  it('xin mã hỏng thì vẫn giữ câu hướng dẫn, không nuốt mất', async () => {
+    // Nếu để lỗi của bước xin mã ghi đè lên lời nhắn, khách mất luôn manh mối duy nhất.
+    const api = apiVoi(CHUA_NOI, {
+      noiSo: async () => {
+        throw new AuthException(
+          'LOYALTY_PHONE_ALREADY_MEMBER',
+          'Số này đã có tài khoản tích điểm. Nhờ nhân viên tại quầy nối vào tài khoản của bạn.',
+        );
+      },
+      xinMaNoiSo: async () => {
+        throw new Error('mạng rớt');
       },
     });
     await render(<LoyaltyScreen accessToken="jwt" api={api} />);

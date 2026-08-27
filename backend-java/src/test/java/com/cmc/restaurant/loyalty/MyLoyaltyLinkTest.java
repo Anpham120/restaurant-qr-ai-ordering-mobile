@@ -234,4 +234,114 @@ class MyLoyaltyLinkTest {
 		assertThat(res.getBody()).containsEntry("linked", false).containsEntry("points", 0);
 		assertThat(res.getBody().toString()).doesNotContain("999");
 	}
+
+	/** Mã lỗi nằm trong {@code error.code}, không phải ở gốc thân trả về. */
+	@SuppressWarnings("unchecked")
+	private static String maLoi(ResponseEntity<Map> res) {
+		return (String) ((Map<String, Object>) res.getBody().get("error")).get("code");
+	}
+
+	/** Khách xin mã để đọc ở quầy. */
+	private ResponseEntity<Map> xinMa(String token) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setBearerAuth(token);
+		return rest.exchange("/api/loyalty/me/link-code", HttpMethod.POST,
+				new HttpEntity<>(headers), Map.class);
+	}
+
+	/** Quầy nối số vào tài khoản khách bằng mã khách đọc. */
+	private ResponseEntity<Map> noiTaiQuay(String token, String ma, String phone) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.setBearerAuth(token);
+		return rest.exchange("/api/loyalty/link", HttpMethod.POST,
+				new HttpEntity<>(Map.of("code", ma, "phone", phone), headers), Map.class);
+	}
+
+	@Test
+	@DisplayName("Quầy nối được số ĐÃ có hồ sơ — đường vòng duy nhất cho khách quen cũ")
+	void counterCanLinkAPhoneThatAlreadyHasPoints() {
+		// Chính là ca mà khách TỰ nối bị chặn ở trên. Nếu ca này hỏng, khách quen cũ vĩnh viễn
+		// không lấy lại được điểm của mình, và không có phép kiểm nào khác nói ra điều đó.
+		String phone = soNgauNhien();
+		taoHoSoDiem(phone, 2500);
+		TaiKhoan khach = taoKhach();
+		String ma = (String) xinMa(khach.token()).getBody().get("code");
+
+		ResponseEntity<Map> res = noiTaiQuay(taoNhanVien().token(), ma, phone);
+
+		assertThat(res.getStatusCode().value()).isEqualTo(200);
+		assertThat(res.getBody()).containsEntry("linked", true).containsEntry("phoneNumber", phone);
+		// Điểm cũ phải về ĐÚNG tài khoản vừa nối, không phải một hồ sơ trống mang cùng số.
+		assertThat(doDiem(khach.token()).getBody()).containsEntry("points", 2500);
+	}
+
+	@Test
+	@DisplayName("Mã chỉ dùng được MỘT lần")
+	void theCodeDiesAfterOneUse() {
+		// Mã đọc to giữa quầy thì người đứng cạnh cũng nghe được. Dùng lại được nghĩa là họ nối
+		// số của mình vào tài khoản người khác.
+		TaiKhoan khach = taoKhach();
+		String ma = (String) xinMa(khach.token()).getBody().get("code");
+		String nhanVien = taoNhanVien().token();
+		noiTaiQuay(nhanVien, ma, soNgauNhien());
+
+		ResponseEntity<Map> lanHai = noiTaiQuay(nhanVien, ma, soNgauNhien());
+
+		assertThat(lanHai.getStatusCode().value()).isEqualTo(409);
+		assertThat(maLoi(lanHai)).isEqualTo("LOYALTY_LINK_CODE_EXPIRED");
+	}
+
+	@Test
+	@DisplayName("Xin mã mới thì mã CŨ chết theo")
+	void askingForANewCodeKillsTheOldOne() {
+		// Khách bấm lại vì tưởng mã cũ hỏng. Nếu mã cũ vẫn sống, khách không có cách nào thu hồi
+		// một mã đã lỡ đọc cho nhầm người.
+		TaiKhoan khach = taoKhach();
+		String maCu = (String) xinMa(khach.token()).getBody().get("code");
+		xinMa(khach.token());
+
+		ResponseEntity<Map> res = noiTaiQuay(taoNhanVien().token(), maCu, soNgauNhien());
+
+		assertThat(res.getStatusCode().value()).isNotEqualTo(200);
+	}
+
+	@Test
+	@DisplayName("Mã bịa ra thì không nối được")
+	void madeUpCodesAreRejected() {
+		ResponseEntity<Map> res = noiTaiQuay(taoNhanVien().token(), "000000", soNgauNhien());
+
+		assertThat(res.getStatusCode().value()).isEqualTo(400);
+		assertThat(maLoi(res)).isEqualTo("LOYALTY_LINK_CODE_INVALID");
+	}
+
+	@Test
+	@DisplayName("Khách KHÔNG tự gọi được cổng của quầy")
+	void customersCannotCallTheCounterEndpoint() {
+		// Nếu chỗ này mở, khách tự xin mã rồi tự nối — và luật chặn ở trên thành vô nghĩa.
+		TaiKhoan khach = taoKhach();
+		String ma = (String) xinMa(khach.token()).getBody().get("code");
+		String cuaNguoiKhac = soNgauNhien();
+		taoHoSoDiem(cuaNguoiKhac, 999);
+
+		ResponseEntity<Map> res = noiTaiQuay(khach.token(), ma, cuaNguoiKhac);
+
+		assertThat(res.getStatusCode().value()).isEqualTo(403);
+		assertThat(doDiem(khach.token()).getBody()).containsEntry("points", 0);
+	}
+
+	@Test
+	@DisplayName("Số đang thuộc tài khoản KHÁC thì quầy cũng không nối được")
+	void theCounterStillCannotStealAPhoneFromAnotherAccount() {
+		// Mã chứng minh khách sở hữu TÀI KHOẢN, nó không chứng minh gì về số. Luật "một số một
+		// tài khoản" phải sống sót qua cả đường quầy.
+		String phone = soNgauNhien();
+		noiSo(taoKhach().token(), phone);
+		String ma = (String) xinMa(taoKhach().token()).getBody().get("code");
+
+		ResponseEntity<Map> res = noiTaiQuay(taoNhanVien().token(), ma, phone);
+
+		assertThat(res.getStatusCode().value()).isEqualTo(409);
+		assertThat(maLoi(res)).isEqualTo("LOYALTY_PHONE_TAKEN");
+	}
 }

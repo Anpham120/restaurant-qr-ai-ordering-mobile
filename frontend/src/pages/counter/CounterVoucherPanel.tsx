@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@cmc/api-client";
-import { Gift, Search } from "lucide-react";
+import { Gift, Link2, Search } from "lucide-react";
 import type { LoyaltyVoucher } from "@cmc/shared-types";
 import { api } from "../../services/apiClient";
 import "../../components/operations/operations.css";
@@ -41,6 +41,8 @@ export function boPhieuDaPhat(
  */
 export function CounterVoucherPanel() {
   const [phone, setPhone] = useState("");
+  const [maNoi, setMaNoi] = useState("");
+  const [dangNoi, setDangNoi] = useState(false);
   const [ketQua, setKetQua] = useState<KetQua | null>(null);
   const [dangTra, setDangTra] = useState(false);
   const [dangThu, setDangThu] = useState<string | null>(null);
@@ -71,6 +73,32 @@ export function CounterVoucherPanel() {
       setDangTra(false);
     }
   }, [phone]);
+
+  /**
+   * Nối số đã có hồ sơ vào tài khoản app của khách.
+   *
+   * Dùng CHÍNH ô số điện thoại ở trên: nhân viên vừa tra số đó xong, gõ lại là gõ hai lần cùng
+   * một thứ và mở thêm một cơ hội gõ nhầm — mà gõ nhầm ở đây là nối hồ sơ của người khác.
+   */
+  const noiSo = useCallback(async () => {
+    const so = phone.trim();
+    if (so === "" || maNoi.trim() === "") {
+      setLoi("Cần cả số điện thoại và mã khách đọc.");
+      return;
+    }
+    setDangNoi(true);
+    setLoi("");
+    setTin("");
+    try {
+      await api.loyalty.linkPhoneAtCounter({ code: maNoi.trim(), phone: so });
+      setMaNoi("");
+      setTin(`Đã nối ${so} vào tài khoản của khách.`);
+    } catch (e) {
+      setLoi(e instanceof ApiError ? e.message : "Không nối được. Thử lại.");
+    } finally {
+      setDangNoi(false);
+    }
+  }, [maNoi, phone]);
 
   const thu = useCallback(
     async (v: LoyaltyVoucher) => {
@@ -138,6 +166,33 @@ export function CounterVoucherPanel() {
           {tin}
         </div>
       ) : null}
+
+      {/*
+        Nối tài khoản: đặt NGAY DƯỚI ô tra số, vì nhân viên đến đây sau khi đã gõ số đó rồi. Đặt
+        thành một mục riêng ở nơi khác sẽ bắt gõ lại số — và gõ nhầm ở đây là nối hồ sơ của người
+        khác vào tài khoản khách.
+      */}
+      <form
+        className="counter-voucher-search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void noiSo();
+        }}
+      >
+        <label className="ops-field">
+          <span>Mã khách đọc (nối tài khoản)</span>
+          <input
+            autoComplete="off"
+            inputMode="numeric"
+            onChange={(e) => setMaNoi(e.target.value)}
+            placeholder="6 chữ số"
+            value={maNoi}
+          />
+        </label>
+        <button className="ops-btn ops-btn--ghost" disabled={dangNoi} type="submit">
+          <Link2 aria-hidden="true" size={16} /> {dangNoi ? "Đang nối…" : "Nối tài khoản"}
+        </button>
+      </form>
 
       {ketQua === null ? null : (
         <>

@@ -78,6 +78,18 @@ public final class LoyaltyDtos {
 			OffsetDateTime redeemedAt, String code, MyLoyaltyResponse soDuMoi) {
 	}
 
+	/**
+	 * Mã khách đọc cho nhân viên ở quầy.
+	 *
+	 * @param expiresAt để app đếm ngược — một mã hết hạn im lặng trông hệt như một mã sai
+	 */
+	public record LinkCodeResponse(String code, OffsetDateTime expiresAt) {
+	}
+
+	/** Nhân viên nối số cho khách: mã khách đọc + số cần nối. */
+	public record StaffLinkRequest(String code, String phone) {
+	}
+
 	/** Số điện thoại khách muốn nối vào tài khoản. */
 	public record LinkPhoneRequest(String phone) {
 	}

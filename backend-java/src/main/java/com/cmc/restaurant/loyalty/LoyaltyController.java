@@ -94,6 +94,30 @@ public class LoyaltyController {
 		return loyaltyService.thuPhieu(redemptionId, principal.userId(), OffsetDateTime.now());
 	}
 
+	/** Khách xin mã để đọc ở quầy. */
+	@PostMapping("/api/loyalty/me/link-code")
+	@PreAuthorize("hasRole('Customer')")
+	public LoyaltyDtos.LinkCodeResponse xinMaNoiSo(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+		return myLoyaltyService.xinMaNoiSo(principal.userId());
+	}
+
+	/**
+	 * Quầy nối số đã có hồ sơ vào tài khoản khách.
+	 *
+	 * <p>Cùng nhóm quyền với {@code /lookup} và {@code /honour}: ai đứng quầy thì làm được.
+	 */
+	@PostMapping("/api/loyalty/link")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
+	public LoyaltyDtos.MyLoyaltyResponse noiSoTaiQuay(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@RequestBody(required = false) LoyaltyDtos.StaffLinkRequest request) {
+		if (request == null || request.code() == null || request.code().isBlank()) {
+			throw ApiException.badRequest("LOYALTY_LINK_CODE_REQUIRED", "Nhập mã khách đọc.");
+		}
+		return myLoyaltyService.noiSoTaiQuay(request.code(), request.phone(), principal.userId());
+	}
+
 	@GetMapping("/api/loyalty/lookup")
 	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
 	public LoyaltyDtos.LookupResponse lookup(@RequestParam(required = false) String phone) {

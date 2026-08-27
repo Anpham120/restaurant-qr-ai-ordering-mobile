@@ -11,6 +11,13 @@ export interface LoyaltyApi {
   cuaToi(accessToken: string): Promise<MyLoyalty>;
   noiSo(accessToken: string, phone: string): Promise<MyLoyalty>;
   /**
+   * Xin mã sáu chữ số để đọc cho nhân viên ở quầy.
+   *
+   * Đường vòng duy nhất khi số đã có hồ sơ tích điểm từ trước — tự nối trong app bị từ chối, và
+   * đúng như vậy: không có bước xác minh nào thì gõ số người khác là cướp điểm của họ.
+   */
+  xinMaNoiSo(accessToken: string): Promise<{ ma: string; hetHan: string }>;
+  /**
    * Đổi điểm lấy ưu đãi (#34).
    *
    * `khoaIdempotency` BẮT BUỘC: bấm hai lần lúc mạng chập chờn ở đây tiêu điểm THẬT của khách.
@@ -42,6 +49,17 @@ export class HttpLoyaltyApi implements LoyaltyApi {
         headers: { Authorization: `Bearer ${accessToken}` },
       }),
     );
+  }
+
+  async xinMaNoiSo(accessToken: string): Promise<{ ma: string; hetHan: string }> {
+    const o = (await this.goi(`${this.baseUrl}/api/loyalty/me/link-code`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })) as Record<string, unknown>;
+    return {
+      ma: typeof o.code === 'string' ? o.code : '',
+      hetHan: typeof o.expiresAt === 'string' ? o.expiresAt : '',
+    };
   }
 
   async noiSo(accessToken: string, phone: string): Promise<MyLoyalty> {
