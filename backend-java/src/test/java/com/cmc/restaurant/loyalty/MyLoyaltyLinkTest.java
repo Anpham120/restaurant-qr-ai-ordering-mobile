@@ -49,6 +49,14 @@ class MyLoyaltyLinkTest {
 	@Autowired
 	private LoyaltyService loyaltyService;
 
+	@Autowired
+	private LoyaltyMemberRepository members;
+
+	/** Hồ sơ điểm của một số, đọc thẳng từ kho — phép kiểm cần TÊN, thứ API khách không trả về. */
+	private LoyaltyMemberEntity hoiVien(String phone) {
+		return members.findByPhoneNumber(phone).orElseThrow();
+	}
+
 	private record TaiKhoan(String userId, String token) {
 	}
 
@@ -343,5 +351,53 @@ class MyLoyaltyLinkTest {
 
 		assertThat(res.getStatusCode().value()).isEqualTo(409);
 		assertThat(maLoi(res)).isEqualTo("LOYALTY_PHONE_TAKEN");
+	}
+
+	@Test
+	@DisplayName("Nối số ở quầy thì hồ sơ điểm hết vô danh — tên lấy từ tài khoản")
+	void linkingFillsInTheMemberName() {
+		// Hồ sơ điểm sinh ra lúc khách trả tiền, khi hệ thống chỉ biết mỗi số điện thoại. Không có
+		// bước này thì bảng khách quen của quán mãi là một danh sách số và số dư, không tên ai —
+		// kể cả những người ĐÃ có tài khoản và đã gõ tên từ lúc đăng ký.
+		String phone = soNgauNhien();
+		taoHoSoDiem(phone, 2500);
+		assertThat(hoiVien(phone).getFullName()).isNull();
+
+		TaiKhoan khach = taoKhach();
+		String ma = (String) xinMa(khach.token()).getBody().get("code");
+		noiTaiQuay(taoNhanVien().token(), ma, phone);
+
+		assertThat(hoiVien(phone).getFullName()).isEqualTo("Khach");
+	}
+
+	@Test
+	@DisplayName("Tên do quản trị viên đặt thì KHÔNG bị đè")
+	void anAdminEditedNameSurvives() {
+		// Quản trị viên sửa được tên hội viên. Đè bằng tên tài khoản là xoá công của họ mà không ai
+		// yêu cầu — và tên họ đặt thường mới là tên đúng trên hoá đơn.
+		String phone = soNgauNhien();
+		taoHoSoDiem(phone, 2500);
+		LoyaltyMemberEntity daSua = hoiVien(phone);
+		daSua.setFullName("Tên quản trị viên đặt");
+		members.save(daSua);
+
+		TaiKhoan khach = taoKhach();
+		String ma = (String) xinMa(khach.token()).getBody().get("code");
+		noiTaiQuay(taoNhanVien().token(), ma, phone);
+
+		assertThat(hoiVien(phone).getFullName()).isEqualTo("Tên quản trị viên đặt");
+	}
+
+	@Test
+	@DisplayName("Khách tự nối số CHƯA có hồ sơ: tên điền vào từ hoá đơn ĐẦU TIÊN")
+	void theNameLandsOnTheFirstBill() {
+		// Đường này không có hồ sơ nào lúc nối (đó là điều kiện để được tự nối), nên tên chỉ điền
+		// được khi hồ sơ ra đời — tức lúc khách trả tiền lần đầu.
+		String phone = soNgauNhien();
+		noiSo(taoKhach().token(), phone);
+
+		taoHoSoDiem(phone, 300);
+
+		assertThat(hoiVien(phone).getFullName()).isEqualTo("Khach");
 	}
 }

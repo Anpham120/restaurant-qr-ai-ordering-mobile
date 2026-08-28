@@ -13,6 +13,9 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
 	/** Đã có tài khoản KHÁC nào giữ số này chưa — dùng khi liên kết số điện thoại (V9, #27). */
 	boolean existsByPhoneNumberAndIdNot(String phoneNumber, String id);
 
+	/** Tài khoản đang giữ số này. Chỉ có tối đa một, theo `ux_users_phone_number`. */
+	Optional<UserEntity> findByPhoneNumber(String phoneNumber);
+
 	boolean existsByEmailIgnoreCase(String email);
 
 	/**

@@ -133,6 +133,9 @@ public class MyLoyaltyService {
 
 		user.setPhoneNumber(phone);
 		users.save(user);
+		// Hồ sơ điểm này CÓ SẴN từ trước — đó chính là lý do khách phải ra quầy — và cho tới giờ vẫn
+		// vô danh. Nay đã biết nó thuộc về ai thì điền tên luôn, đừng đợi hoá đơn kế tiếp.
+		loyaltyService.datTenNeuThieu(phone);
 		return read(user);
 	}
 

@@ -1,5 +1,7 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.auth.UserEntity;
+import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.LoyaltyMember;
 import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
@@ -20,14 +22,48 @@ public class LoyaltyService {
 	private final LoyaltyRewardRepository rewards;
 	private final LoyaltyLedgerRepository soDiem;
 	private final LoyaltyRedemptionRepository phieu;
+	private final UserRepository users;
 
 	public LoyaltyService(
 			LoyaltyMemberRepository members, LoyaltyRewardRepository rewards,
-			LoyaltyLedgerRepository soDiem, LoyaltyRedemptionRepository phieu) {
+			LoyaltyLedgerRepository soDiem, LoyaltyRedemptionRepository phieu,
+			UserRepository users) {
 		this.members = members;
 		this.rewards = rewards;
 		this.soDiem = soDiem;
 		this.phieu = phieu;
+		this.users = users;
+	}
+
+	/**
+	 * Điền tên khách vào hồ sơ điểm, lấy từ tài khoản đang giữ số đó.
+	 *
+	 * <p>Hồ sơ điểm sinh ra lúc khách trả tiền, và lúc đó hệ thống chỉ biết mỗi số điện thoại —
+	 * nên bảng khách quen của quán là một danh sách số và số dư, không có tên ai. Khách nào đã tạo
+	 * tài khoản thì đã gõ tên rồi (hoặc Google đưa sang); chép sang đây không bắt họ gõ lại lần
+	 * nào, và không thêm một ô nhập nào vào luồng thanh toán.
+	 *
+	 * <p>KHÔNG đè lên tên đã có. Quản trị viên sửa được tên hội viên qua trang quản trị; đè bằng
+	 * tên tài khoản là xoá công của họ mà không ai yêu cầu.
+	 */
+	@Transactional
+	public void datTenNeuThieu(String rawPhone) {
+		String phone = PhoneNumber.normalize(rawPhone);
+		if (phone == null) {
+			return;
+		}
+		members.findByPhoneNumber(phone).ifPresent(hoiVien -> {
+			if (hoiVien.getFullName() != null && !hoiVien.getFullName().isBlank()) {
+				return;
+			}
+			users.findByPhoneNumber(phone)
+					.map(UserEntity::getFullName)
+					.filter(ten -> ten != null && !ten.isBlank())
+					.ifPresent(ten -> {
+						hoiVien.setFullName(ten);
+						members.save(hoiVien);
+					});
+		});
 	}
 
 	/**
@@ -69,6 +105,9 @@ public class LoyaltyService {
 				entity.getId(), diemVuaTich, totalAmount, now));
 
 		members.save(entity);
+		// Hồ sơ vừa có thể mới sinh ra ở dòng trên. Điền tên ngay nếu số này đã thuộc một tài
+		// khoản — nếu đợi tới lúc nào đó khác thì không có "lúc nào đó" nào cả.
+		datTenNeuThieu(phone);
 		return Optional.of(member);
 	}
 
