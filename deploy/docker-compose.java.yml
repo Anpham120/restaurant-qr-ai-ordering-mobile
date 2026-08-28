@@ -33,7 +33,12 @@ x-api-environment: &api-environment
   PAYMENTS_VIETQR_ACCOUNTNAME: ${PAYMENTS_VIETQR_ACCOUNTNAME:-}
   PAYMENTS_VIETQR_TEMPLATE: ${PAYMENTS_VIETQR_TEMPLATE:-compact2}
   # Để trống thì webhook từ chối mọi lời gọi — trạng thái an toàn, xem issue #12.
-  PAYMENTS_CASSO_SECURETOKEN: ${PAYMENTS_CASSO_SECURETOKEN:-}
+  PAYMENTS_SEPAY_APIKEY: ${PAYMENTS_SEPAY_APIKEY:-}
+  # Xác minh số điện thoại lúc đăng ký (OTP) và đăng nhập Google. Để trống thì cả hai đường TỪ CHỐI
+  # mọi lời gọi — cùng luật an toàn với khoá webhook ở trên.
+  FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+  FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8001}
   AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
   # 50 giây, và phải LỚN HƠN `LLM_TIMEOUT_SECONDS` (30) của dịch vụ AI: dịch vụ phải hết hạn
@@ -93,7 +98,15 @@ services:
       ai-service:
         condition: service_healthy
     ports:
-      - "${BACKEND_JAVA_PORT:-8081}:8081"
+      # Địa chỉ gắn cổng đổi theo môi trường, mặc định mở cho MỌI giao diện.
+      #
+      # Local phải mở: điện thoại thật gọi vào http://<IP-LAN>:8081, đó là cách duy nhất chạy thử
+      # trên máy thật khi không có máy dựng riêng (§9.10).
+      #
+      # Trên máy chủ công khai phải đặt BACKEND_JAVA_BIND=127.0.0.1. Để nguyên 0.0.0.0 nghĩa là
+      # gọi thẳng http://<ip>:8081 được, ĐI VÒNG qua nginx — tức đi vòng qua TLS, và khoá webhook
+      # SePay sẽ đi qua mạng ở dạng chữ thường.
+      - "${BACKEND_JAVA_BIND:-0.0.0.0}:${BACKEND_JAVA_PORT:-8081}:8081"
     healthcheck:
       # Cùng endpoint `/api/health` với bản .NET, nên pattern healthcheck không đổi.
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/api/health >/dev/null || exit 1"]
