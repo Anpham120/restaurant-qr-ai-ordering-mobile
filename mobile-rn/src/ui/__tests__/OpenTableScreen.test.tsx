@@ -63,7 +63,7 @@ class AuthStoreTrong implements TokenStore {
 
 const authApi: AuthApi = {
   dangNhapGoogle: async () => {
-    throw new Error("khong dung toi");
+    throw new Error('khong dung toi');
   },
   dangNhap: async () => {
     throw new Error('không dùng');
@@ -258,5 +258,60 @@ describe('nói rõ đơn có được gắn tài khoản không', () => {
 
     expect(daGoi).toBe(false);
     expect(screen.getByText(/Mã không đọc được/)).toBeTruthy();
+  });
+});
+
+describe('liên kết số điện thoại ngay ở màn vào bàn', () => {
+  it('đã đăng nhập nhưng CHƯA liên kết: không nói câu SAI về việc cộng điểm', async () => {
+    // "Đơn của bàn này sẽ được cộng vào tài khoản của bạn" là câu sai khi chưa liên kết số —
+    // điểm tính theo số điện thoại, chưa có số thì không cộng đi đâu cả. Nói sai ở đây tệ hơn
+    // im lặng: khách yên tâm ăn xong rồi mới phát hiện không có điểm.
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={jest.fn()}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai={null}
+      />,
+    );
+
+    expect(screen.queryByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeNull();
+    expect(screen.getByText('Chưa liên kết số điện thoại')).toBeTruthy();
+  });
+
+  it('hộp đó BẤM ĐƯỢC, dẫn thẳng tới hồ sơ', async () => {
+    // Cùng lý lẽ đã dùng cho hộp "khách vãng lai": khuyên một việc rồi không cho làm là bỏ dở.
+    // Trước đây hồ sơ chỉ mở được từ tab Tài khoản, tức SAU khi đã vào bàn — quá muộn.
+    const moHoSo = jest.fn();
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={moHoSo}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai={null}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Liên kết số điện thoại để tích điểm'));
+
+    expect(moHoSo).toHaveBeenCalled();
+  });
+
+  it('đã liên kết rồi thì KHÔNG mời liên kết nữa', async () => {
+    // Mời làm một việc đã xong là làm khách nghi ngờ mình chưa làm.
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={jest.fn()}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai="0901234567"
+      />,
+    );
+
+    expect(screen.queryByText('Chưa liên kết số điện thoại')).toBeNull();
+    expect(screen.getByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeTruthy();
   });
 });

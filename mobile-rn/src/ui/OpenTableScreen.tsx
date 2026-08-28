@@ -14,6 +14,10 @@ export interface OpenTableScreenProps {
   onMoPhienXong: (phien: TableSession) => void;
   /** Phiên đăng nhập hiện tại, chỉ dùng để nói cho khách biết đơn có được gắn tài khoản không. */
   dangNhapVoi?: AuthSession | null | undefined;
+  /** Số đã liên kết. `null` khi chưa liên kết — lúc đó điểm KHÔNG cộng đi đâu cả. */
+  soDienThoai?: string | null | undefined;
+  /** Mở hồ sơ để liên kết số. Vắng mặt thì hộp trạng thái chỉ là chữ. */
+  onMoHoSo?: (() => void) | undefined;
   /**
    * Mở màn đăng nhập.
    *
@@ -34,6 +38,8 @@ export function OpenTableScreen({
   repository,
   onMoPhienXong,
   dangNhapVoi = null,
+  soDienThoai = null,
+  onMoHoSo,
   onDangNhap,
 }: OpenTableScreenProps) {
   const [qr, setQr] = useState('');
@@ -135,7 +141,22 @@ export function OpenTableScreen({
         Đây là điểm duy nhất khách còn kịp quyết định. Biết sau khi đã gọi món thì không sửa được
         nữa: phiên bàn dùng chung và người gắn trước giữ liên kết.
       */}
-      {daDangNhap || onDangNhap === undefined ? (
+      {daDangNhap && soDienThoai === null && onMoHoSo !== undefined ? (
+        // Đã đăng nhập nhưng CHƯA liên kết số: câu "sẽ được cộng vào tài khoản" là câu sai —
+        // chưa liên kết thì điểm không cộng đi đâu cả. Nói đúng, và cho làm ngay tại chỗ, theo
+        // đúng lý lẽ đã dùng cho hộp "khách vãng lai" bên dưới.
+        <TouchableOpacity
+          accessibilityLabel="Liên kết số điện thoại để tích điểm"
+          accessibilityRole="button"
+          onPress={onMoHoSo}
+          style={kieuChung.the}
+        >
+          <Text style={kieuChung.chu}>Chưa liên kết số điện thoại</Text>
+          <Text style={[kieuChung.chuPhu, { color: MauQuan.chestnut, fontWeight: '600' }]}>
+            Liên kết ngay để bữa này được tích điểm
+          </Text>
+        </TouchableOpacity>
+      ) : daDangNhap || onDangNhap === undefined ? (
         <View style={kieuChung.the}>
           <Text style={kieuChung.chu}>
             {daDangNhap

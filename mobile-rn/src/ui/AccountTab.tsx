@@ -12,7 +12,8 @@ import { type OrderHistoryApi } from '../core/orders/orderHistoryApi';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { HistoryScreen } from './HistoryScreen';
-import { LienKetSoDienThoai } from './LienKetSoDienThoai';
+import { HoSoTaiKhoan } from './HoSoTaiKhoan';
+import { ManCoNutVe } from './ManCoNutVe';
 import { LoyaltyScreen } from './LoyaltyScreen';
 import { PaymentScreen } from './PaymentScreen';
 import { MauQuan, kieuChung } from './theme';
@@ -76,7 +77,7 @@ export function AccountTab(p: AccountTabProps) {
 
   if (manCon === 'thanhToan') {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
+      <ManCoNutVe onVe={() => setManCon(null)}>
         <PaymentScreen
           promotionApi={p.promotionApi}
           api={p.invoiceApi}
@@ -84,13 +85,13 @@ export function AccountTab(p: AccountTabProps) {
           phienBan={p.phienBan}
           soDienThoai={p.soDienThoai}
         />
-      </ManConCoNutVe>
+      </ManCoNutVe>
     );
   }
 
   if (manCon === 'lichSu' && ses !== null) {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
+      <ManCoNutVe onVe={() => setManCon(null)}>
         <HistoryScreen
           accessToken={ses.accessToken}
           favouriteApi={p.favouriteApi}
@@ -98,63 +99,35 @@ export function AccountTab(p: AccountTabProps) {
           onBaoTin={p.onBaoTin}
           themVaoGio={p.themVaoGio}
         />
-      </ManConCoNutVe>
+      </ManCoNutVe>
     );
   }
 
   if (manCon === 'hoSo' && ses !== null) {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} style={kieuChung.man}>
-          <Text style={kieuChung.tieuDe}>Hồ sơ tài khoản</Text>
-
-          <View style={[kieuChung.the, { gap: 4 }]}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
-              {ses.user.fullName}
-            </Text>
-            <Text style={kieuChung.chuPhu}>{ses.user.email}</Text>
-          </View>
-
-          {p.soDienThoai === null ? (
-            <LienKetSoDienThoai
-              accessToken={ses.accessToken}
-              api={p.loyaltyApi}
-              onLoiNang={(loi) => {
-                throw loi;
-              }}
-              onNoiXong={(diem) => {
-                p.onNoiSoXong?.(diem.linked ? diem.phoneNumber : null);
-                p.onBaoTin?.('Đã liên kết số điện thoại.');
-                setManCon(null);
-              }}
-            />
-          ) : (
-            <View style={[kieuChung.the, { gap: 4 }]}>
-              <Text style={kieuChung.nhan}>Số điện thoại</Text>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
-                {p.soDienThoai}
-              </Text>
-              {/* Nói rõ số này DÙNG để làm gì, thay vì chỉ trưng ra một dãy số. */}
-              <Text style={kieuChung.chuPhu}>
-                Điểm thưởng cộng vào số này mỗi lần bạn thanh toán.
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      </ManConCoNutVe>
+      <ManCoNutVe onVe={() => setManCon(null)}>
+        <HoSoTaiKhoan
+          api={p.loyaltyApi}
+          dangNhap={ses}
+          onBaoTin={p.onBaoTin}
+          onNoiSoXong={(so) => p.onNoiSoXong?.(so)}
+          onXong={() => setManCon(null)}
+          soDienThoai={p.soDienThoai}
+        />
+      </ManCoNutVe>
     );
   }
 
   if (manCon === 'diem' && ses !== null) {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
+      <ManCoNutVe onVe={() => setManCon(null)}>
         <LoyaltyScreen
           accessToken={ses.accessToken}
           api={p.loyaltyApi}
           onBaoTin={p.onBaoTin}
           timDonDangMo={timDonDangMo}
         />
-      </ManConCoNutVe>
+      </ManCoNutVe>
     );
   }
 
@@ -241,23 +214,5 @@ export function AccountTab(p: AccountTabProps) {
         </>
       )}
     </ScrollView>
-  );
-}
-
-function ManConCoNutVe({ children, onVe }: { children: React.ReactNode; onVe: () => void }) {
-  return (
-    <View style={kieuChung.man}>
-      <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: MauQuan.clayLine }}>
-        <TouchableOpacity
-          accessibilityLabel="Quay lại"
-          accessibilityRole="button"
-          onPress={onVe}
-          style={{ alignSelf: 'flex-start' }}
-        >
-          <Text style={kieuChung.chuNutVien}>‹ Quay lại</Text>
-        </TouchableOpacity>
-      </View>
-      {children}
-    </View>
   );
 }

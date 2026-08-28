@@ -31,7 +31,9 @@ import { TableSessionRepository } from './src/core/tables/tableSessionRepository
 import { SecureTableSessionStore } from './src/core/tables/tableSessionStore';
 import { KhungChinh } from './src/ui/KhungChinh';
 import { layTokenGoogleThat } from './src/core/auth/googleSignIn';
+import { HoSoTaiKhoan } from './src/ui/HoSoTaiKhoan';
 import { LoginScreen } from './src/ui/LoginScreen';
+import { ManCoNutVe } from './src/ui/ManCoNutVe';
 import { OpenTableScreen } from './src/ui/OpenTableScreen';
 import { ServerSettingsScreen } from './src/ui/ServerSettingsScreen';
 import { MauQuan, kieuChung } from './src/ui/theme';
@@ -42,7 +44,7 @@ const banStore = new SecureTableSessionStore();
 const orderTokenStore = new OrderTokenStore();
 
 /** Màn hình đang mở ở tầng ngoài cùng. */
-type ManNgoai = 'caiDat' | 'dangNhap' | null;
+type ManNgoai = 'caiDat' | 'dangNhap' | 'hoSo' | null;
 
 /**
  * Dựng lại TOÀN BỘ client theo địa chỉ hiện tại.
@@ -213,6 +215,27 @@ function NoiDungApp() {
     );
   }
 
+  // Hồ sơ mở được NGOÀI phiên bàn. Tab Tài khoản nằm trong KhungChinh, thứ chỉ tồn tại khi đã
+  // mở bàn — nếu hồ sơ chỉ sống ở đó thì khách tạo tài khoản ở nhà không liên kết được số cho
+  // tới khi quét QR ngồi vào bàn, trong khi liên kết chẳng dính gì tới bàn nào.
+  if (manNgoai === 'hoSo' && dangNhap !== null) {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <ManCoNutVe onVe={() => setManNgoai(null)}>
+          <HoSoTaiKhoan
+            api={client.loyaltyApi}
+            dangNhap={dangNhap}
+            onBaoTin={setTin}
+            onNoiSoXong={setSoDienThoai}
+            onXong={() => setManNgoai(null)}
+            soDienThoai={soDienThoai}
+          />
+        </ManCoNutVe>
+      </SafeAreaView>
+    );
+  }
+
   // KHÔNG bắt đăng nhập trước khi vào bàn. Khách vãng lai phải dùng được app đúng như web; đăng
   // nhập chỉ đổi lấy việc đơn được gắn tài khoản (§9.4).
   if (phienBan === null) {
@@ -222,6 +245,8 @@ function NoiDungApp() {
         <OpenTableScreen
           dangNhapVoi={dangNhap}
           onDangNhap={() => setManNgoai('dangNhap')}
+          onMoHoSo={() => setManNgoai('hoSo')}
+          soDienThoai={soDienThoai}
           onMoPhienXong={(ban) => {
             setPhienBan(ban);
             // Phiên vừa mở đã kèm token nếu khách đã đăng nhập, nên chỉ cần đọc số điện thoại —
