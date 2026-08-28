@@ -52,12 +52,15 @@ public class VietQrProvider {
 		String transferContent = ("CMC " + orderCode).toUpperCase(Locale.ROOT);
 		// Truncate, not round: mirrors decimal.Truncate in .NET, so 110000.99 transfers as 110000.
 		String amountText = amount.setScale(0, RoundingMode.DOWN).toPlainString();
-		String quickLink = "https://img.vietqr.io/image/"
-				+ encode(properties.bankId()) + "-" + encode(properties.accountNumber()) + "-"
-				+ encode(properties.template()) + ".png"
-				+ "?amount=" + encode(amountText)
-				+ "&addInfo=" + encode(transferContent)
-				+ "&accountName=" + encode(properties.accountName());
+		// Ảnh QR sinh bởi SePay. Mã bên trong VẪN theo chuẩn VietQR — đó là chuẩn QR ngân hàng
+		// quốc gia, không phải một nhà cung cấp. Đổi nguồn ảnh sang SePay để chỉ còn MỘT bên trong
+		// luồng tiền: cùng bên sinh mã cũng là bên bắn webhook khi tiền về, nên không có khoảng
+		// lệch nào giữa "mã khách quét" và "giao dịch hệ thống nhận ra".
+		String quickLink = "https://qr.sepay.vn/img"
+				+ "?acc=" + encode(properties.accountNumber())
+				+ "&bank=" + encode(properties.bankId())
+				+ "&amount=" + encode(amountText)
+				+ "&des=" + encode(transferContent);
 
 		return new VietQrPayload(
 				amount, transferContent, properties.bankId(), properties.accountNumber(),

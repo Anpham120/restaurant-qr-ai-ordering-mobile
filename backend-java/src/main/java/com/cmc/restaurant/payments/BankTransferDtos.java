@@ -7,9 +7,9 @@ import java.util.List;
 /** Casso webhook payload (hạn chế #3). Only the fields this integration actually reads are
  * mapped; {@code @JsonIgnoreProperties} keeps unknown fields from breaking us when Casso adds
  * some — a webhook we reject is one Casso retries 17 times. */
-public final class CassoDtos {
+public final class BankTransferDtos {
 
-	private CassoDtos() {
+	private BankTransferDtos() {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)

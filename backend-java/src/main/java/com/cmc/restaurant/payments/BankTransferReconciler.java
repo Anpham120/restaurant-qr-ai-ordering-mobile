@@ -25,10 +25,19 @@ import org.springframework.transaction.annotation.Transactional;
  * failed entry in a Casso batch would roll back the settlements that already succeeded.
  */
 @Service
-public class CassoTransactionReconciler {
+public class BankTransferReconciler {
 
 	/** Matches the transfer content built by {@link VietQrProvider} ("CMC ORD-1001"). Banks often
 	 * wrap their own text around the description, so this searches rather than anchors. */
+	/**
+	 * Nhãn nhà cung cấp ghi vào {@code payment_transactions.provider}.
+	 *
+	 * <p>Phải khớp với điều kiện của chỉ mục chống ghi trùng ở V23. Đổi chuỗi này mà quên chỉ mục
+	 * thì lần gửi lại thứ hai của CÙNG một giao dịch sẽ ghi nhận tiền lần nữa — SePay gửi lại tới
+	 * 17 lần trong 24 giờ cho tới khi nhận được 200.
+	 */
+	static final String NHA_CUNG_CAP = "SePay";
+
 	private static final Pattern ORDER_CODE = Pattern.compile("CMC\\s+(ORD-\\d+)", Pattern.CASE_INSENSITIVE);
 
 	private static final ActorContext CASSO_ACTOR = new ActorContext(null, "System");
@@ -38,7 +47,7 @@ public class CassoTransactionReconciler {
 	private final OrderLookup orderLookup;
 	private final OrderService orderService;
 
-	public CassoTransactionReconciler(
+	public BankTransferReconciler(
 			PaymentRepository paymentRepository, PaymentTransactionRepository transactionRepository,
 			OrderLookup orderLookup, OrderService orderService) {
 		this.paymentRepository = paymentRepository;
@@ -60,11 +69,11 @@ public class CassoTransactionReconciler {
 	 * {@link CassoWebhookService#handle} classifies the outcome from outside the boundary.
 	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public CassoDtos.TransactionResult reconcile(CassoDtos.Transaction transaction) {
+	public BankTransferDtos.TransactionResult reconcile(BankTransferDtos.Transaction transaction) {
 		return attempt(transaction);
 	}
 
-	private CassoDtos.TransactionResult attempt(CassoDtos.Transaction transaction) {
+	private BankTransferDtos.TransactionResult attempt(BankTransferDtos.Transaction transaction) {
 		String reference = transaction.reference() == null ? null : transaction.reference().trim();
 		if (reference == null || reference.isEmpty()) {
 			return result(transaction, "ignored", null, "Transaction has no reference to deduplicate on.");
@@ -72,7 +81,7 @@ public class CassoTransactionReconciler {
 
 		// Idempotency pre-check. The DB index is what actually guarantees this; this lookup only
 		// keeps the common replay path from throwing.
-		if (transactionRepository.findByProviderAndProviderTransactionId("Casso", reference).isPresent()) {
+		if (transactionRepository.findByProviderAndProviderTransactionId(NHA_CUNG_CAP, reference).isPresent()) {
 			return result(transaction, "duplicate", null, "This bank reference was already reconciled.");
 		}
 
@@ -118,7 +127,7 @@ public class CassoTransactionReconciler {
 		String note = "Auto-confirmed from Casso bank transaction " + reference + ".";
 		transactionRepository.save(new PaymentTransactionEntity(
 				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(),
-				payment.getMethod().name(), "Confirmed", payment.getAmount(), "Casso", reference, note,
+				payment.getMethod().name(), "Confirmed", payment.getAmount(), NHA_CUNG_CAP, reference, note,
 				now, null, null));
 		orderService.recordPaymentStatusEvent(orderCode, CASSO_ACTOR, note);
 
@@ -138,8 +147,8 @@ public class CassoTransactionReconciler {
 		return matcher.find() ? matcher.group(1).toUpperCase(Locale.ROOT) : null;
 	}
 
-	private static CassoDtos.TransactionResult result(
-			CassoDtos.Transaction transaction, String outcome, String orderCode, String detail) {
-		return new CassoDtos.TransactionResult(transaction.reference(), outcome, orderCode, detail);
+	private static BankTransferDtos.TransactionResult result(
+			BankTransferDtos.Transaction transaction, String outcome, String orderCode, String detail) {
+		return new BankTransferDtos.TransactionResult(transaction.reference(), outcome, orderCode, detail);
 	}
 }

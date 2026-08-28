@@ -34,10 +34,11 @@ payments:
     account-number: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:}
     account-name: ${PAYMENTS_VIETQR_ACCOUNTNAME:}
     template: ${PAYMENTS_VIETQR_TEMPLATE:compact2}
-  casso:
-    # No default either: an unset token makes the webhook reject every call, which is the safe
-    # failure mode — accepting unauthenticated payloads would mark orders paid for free.
-    secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
+  sepay:
+    # Khoá webhook SePay, gửi kèm header "Authorization: Apikey ...".
+    # Để trống thì webhook TỪ CHỐI mọi lời gọi — thà không đối soát tự động còn hơn nhận một
+    # thân request giả và đánh dấu đơn đã trả tiền.
+    api-key: ${PAYMENTS_SEPAY_APIKEY:}
 
 # Năng lực bếp — xem KitchenCapacityProperties. Số món bếp làm được CÙNG LÚC, dùng để đổi hàng
 # đợi thành thời gian chờ. Quán tự đo rồi chỉnh; mặc định là ước lượng cho bếp cỡ vừa.
