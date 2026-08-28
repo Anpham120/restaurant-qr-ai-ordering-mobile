@@ -12,6 +12,7 @@ import { type OrderHistoryApi } from '../core/orders/orderHistoryApi';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { HistoryScreen } from './HistoryScreen';
+import { LienKetSoDienThoai } from './LienKetSoDienThoai';
 import { LoyaltyScreen } from './LoyaltyScreen';
 import { PaymentScreen } from './PaymentScreen';
 import { MauQuan, kieuChung } from './theme';
@@ -33,10 +34,18 @@ export interface AccountTabProps {
   onDangNhap: () => void;
   onDangXuat: () => void;
   onBaoTin?: ((tin: string) => void) | undefined;
+  /**
+   * Báo lên khi khách vừa nối số ở hồ sơ.
+   *
+   * Cần thiết chứ không thừa: `soDienThoai` còn dùng để điền sẵn ô số lúc thanh toán. Không báo
+   * lên thì khách nối số xong, sang trả tiền vẫn thấy ô trống, và lần thanh toán đó KHÔNG tích
+   * được điểm — đúng thứ họ vừa bỏ công liên kết để có.
+   */
+  onNoiSoXong?: ((soMoi: string | null) => void) | undefined;
 }
 
 /** Màn con mở từ tab tài khoản. `null` là đang ở danh sách gốc. */
-type ManCon = 'thanhToan' | 'lichSu' | 'diem' | null;
+type ManCon = 'thanhToan' | 'lichSu' | 'diem' | 'hoSo' | null;
 
 function Dong({ tieuDe, phu, onPress }: { tieuDe: string; phu?: string; onPress: () => void }) {
   return (
@@ -89,6 +98,49 @@ export function AccountTab(p: AccountTabProps) {
           onBaoTin={p.onBaoTin}
           themVaoGio={p.themVaoGio}
         />
+      </ManConCoNutVe>
+    );
+  }
+
+  if (manCon === 'hoSo' && ses !== null) {
+    return (
+      <ManConCoNutVe onVe={() => setManCon(null)}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} style={kieuChung.man}>
+          <Text style={kieuChung.tieuDe}>Hồ sơ tài khoản</Text>
+
+          <View style={[kieuChung.the, { gap: 4 }]}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
+              {ses.user.fullName}
+            </Text>
+            <Text style={kieuChung.chuPhu}>{ses.user.email}</Text>
+          </View>
+
+          {p.soDienThoai === null ? (
+            <LienKetSoDienThoai
+              accessToken={ses.accessToken}
+              api={p.loyaltyApi}
+              onLoiNang={(loi) => {
+                throw loi;
+              }}
+              onNoiXong={(diem) => {
+                p.onNoiSoXong?.(diem.linked ? diem.phoneNumber : null);
+                p.onBaoTin?.('Đã liên kết số điện thoại.');
+                setManCon(null);
+              }}
+            />
+          ) : (
+            <View style={[kieuChung.the, { gap: 4 }]}>
+              <Text style={kieuChung.nhan}>Số điện thoại</Text>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
+                {p.soDienThoai}
+              </Text>
+              {/* Nói rõ số này DÙNG để làm gì, thay vì chỉ trưng ra một dãy số. */}
+              <Text style={kieuChung.chuPhu}>
+                Điểm thưởng cộng vào số này mỗi lần bạn thanh toán.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       </ManConCoNutVe>
     );
   }
@@ -163,6 +215,19 @@ export function AccountTab(p: AccountTabProps) {
               <Text style={kieuChung.chuNutVien}>Đăng xuất</Text>
             </TouchableOpacity>
           </View>
+          {/*
+            Hồ sơ đứng TRƯỚC lịch sử và điểm. Liên kết số là việc khách làm ngay sau khi tạo tài
+            khoản, một lần duy nhất; hai mục kia là thứ họ quay lại xem nhiều lần về sau.
+          */}
+          <Dong
+            onPress={() => setManCon('hoSo')}
+            phu={
+              p.soDienThoai === null
+                ? 'Chưa liên kết số điện thoại'
+                : `Số điện thoại: ${p.soDienThoai}`
+            }
+            tieuDe="Hồ sơ tài khoản"
+          />
           <Dong
             onPress={() => setManCon('lichSu')}
             phu="Đơn của những lần ghé trước"

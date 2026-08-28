@@ -13,6 +13,7 @@ import { type MyLoyalty, type Reward, doiDuoc } from '../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { KhoaDatDon } from '../core/orders/khoaDatDon';
 import { tienVnd } from '../core/tien';
+import { LienKetSoDienThoai } from './LienKetSoDienThoai';
 import { TheHang } from './TheHang';
 import { MauQuan, kieuChung } from './theme';
 
@@ -71,14 +72,9 @@ export function LoyaltyScreen({
   timDonDangMo,
 }: LoyaltyScreenProps) {
   const [diem, setDiem] = useState<MyLoyalty | null>(null);
-  const [so, setSo] = useState('');
   const [loi, setLoi] = useState<string | null>(null);
-  const [dangGui, setDangGui] = useState(false);
   const [dangDoi, setDangDoi] = useState<string | null>(null);
   const [loiNang, setLoiNang] = useState<unknown>(null);
-  // Mã nối số hiện ra ĐÚNG chỗ khách vừa bị từ chối. Bảo họ "nhờ quầy nối hộ" rồi bắt tự đi tìm
-  // nơi lấy mã là dẫn khách đến giữa đường rồi bỏ đó.
-  const [maNoiSo, setMaNoiSo] = useState<string | null>(null);
 
   // Một khoá cho suốt vòng đời màn hình, gắn với ưu đãi đang đổi. Tạo mới mỗi lượt dựng là mất
   // hẳn tác dụng — và ở đây mất tác dụng nghĩa là tiêu điểm THẬT của khách hai lần.
@@ -120,32 +116,6 @@ export function LoyaltyScreen({
       huy = true;
     };
   }, [apDung, nap]);
-
-  const noiSo = useCallback(async () => {
-    if (dangGui) return;
-    setDangGui(true);
-    setLoi(null);
-    try {
-      setDiem(await api.noiSo(accessToken, so));
-    } catch (e) {
-      if (!(e instanceof AuthException)) {
-        setLoiNang(e);
-        return;
-      }
-      setLoi(e.message);
-      // Số đã có hồ sơ từ trước là đường của khách quen CŨ, không phải lỗi gõ nhầm. Đưa luôn mã
-      // để họ đọc ở quầy, thay vì để họ gõ lại số mãi.
-      if (e.code === 'LOYALTY_PHONE_ALREADY_MEMBER') {
-        try {
-          setMaNoiSo((await api.xinMaNoiSo(accessToken)).ma);
-        } catch {
-          // Không xin được mã thì câu hướng dẫn ở trên vẫn còn; đừng nuốt nó bằng một lỗi khác.
-        }
-      }
-    } finally {
-      setDangGui(false);
-    }
-  }, [accessToken, api, dangGui, so]);
 
   const doi = useCallback(
     async (uu: Reward) => {
@@ -210,25 +180,6 @@ export function LoyaltyScreen({
     <ScrollView style={kieuChung.man} contentContainerStyle={{ padding: 16, gap: 12 }}>
       <Text style={kieuChung.tieuDe}>Điểm thưởng</Text>
       {loi !== null ? <Text style={{ color: MauQuan.danger }}>{loi}</Text> : null}
-
-      {maNoiSo === null ? null : (
-        <View style={[kieuChung.the, { gap: 6, alignItems: 'center' }]}>
-          <Text style={kieuChung.chuPhu}>Đọc mã này cho nhân viên tại quầy</Text>
-          <Text
-            accessibilityLabel={`Mã nối tài khoản ${maNoiSo.split('').join(' ')}`}
-            selectable
-            style={{
-              fontSize: 32,
-              fontWeight: '700',
-              letterSpacing: 6,
-              color: MauQuan.chestnut,
-            }}
-          >
-            {maNoiSo}
-          </Text>
-          <Text style={kieuChung.chuPhu}>Mã sống 5 phút và chỉ dùng được một lần.</Text>
-        </View>
-      )}
 
       {diem === null ? null : diem.linked ? (
         <>
@@ -334,38 +285,12 @@ export function LoyaltyScreen({
           )}
         </>
       ) : (
-        <>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: MauQuan.ink }}>
-            Liên kết số điện thoại
-          </Text>
-          {/* Nói TRƯỚC giới hạn, thay vì để khách gõ số rồi mới nhận lỗi khó hiểu. */}
-          <Text style={kieuChung.chu}>
-            Điểm thưởng được tính theo số điện thoại bạn dùng khi thanh toán.
-            {'\n'}
-            Nếu số này đã từng tích điểm, nhờ nhân viên tại quầy nối hộ.
-          </Text>
-          <View>
-            <Text style={kieuChung.nhan}>Số điện thoại</Text>
-            <TextInput
-              accessibilityLabel="Số điện thoại"
-              autoCorrect={false}
-              inputMode="tel"
-              onChangeText={setSo}
-              onSubmitEditing={() => void noiSo()}
-              style={kieuChung.oNhap}
-              value={so}
-            />
-          </View>
-          <TouchableOpacity
-            accessibilityLabel="Liên kết"
-            accessibilityRole="button"
-            disabled={dangGui}
-            onPress={() => void noiSo()}
-            style={[kieuChung.nutChinh, dangGui ? kieuChung.nutTat : null]}
-          >
-            <Text style={kieuChung.chuNutChinh}>{dangGui ? 'Đang liên kết…' : 'Liên kết'}</Text>
-          </TouchableOpacity>
-        </>
+        <LienKetSoDienThoai
+          accessToken={accessToken}
+          api={api}
+          onLoiNang={setLoiNang}
+          onNoiXong={setDiem}
+        />
       )}
     </ScrollView>
   );

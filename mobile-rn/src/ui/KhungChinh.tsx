@@ -44,6 +44,7 @@ export interface KhungChinhProps {
   onDangNhap: () => void;
   onDangXuat: () => void;
   onBaoTin?: ((tin: string) => void) | undefined;
+  onNoiSoXong?: ((soMoi: string | null) => void) | undefined;
 }
 
 /** Một tab: nhãn và màn hình đi liền nhau trong CÙNG một phần tử. */
@@ -154,6 +155,7 @@ export function KhungChinh(p: KhungChinhProps) {
         nhan: 'Tài khoản',
         man: () => (
           <AccountTab
+            onNoiSoXong={p.onNoiSoXong}
             promotionApi={p.promotionApi}
             orderApi={p.orderApi}
             cauHinh={p.cauHinh}

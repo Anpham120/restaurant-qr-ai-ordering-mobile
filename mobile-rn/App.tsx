@@ -256,6 +256,7 @@ function NoiDungApp() {
         orderApi={client.orderApi}
         phienBan={phienBan}
         promotionApi={client.promotionApi}
+        onNoiSoXong={setSoDienThoai}
         soDienThoai={soDienThoai}
         tokenStore={orderTokenStore}
       />
