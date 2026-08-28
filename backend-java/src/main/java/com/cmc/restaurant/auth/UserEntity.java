@@ -14,7 +14,14 @@ public class UserEntity {
 	@Id
 	private String id;
 
-	@Column(nullable = false, unique = true)
+	/**
+	 * NULL với khách đăng ký bằng số điện thoại. Xem V22.
+	 *
+	 * <p>Bỏ {@code nullable = false} không phải để cho đẹp: Hibernate tự kiểm cờ đó lúc ghi và ném
+	 * {@code PropertyValueException} TRƯỚC khi chạm tới cơ sở dữ liệu — nên nới lỏng ở migration mà
+	 * quên chỗ này thì mọi lượt đăng ký đều hỏng.
+	 */
+	@Column(unique = true)
 	private String email;
 
 	@Column(name = "full_name", nullable = false)

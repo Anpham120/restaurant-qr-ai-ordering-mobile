@@ -1,5 +1,7 @@
 package com.cmc.restaurant.orders;
 
+import com.cmc.restaurant.auth.XacMinhGia;
+import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -37,6 +39,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>Biên dịch sạch, Checkstyle sạch, cổng {@code @PreAuthorize} sạch. Chỉ gọi thật mới lộ ra.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MyOrderHistoryTest {
 
@@ -50,13 +53,18 @@ class MyOrderHistoryTest {
 	private record Khach(String token) {
 	}
 
+	/** Số điện thoại ngẫu nhiên. Với bản giả, token xác minh CHÍNH LÀ số này. */
+	private static String soNgauNhienChoTaiKhoan() {
+		return "09" + String.format("%08d", (int) (Math.random() * 100000000));
+	}
+
 	private Khach taoKhach() {
-		String email = "hist." + UUID.randomUUID() + "@local.test";
+		String soDangNhap = soNgauNhienChoTaiKhoan();
 		rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "K", "email", email, "password", "MatKhauProbe12345")), Map.class);
+				"fullName", "K", "phoneIdToken", soDangNhap, "password", "MatKhauProbe12345")), Map.class);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 		return new Khach((String) body.get("accessToken"));
 	}
 

@@ -3,6 +3,7 @@ package com.cmc.restaurant.loyalty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cmc.restaurant.auth.UserEntity;
+import com.cmc.restaurant.auth.XacMinhGia;
 import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.auth.UserRole;
 import com.cmc.restaurant.loyalty.domain.LoyaltyMember;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -33,6 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * toàn bộ lý do tồn tại của lớp này biến mất mà mọi phép kiểm khác vẫn xanh.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MyLoyaltyLinkTest {
 
@@ -60,27 +63,44 @@ class MyLoyaltyLinkTest {
 	private record TaiKhoan(String userId, String token) {
 	}
 
+	/**
+	 * Khách vào bằng GOOGLE — loại tài khoản duy nhất còn cần bước liên kết số.
+	 *
+	 * <p>Tài khoản đăng ký bằng số điện thoại thì số đã chính là danh tính đăng nhập, không còn gì
+	 * để nối; dùng loại đó ở đây sẽ kiểm một trạng thái mà nghiệp vụ không tạo ra.
+	 */
+	@SuppressWarnings("unchecked")
 	private TaiKhoan taoKhach() {
 		String email = "loy." + UUID.randomUUID() + "@local.test";
-		rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "Khach", "email", email, "password", "MatKhauProbe12345")), Map.class);
-		return dangNhap(email);
-	}
-
-	@SuppressWarnings("unchecked")
-	private TaiKhoan dangNhap(String email) {
-		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+		Map<String, Object> body = rest.postForEntity("/api/auth/google",
+				json(Map.of("idToken", "sub-" + UUID.randomUUID() + "|" + email + "|Khach")),
+				Map.class).getBody();
 		Map<String, Object> user = (Map<String, Object>) body.get("user");
 		return new TaiKhoan((String) user.get("userId"), (String) body.get("accessToken"));
 	}
 
+	@SuppressWarnings("unchecked")
+	private TaiKhoan dangNhap(String dinhDanh) {
+		Map<String, Object> body = rest.postForEntity("/api/auth/login",
+				json(Map.of("identifier", dinhDanh, "password", "MatKhauProbe12345")), Map.class).getBody();
+		Map<String, Object> user = (Map<String, Object>) body.get("user");
+		return new TaiKhoan((String) user.get("userId"), (String) body.get("accessToken"));
+	}
+
+	/**
+	 * Nhân viên đăng ký bằng SỐ + mật khẩu rồi được nâng vai.
+	 *
+	 * <p>Không dùng đường Google: tài khoản Google không có mật khẩu, nên sau khi đổi vai thì
+	 * không đăng nhập lại được để lấy token mang vai mới.
+	 */
 	private TaiKhoan taoNhanVien() {
-		TaiKhoan tk = taoKhach();
-		UserEntity u = users.findById(tk.userId()).orElseThrow();
+		String so = soNgauNhien();
+		rest.postForEntity("/api/auth/register", json(Map.of(
+				"fullName", "NV", "phoneIdToken", so, "password", "MatKhauProbe12345")), Map.class);
+		UserEntity u = users.findByPhoneNumber(so).orElseThrow();
 		u.setRole(UserRole.STAFF);
 		users.save(u);
-		return dangNhap(u.getEmail());
+		return dangNhap(so);
 	}
 
 	private static HttpEntity<Map<String, String>> json(Map<String, String> body) {

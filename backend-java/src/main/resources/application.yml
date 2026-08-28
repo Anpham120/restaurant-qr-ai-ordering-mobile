@@ -58,6 +58,12 @@ chat:
     internal-token: ${AI_INTERNAL_TOKEN:}
     timeout-seconds: ${BACKEND_AI_TIMEOUT_SECONDS:12}
 
+firebase:
+  # Xác minh số điện thoại lúc đăng ký (OTP). KHÔNG có mặc định: chưa cấu hình thì
+  # FirebasePhoneClaimsRule từ chối mọi lời gọi, không nhận mọi lời gọi.
+  api-key: ${FIREBASE_API_KEY:}
+  project-id: ${FIREBASE_PROJECT_ID:}
+
 google:
   # KHÔNG có mặc định. Chưa cấu hình thì GoogleClaimsRule từ chối mọi lời gọi — một triển khai
   # quên cấu hình phải từ chối tất cả, không phải nhận tất cả. Cùng luật với AI_INTERNAL_TOKEN.

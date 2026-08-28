@@ -1,5 +1,7 @@
 package com.cmc.restaurant.tables;
 
+import com.cmc.restaurant.auth.XacMinhGia;
+import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cmc.restaurant.auth.UserEntity;
@@ -27,6 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Spring sẽ kiểm được đúng phần đã đúng sẵn và bỏ lọt đúng phần từng sai.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TableSessionMemberLinkTest {
 
@@ -48,22 +51,27 @@ class TableSessionMemberLinkTest {
 	private record TaiKhoan(String userId, String token) {
 	}
 
+	/** Số điện thoại ngẫu nhiên. Với bản giả, token xác minh CHÍNH LÀ số này. */
+	private static String soNgauNhienChoTaiKhoan() {
+		return "09" + String.format("%08d", (int) (Math.random() * 100000000));
+	}
+
 	private TaiKhoan taoTaiKhoan(String role) {
-		String email = "probe." + java.util.UUID.randomUUID() + "@local.test";
+		String soDangNhap = soNgauNhienChoTaiKhoan();
 		rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "Probe", "email", email, "password", "MatKhauProbe12345")), Map.class);
+				"fullName", "Probe", "phoneIdToken", soDangNhap, "password", "MatKhauProbe12345")), Map.class);
 
 		if (!UserRole.CUSTOMER.equals(role)) {
 			// Đổi vai TRƯỚC khi đăng nhập: role nằm trong token, nên đổi sau khi lấy token thì
 			// token cũ vẫn mang vai cũ và phép kiểm sẽ đo nhầm thứ.
-			UserEntity user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+			UserEntity user = userRepository.findByPhoneNumber(soDangNhap).orElseThrow();
 			user.setRole(role);
 			userRepository.save(user);
 		}
 
 		@SuppressWarnings("unchecked")
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 
 		@SuppressWarnings("unchecked")
 		Map<String, Object> user = (Map<String, Object>) body.get("user");

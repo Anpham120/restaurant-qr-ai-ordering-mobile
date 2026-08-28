@@ -1,5 +1,6 @@
 package com.cmc.restaurant.auth;
 
+import com.cmc.restaurant.loyalty.domain.PhoneNumber;
 import com.cmc.restaurant.shared.ApiException;
 import java.time.OffsetDateTime;
 import java.util.Locale;
@@ -25,19 +26,33 @@ public class UserService {
 		this.passwordHasher = passwordHasher;
 	}
 
-	public UserEntity registerCustomer(String fullName, String email, String password) {
-		String normalizedEmail = normalizeEmail(email);
-		if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
-			throw ApiException.conflict("EMAIL_ALREADY_REGISTERED", "Email is already registered.");
+	/**
+	 * Tạo tài khoản khách bằng số điện thoại ĐÃ xác minh.
+	 *
+	 * <p>Số ở đây phải do {@link PhoneTokenVerifier} trả về, không bao giờ lấy thẳng từ thân
+	 * request. Điểm thưởng tính theo số điện thoại, nên nhận một số chưa xác minh nghĩa là cho
+	 * người lạ chiếm hồ sơ điểm của khách quen và khoá luôn chủ thật ra ngoài.
+	 *
+	 * <p>Không có email. Đó là lý do V22 cho {@code users.email} nhận NULL — nhân viên vẫn dùng
+	 * email, khách thì không cần.
+	 *
+	 * <p>Hồ sơ điểm mang số này, nếu đã có, thuộc về tài khoản vừa tạo NGAY LẬP TỨC: một khoá duy
+	 * nhất cho cả hai phía nên không còn gì để nối.
+	 */
+	public UserEntity registerCustomerByPhone(String fullName, String verifiedPhone, String password) {
+		if (userRepository.findByPhoneNumber(verifiedPhone).isPresent()) {
+			throw ApiException.conflict("PHONE_ALREADY_REGISTERED",
+					"Số điện thoại này đã có tài khoản. Hãy đăng nhập.");
 		}
 
 		UserEntity user = new UserEntity(
 				"usr_" + UUID.randomUUID().toString().replace("-", ""),
-				normalizedEmail,
+				null,
 				fullName.trim(),
 				passwordHasher.hashPassword(password),
 				UserRole.CUSTOMER,
 				OffsetDateTime.now());
+		user.setPhoneNumber(verifiedPhone);
 
 		return userRepository.save(user);
 	}
@@ -69,6 +84,21 @@ public class UserService {
 		Optional<UserEntity> byEmail = userRepository.findByEmailIgnoreCase(normalizedEmail);
 		if (byEmail.isPresent()) {
 			UserEntity existing = byEmail.get();
+
+			// CHỈ gộp vào tài khoản KHÁCH.
+			//
+			// Từ V22, khách đăng ký bằng số điện thoại và không có email — nên phần lớn tài khoản
+			// còn mang email là nhân viên và quản trị viên. Gộp vào một tài khoản như thế nghĩa là
+			// bất kỳ ai có tài khoản Google trùng email nhân viên sẽ chiếm luôn tài khoản đó, KÈM
+			// CẢ VAI TRÒ, và mật khẩu cũ bị xoá nên nhân viên thật mất đường vào.
+			//
+			// Tài khoản khách có email vẫn còn: chúng sinh ra trước V22, và đường gộp tồn tại là
+			// vì chúng.
+			if (!UserRole.CUSTOMER.equals(existing.getRole())) {
+				throw ApiException.conflict("EMAIL_BELONGS_TO_STAFF",
+						"Email này thuộc tài khoản nội bộ. Dùng đường đăng nhập dành cho nhân viên.");
+			}
+
 			existing.setGoogleSub(sub);
 			existing.setPasswordHash(null);
 			// Cũng gỡ khoá: đếm sai mật khẩu là của chủ tài khoản CŨ, giữ lại nghĩa là chủ thật
@@ -91,12 +121,35 @@ public class UserService {
 	}
 
 	/**
+	 * Tìm tài khoản theo thứ người dùng vừa gõ: số điện thoại HOẶC email.
+	 *
+	 * <p>Một ô nhập duy nhất cho cả hai. Khách gõ số, nhân viên gõ email, và không ai phải chọn
+	 * "đăng nhập bằng gì" trước — một câu hỏi mà người dùng không có lý do gì để quan tâm.
+	 *
+	 * <p>Thử số trước: một chuỗi chuẩn hoá được thành số điện thoại thì không thể là email hợp lệ,
+	 * và cả hai cột đều UNIQUE nên không có ca nào mơ hồ.
+	 */
+	private Optional<UserEntity> timTheoDinhDanh(String dinhDanh) {
+		if (dinhDanh == null || dinhDanh.isBlank()) {
+			return Optional.empty();
+		}
+		String so = PhoneNumber.normalize(dinhDanh);
+		if (so != null && !so.isBlank()) {
+			Optional<UserEntity> theoSo = userRepository.findByPhoneNumber(so);
+			if (theoSo.isPresent()) {
+				return theoSo;
+			}
+		}
+		return userRepository.findByEmailIgnoreCase(normalizeEmail(dinhDanh));
+	}
+
+	/**
 	 * Returns empty on any rejection (unknown email, locked account, wrong password) — callers
 	 * must not distinguish these cases in the response, same as the .NET version, so a caller
 	 * cannot probe which emails are registered.
 	 */
-	public Optional<UserEntity> validateCredentials(String email, String password) {
-		Optional<UserEntity> maybeUser = userRepository.findByEmailIgnoreCase(normalizeEmail(email));
+	public Optional<UserEntity> validateCredentials(String dinhDanh, String password) {
+		Optional<UserEntity> maybeUser = timTheoDinhDanh(dinhDanh);
 		if (maybeUser.isEmpty()) {
 			return Optional.empty();
 		}

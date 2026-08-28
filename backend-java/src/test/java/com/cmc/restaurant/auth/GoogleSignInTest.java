@@ -2,24 +2,22 @@ package com.cmc.restaurant.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.cmc.restaurant.shared.ApiException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -37,6 +35,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * trả 401 về. Nửa số phép kiểm ở đây kiểm đúng mã 401, nên phải dùng client không làm chuyện đó.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GoogleSignInTest {
 
@@ -44,32 +43,14 @@ class GoogleSignInTest {
 	@ServiceConnection
 	static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
-	/**
-	 * Bản giả: token thô CHÍNH LÀ chuỗi "sub|email|tên".
-	 *
-	 * <p>Không gọi mạng, không cần tài khoản Google thật. Đây là lý do {@link GoogleTokenVerifier}
-	 * tồn tại như một interface chứ không phải một lớp gọi thẳng HTTP.
-	 */
-	@TestConfiguration
-	static class VerifierGia {
-		@Bean
-		@Primary
-		GoogleTokenVerifier googleTokenVerifier() {
-			return idToken -> {
-				String[] p = idToken.split("\\|");
-				if (p.length != 3) {
-					throw ApiException.unauthorized("GOOGLE_TOKEN_INVALID", "Đăng nhập Google không hợp lệ.");
-				}
-				return new GoogleIdentity(p[0], p[1], p[2]);
-			};
-		}
-	}
-
 	@LocalServerPort
 	private int cong;
 
 	@Autowired
 	private UserRepository users;
+
+	@Autowired
+	private PasswordHasher hasher;
 
 	private final HttpClient http = HttpClient.newHttpClient();
 	private final ObjectMapper json = new ObjectMapper();
@@ -110,13 +91,26 @@ class GoogleSignInTest {
 		return dang("/api/auth/google", Map.of("idToken", sub + "|" + email + "|" + ten));
 	}
 
-	private Ket dangKyMatKhau(String email, String matKhau) {
-		return dang("/api/auth/register",
-				Map.of("fullName", "Khach", "email", email, "password", matKhau));
+	/**
+	 * Tài khoản khách CÓ EMAIL — loại sinh ra TRƯỚC V22.
+	 *
+	 * <p>Dựng thẳng qua kho vì {@code /api/auth/register} nay chỉ tạo tài khoản theo số điện thoại;
+	 * không còn đường công khai nào tạo ra hình dạng này. Nhưng dữ liệu cũ thì vẫn còn, và đường
+	 * gộp của {@code signInWithGoogle} tồn tại chính là vì chúng.
+	 */
+	private String taoTaiKhoanEmailCu(String email, String matKhau, String vaiTro) {
+		UserEntity u = new UserEntity(
+				"usr_" + UUID.randomUUID().toString().replace("-", ""),
+				email,
+				"Khach",
+				hasher.hashPassword(matKhau),
+				vaiTro,
+				OffsetDateTime.now());
+		return users.save(u).getId();
 	}
 
-	private Ket dangNhapMatKhau(String email, String matKhau) {
-		return dang("/api/auth/login", Map.of("email", email, "password", matKhau));
+	private Ket dangNhapMatKhau(String dinhDanh, String matKhau) {
+		return dang("/api/auth/login", Map.of("identifier", dinhDanh, "password", matKhau));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -169,8 +163,7 @@ class GoogleSignInTest {
 		// Hai tài khoản cho cùng một email nghĩa là khách có hai ví điểm và không hiểu vì sao
 		// điểm của mình biến mất.
 		String email = emailNgauNhien();
-		dangKyMatKhau(email, "MatKhauProbe12345");
-		String idCu = users.findByEmailIgnoreCase(email).orElseThrow().getId();
+		String idCu = taoTaiKhoanEmailCu(email, "MatKhauProbe12345", UserRole.CUSTOMER);
 
 		Ket res = vaoBangGoogle(subNgauNhien(), email, "An");
 
@@ -186,7 +179,7 @@ class GoogleSignInTest {
 		// minh ai mới là chủ thật. Để nguyên mật khẩu cũ nghĩa là kẻ mở tài khoản vẫn giữ đường
 		// vào, và đường đó dẫn thẳng vào ví điểm của chủ thật.
 		String email = emailNgauNhien();
-		dangKyMatKhau(email, "MatKhauProbe12345");
+		taoTaiKhoanEmailCu(email, "MatKhauProbe12345", UserRole.CUSTOMER);
 		assertThat(dangNhapMatKhau(email, "MatKhauProbe12345").ma()).isEqualTo(200);
 
 		vaoBangGoogle(subNgauNhien(), email, "An");
@@ -209,6 +202,22 @@ class GoogleSignInTest {
 		assertThat(daDangKy).isEqualTo(401);
 		// Và phải giống hệt ca email chưa từng tồn tại.
 		assertThat(daDangKy).isEqualTo(chuaTungCo);
+	}
+
+	@Test
+	@DisplayName("Email trùng tài khoản NHÂN VIÊN thì KHÔNG gộp — không chiếm được vai trò")
+	void cannotTakeOverAStaffAccount() {
+		// Từ V22 khách không còn email, nên gần như mọi tài khoản mang email đều là nội bộ. Gộp vào
+		// một tài khoản như thế nghĩa là ai có Google trùng email nhân viên sẽ chiếm luôn tài khoản
+		// đó KÈM VAI TRÒ, và mật khẩu cũ bị xoá nên nhân viên thật mất đường vào.
+		String email = emailNgauNhien();
+		taoTaiKhoanEmailCu(email, "MatKhauProbe12345", UserRole.STAFF);
+
+		Ket res = vaoBangGoogle(subNgauNhien(), email, "Ke gian");
+
+		assertThat(res.ma()).isEqualTo(409);
+		// Và nhân viên thật vẫn vào được bằng mật khẩu cũ.
+		assertThat(dangNhapMatKhau(email, "MatKhauProbe12345").ma()).isEqualTo(200);
 	}
 
 	@Test

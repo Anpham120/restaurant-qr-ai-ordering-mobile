@@ -1,5 +1,7 @@
 package com.cmc.restaurant.orders;
 
+import com.cmc.restaurant.auth.XacMinhGia;
+import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cmc.restaurant.auth.UserEntity;
@@ -44,6 +46,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * sau hiểu vì sao một endpoint hỏng lại trông như đang chạy.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class KitchenBoardListTest {
 
@@ -60,13 +63,18 @@ class KitchenBoardListTest {
 	private record TaiKhoan(String userId, String token) {
 	}
 
+	/** Số điện thoại ngẫu nhiên. Với bản giả, token xác minh CHÍNH LÀ số này. */
+	private static String soNgauNhienChoTaiKhoan() {
+		return "09" + String.format("%08d", (int) (Math.random() * 100000000));
+	}
+
 	@SuppressWarnings("unchecked")
 	private TaiKhoan taoKhach() {
-		String email = "bep." + UUID.randomUUID() + "@local.test";
+		String soDangNhap = soNgauNhienChoTaiKhoan();
 		Map<String, Object> dangKy = rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "K", "email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				"fullName", "K", "phoneIdToken", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 		return new TaiKhoan((String) dangKy.get("userId"), (String) body.get("accessToken"));
 	}
 
@@ -77,7 +85,8 @@ class KitchenBoardListTest {
 		users.save(u);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", u.getEmail(), "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", u.getPhoneNumber(), "password", "MatKhauProbe12345")),
+				Map.class).getBody();
 		return new TaiKhoan(tk.userId(), (String) body.get("accessToken"));
 	}
 

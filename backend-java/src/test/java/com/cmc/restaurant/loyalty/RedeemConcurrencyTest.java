@@ -1,5 +1,7 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.auth.XacMinhGia;
+import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cmc.restaurant.auth.UserEntity;
@@ -40,6 +42,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * repository giả lập sẽ kiểm đúng phần không có luật.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RedeemConcurrencyTest {
 
@@ -68,13 +71,18 @@ class RedeemConcurrencyTest {
 	private record BoiCanh(String token, String phone, String rewardId) {
 	}
 
+	/** Số điện thoại ngẫu nhiên. Với bản giả, token xác minh CHÍNH LÀ số này. */
+	private static String soNgauNhienChoTaiKhoan() {
+		return "09" + String.format("%08d", (int) (Math.random() * 100000000));
+	}
+
 	@SuppressWarnings("unchecked")
 	private BoiCanh dungBoiCanh(int soDiem, int chiPhi) {
-		String email = "rd." + UUID.randomUUID() + "@local.test";
+		String soDangNhap = soNgauNhienChoTaiKhoan();
 		rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "K", "email", email, "password", "MatKhauProbe12345")), Map.class);
+				"fullName", "K", "phoneIdToken", soDangNhap, "password", "MatKhauProbe12345")), Map.class);
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 		String token = (String) body.get("accessToken");
 		String userId = (String) ((Map<String, Object>) body.get("user")).get("userId");
 
