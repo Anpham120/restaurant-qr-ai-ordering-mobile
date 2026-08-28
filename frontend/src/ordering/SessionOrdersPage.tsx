@@ -27,6 +27,7 @@ import { deriveSessionHubState } from "./sessionResumeState";
 import { mergeSessionOrdersLoadResults } from "./sessionOrdersLoad";
 import { TableInvoicePaymentModal } from "./TableInvoicePaymentModal";
 import { TableElectronicReceiptModal } from "./TableElectronicReceiptModal";
+import { layLinkTaiApp } from "../utils/linkTaiApp";
 import { labelGuestItemStatus, labelOrderStatus } from "../utils/opsStatusLabels";
 
 const journeySteps = ["Gọi món", "Chế biến", "Phục vụ", "Thanh toán"] as const;
@@ -181,6 +182,8 @@ export function SessionOrdersPage() {
   const isPaid = hubState === "Paid";
   const vietQr = paymentResult?.vietQr ?? invoice?.vietQr ?? null;
 
+  const linkTaiApp = layLinkTaiApp();
+
   return (
     <section className="ordering-page" aria-labelledby="session-orders-title">
       <header className="ordering-session-hero">
@@ -239,6 +242,16 @@ export function SessionOrdersPage() {
               <button className="table-e-receipt-open" onClick={() => setShowElectronicReceipt(true)} type="button">
                 {t("Xem hóa đơn điện tử")}
               </button>
+              {/*
+                Mời tải app SAU khi đã trả tiền, và chỉ là một liên kết — không kéo khách vào
+                luồng đăng ký ngay tại đây. Họ vừa ăn xong và đang đứng dậy; việc tạo tài khoản
+                để lúc khác, trong app, nơi có đủ chỗ để làm cho tử tế.
+              */}
+              {linkTaiApp === null ? null : (
+                <a className="table-app-invite" href={linkTaiApp} rel="noreferrer" target="_blank">
+                  {t("Tải ứng dụng để tích điểm cho những lần sau")}
+                </a>
+              )}
             </div>
           ) : null}
 

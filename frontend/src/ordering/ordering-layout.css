@@ -191,6 +191,8 @@
 .table-invoice-pay-button { font-weight: 800; width: 100%; }
 .table-invoice-status { background: rgba(255, 255, 255, .72); border-radius: .8rem; flex-wrap: wrap; margin-top: .8rem; padding: .8rem; }
 .table-e-receipt-open { background: var(--brand-chestnut); border: none; border-radius: .65rem; color: #fff; font-weight: 700; margin-left: auto; padding: .5rem .75rem; }
+/* Lời mời tải app: nhạt hơn nút hoá đơn điện tử. Hoá đơn là thứ khách CẦN ngay, tải app thì không. */
+.table-app-invite { border: 1px solid var(--brand-clay-line); border-radius: .65rem; color: var(--brand-chestnut); flex-basis: 100%; font-weight: 600; padding: .5rem .75rem; text-align: center; text-decoration: none; }
 .table-e-receipt-overlay { align-items: center; padding: 1rem; }
 .table-e-receipt-modal { border-radius: 1.35rem; max-height: 90dvh; }
 .table-e-receipt-header .table-e-receipt-kicker { align-items: center; color: #287554; display: inline-flex; font: 800 .78rem/1 var(--brand-font-utility); gap: .35rem; letter-spacing: .04em; text-transform: none; }
