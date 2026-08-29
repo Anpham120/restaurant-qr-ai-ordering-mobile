@@ -5,10 +5,13 @@ set -euo pipefail
 # single-model deployment has no fallback, and the loop below rejects empty
 # values, so listing it would force naming a model that is never called.
 #
-# Keep this note outside the array.  frontend/src/utils/deploymentWorkflowEnv.test.ts
-# extracts the required_vars block and splits it on whitespace to check that both
-# deploy workflows supply every name, so a comment inside the parentheses becomes
-# a list of bogus variable names — bash ignores it, that test does not.
+# Keep this note outside the array.  DeploymentConfigTest (backend-java) đọc khối
+# required_vars và tách theo khoảng trắng để kiểm .github/workflows/cd.yml có cấp đủ mọi tên hay
+# không, nên một ghi chú nằm TRONG ngoặc sẽ thành danh sách tên biến giả — bash bỏ qua, phép kiểm
+# đó thì không.
+#
+# Ghi chú cũ trỏ tới frontend/src/utils/deploymentWorkflowEnv.test.ts. Tệp đó không còn tồn tại
+# trong repo này; luật được dựng lại ở DeploymentConfigTest.theWorkflowSuppliesEveryRequiredVariable.
 required_vars=(
   DEPLOY_ENV
   SSH_HOST

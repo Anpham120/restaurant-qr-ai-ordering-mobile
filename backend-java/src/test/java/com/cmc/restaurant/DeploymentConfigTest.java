@@ -37,6 +37,8 @@ class DeploymentConfigTest {
 	private static final Path GOC = Path.of("..");
 	private static final Path APPLICATION_YML = GOC.resolve("backend-java/src/main/resources/application.yml");
 	private static final Path COMPOSE = GOC.resolve("deploy/docker-compose.java.yml");
+	private static final Path DEPLOY_SH = GOC.resolve("deploy/scripts/deploy-vps.sh");
+	private static final Path CD_WORKFLOW = GOC.resolve(".github/workflows/cd.yml");
 
 	/** {@code ${TEN}} hoặc {@code ${TEN:mặc định}} hoặc {@code ${TEN:?bắt buộc}}. */
 	private static final Pattern BIEN = Pattern.compile("\\$\\{([A-Z][A-Z0-9_]*)[:}]");
@@ -101,6 +103,45 @@ class DeploymentConfigTest {
 		// nhau và luôn xanh.
 		assertThat(docTen(APPLICATION_YML, BIEN)).isNotEmpty();
 		assertThat(docTen(COMPOSE, GAN)).isNotEmpty();
+	}
+
+	@Test
+	@DisplayName("Workflow triển khai cấp ĐỦ mọi biến deploy-vps.sh đòi")
+	void theWorkflowSuppliesEveryRequiredVariable() throws IOException {
+		// deploy-vps.sh thoát ngay khi thiếu một biến — nhưng nó thoát TRÊN ĐƯỜNG tới máy chủ, sau
+		// khi workflow đã chạy phép kiểm và người duyệt đã bấm đồng ý. Thiếu một cái tên ở đây
+		// nghĩa là phát hiện ra vào đúng lúc đang triển khai, chứ không phải lúc sửa mã.
+		//
+		// Ghi chú trong chính deploy-vps.sh mô tả một phép kiểm như thế này ở
+		// frontend/src/utils/deploymentWorkflowEnv.test.ts — tệp đó không còn tồn tại, nên luật
+		// được dựng lại ở đây.
+		String sh = Files.readString(DEPLOY_SH);
+		Matcher khoi = Pattern.compile("required_vars=\\(([^)]*)\\)").matcher(sh);
+		assertThat(khoi.find()).as("không thấy khối required_vars trong deploy-vps.sh").isTrue();
+
+		Set<String> doiHoi = new LinkedHashSet<>();
+		for (String dong : khoi.group(1).split("\\s+")) {
+			String ten = dong.trim();
+			// Bỏ dòng trống và ghi chú — comment nằm TRONG ngoặc sẽ thành tên biến giả.
+			if (!ten.isEmpty() && !ten.startsWith("#") && ten.matches("[A-Z][A-Z0-9_]*")) {
+				doiHoi.add(ten);
+			}
+		}
+		assertThat(doiHoi).as("khối required_vars đọc ra rỗng").isNotEmpty();
+
+		String wf = Files.readString(CD_WORKFLOW);
+		Set<String> thieu = new LinkedHashSet<>();
+		for (String ten : doiHoi) {
+			// Workflow phải gán biến đó trong khối env: "TEN:".
+			if (!wf.contains(ten + ":")) {
+				thieu.add(ten);
+			}
+		}
+
+		assertThat(thieu)
+				.as("cd.yml không cấp biến mà deploy-vps.sh đòi — script sẽ thoát giữa chừng, "
+						+ "sau khi đã qua cửa duyệt")
+				.isEmpty();
 	}
 
 	private static Set<String> docTen(Path tep, Pattern mau) throws IOException {

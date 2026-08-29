@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.PathSensitivity
+
 plugins {
 	id 'java'
 	id 'checkstyle'
@@ -87,6 +89,19 @@ tasks.withType(Test).configureEach {
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// DeploymentConfigTest đọc các tệp NGOÀI dự án Gradle. Không khai chúng làm đầu vào thì sửa
+	// cd.yml hay docker-compose mà không đụng mã Java sẽ để task ở trạng thái up-to-date: Gradle
+	// bỏ qua, báo lại kết quả cũ, và cái canh lặng lẽ thôi canh.
+	//
+	// Đo thật: bỏ một biến khỏi cd.yml rồi chạy `gradle test` -> BUILD SUCCESSFUL trong 11 giây.
+	// Chạy `cleanTest test` cùng đột biến đó -> đỏ đúng phép kiểm cần đỏ.
+	inputs.files(
+			rootProject.file('../deploy/docker-compose.java.yml'),
+			rootProject.file('../deploy/scripts/deploy-vps.sh'),
+			rootProject.file('../.github/workflows/cd.yml'))
+			.withPropertyName('cauHinhTrienKhai')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
 
 	// Phần cần Docker tách sang `integrationTest`. Đây là lý do CI có thể chặn merge dựa trên
 	// `test`: khi hai loại còn chung một task, cờ `continue-on-error` đặt cho bộ Testcontainers
