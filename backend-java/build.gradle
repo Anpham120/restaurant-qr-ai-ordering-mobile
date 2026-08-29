@@ -96,9 +96,11 @@ tasks.named('test') {
 	//
 	// Đo thật: bỏ một biến khỏi cd.yml rồi chạy `gradle test` -> BUILD SUCCESSFUL trong 11 giây.
 	// Chạy `cleanTest test` cùng đột biến đó -> đỏ đúng phép kiểm cần đỏ.
+	// Khai CẢ THƯ MỤC deploy chứ không liệt kê từng tệp. Liệt kê từng tệp đã hỏng một lần: thêm
+	// phép kiểm đọc deploy/env/*.env nhưng quên thêm chúng vào danh sách, và Gradle lại bỏ qua —
+	// cùng một lỗi, lần thứ hai. Khai cả thư mục thì tệp cấu hình thêm sau này tự động được tính.
 	inputs.files(
-			rootProject.file('../deploy/docker-compose.java.yml'),
-			rootProject.file('../deploy/scripts/deploy-vps.sh'),
+			rootProject.fileTree('../deploy'),
 			rootProject.file('../.github/workflows/cd.yml'))
 			.withPropertyName('cauHinhTrienKhai')
 			.withPathSensitivity(PathSensitivity.RELATIVE)

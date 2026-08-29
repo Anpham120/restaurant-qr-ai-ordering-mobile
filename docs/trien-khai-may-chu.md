@@ -2,37 +2,55 @@
 
 Triển khai qua GitHub Actions (`.github/workflows/cd.yml`), bấm tay, không tự chạy theo push.
 
-Máy chủ và tên miền dùng trong tài liệu này:
+Máy chủ: **`221.121.2.60`**. Chạy CẢ HAI môi trường trên cùng máy này — repo thiết kế sẵn cho việc
+đó, tách nhau bằng tên project Docker, cổng, và tệp cấu hình nginx riêng.
 
-| | |
-|---|---|
-| Máy chủ mới | `221.121.2.60` |
-| API + webhook | `api-staging.cmcrestaurant.app` |
-| Web đặt món | `order-staging.cmcrestaurant.app` |
-| Web giới thiệu | `staging.cmcrestaurant.app` |
-| Nhân viên / bếp / quản trị | `staff-staging.*`, `kitchen-staging.*`, `admin-staging.*` |
+| | production | staging |
+|---|---|---|
+| Web giới thiệu | `cmcrestaurant.app` | `staging.cmcrestaurant.app` |
+| Web đặt món | `order.cmcrestaurant.app` | `order-staging.cmcrestaurant.app` |
+| API + webhook | `api.cmcrestaurant.app` | `api-staging.cmcrestaurant.app` |
+| Nhân viên | `staff.cmcrestaurant.app` | `staff-staging.cmcrestaurant.app` |
+| Bếp | `kitchen.cmcrestaurant.app` | `kitchen-staging.cmcrestaurant.app` |
+| Quản trị | `admin.cmcrestaurant.app` | `admin-staging.cmcrestaurant.app` |
+| Tên project Docker | `cmc-restaurant-production` | `cmc-restaurant-staging` |
+| Cổng web / API / DB / AI | 8080 / 5000 / 5432 / 8001 | 8081 / 5001 / 5433 / **8002** |
 
-**Chỉ cần 2 tên miền để test app**: `api-staging` (app và SePay gọi vào) và `order-staging` (web đặt
-món). Ba cái còn lại chỉ cần khi test màn nhân viên.
+Bốn cặp cổng phải khác nhau hết. Tách project Docker **không** tách cổng: compose vẫn gắn cổng ra
+máy chủ, nên trùng một số là môi trường lên sau chết với `port is already allocated`.
+`DeploymentConfigTest` canh việc này — lỗi có thật đã gặp: cả hai tệp cùng để `AI_SERVICE_PORT=8001`.
 
 ---
 
 ## 0. Đổi DNS sang máy mới
 
-Các bản ghi A hiện trỏ về máy cũ `167.172.83.59`. Đổi sang `221.121.2.60`:
+Cả 12 bản ghi A hiện trỏ về máy cũ `167.172.83.59`. Đổi hết sang `221.121.2.60`:
 
 ```
-api-staging.cmcrestaurant.app      A   221.121.2.60
-order-staging.cmcrestaurant.app    A   221.121.2.60
+cmcrestaurant.app                  A   221.121.2.60
+order.cmcrestaurant.app            A   221.121.2.60
+api.cmcrestaurant.app              A   221.121.2.60
+staff.cmcrestaurant.app            A   221.121.2.60
+kitchen.cmcrestaurant.app          A   221.121.2.60
+admin.cmcrestaurant.app            A   221.121.2.60
+
 staging.cmcrestaurant.app          A   221.121.2.60
+order-staging.cmcrestaurant.app    A   221.121.2.60
+api-staging.cmcrestaurant.app      A   221.121.2.60
+staff-staging.cmcrestaurant.app    A   221.121.2.60
+kitchen-staging.cmcrestaurant.app  A   221.121.2.60
+admin-staging.cmcrestaurant.app    A   221.121.2.60
 ```
 
 TTL đang là 300 giây nên đổi xong chờ khoảng 5 phút. Kiểm tra:
 
 ```bash
-dig +short api-staging.cmcrestaurant.app
-# 221.121.2.60
+dig +short api.cmcrestaurant.app api-staging.cmcrestaurant.app
+# cả hai phải ra 221.121.2.60
 ```
+
+Đổi DNS **trước** khi xin chứng chỉ: certbot xác minh quyền sở hữu bằng cách gọi vào chính tên miền
+đó, nên tên miền còn trỏ máy cũ thì nó xin cho máy cũ.
 
 ---
 
@@ -65,9 +83,13 @@ Nội dung `~/.ssh/cmc-deploy` (khoá riêng) sẽ đưa vào secret `SSH_KEY`.
 
 ## 2. Khai báo trong GitHub
 
-`Settings → Environments → New environment → staging`
+`Settings → Environments` → tạo **hai** environment: `staging` và `production`.
 
-Bật **Required reviewers** nếu muốn phải bấm duyệt trước mỗi lần triển khai.
+Bật **Required reviewers** cho `production` — mỗi lần triển khai sẽ phải có người bấm duyệt.
+
+Secrets khai **riêng cho từng environment**. Đó là điểm chính của việc tách: mật khẩu cơ sở dữ
+liệu và khoá ký JWT của hai môi trường phải khác nhau, nếu không thì một token cấp ở staging
+dùng được luôn trên production.
 
 ### Secrets
 
@@ -115,6 +137,27 @@ AI_SERVICE_URL        = http://ai-service:8001
 LLM_MODEL             = <tên mô hình>
 ```
 
+### Variables — environment `production`
+
+Giống hệt bên trên, đổi bốn cổng và bộ tên miền:
+
+```
+COMPOSE_PROJECT_NAME  = cmc-restaurant-production
+FRONTEND_PORT         = 8080
+BACKEND_PORT          = 5000
+POSTGRES_PORT         = 5432
+AI_SERVICE_PORT       = 8001
+BACKEND_JAVA_BIND     = 127.0.0.1
+
+FRONTEND_SERVER_NAMES = cmcrestaurant.app order.cmcrestaurant.app admin.cmcrestaurant.app staff.cmcrestaurant.app kitchen.cmcrestaurant.app
+API_SERVER_NAME       = api.cmcrestaurant.app
+PUBLIC_API_BASE_URL   = https://api.cmcrestaurant.app/api
+CORS_ALLOWED_ORIGINS  = https://cmcrestaurant.app;https://order.cmcrestaurant.app;https://admin.cmcrestaurant.app;https://staff.cmcrestaurant.app;https://kitchen.cmcrestaurant.app
+```
+
+Bên `staging` nhớ thêm `AI_SERVICE_PORT = 8002` — bỏ trống thì cả hai cùng về mặc định 8001 và
+môi trường lên sau không khởi động được.
+
 `BACKEND_JAVA_BIND = 127.0.0.1` quan trọng hơn vẻ ngoài: mặc định compose mở cổng 8081 cho **mọi
 giao diện** vì máy phát triển cần điện thoại thật gọi vào qua IP LAN. Trên máy chủ công khai, để
 nguyên nghĩa là gọi thẳng `http://221.121.2.60:8081` được — **đi vòng qua nginx, tức đi vòng qua
@@ -155,14 +198,41 @@ curl http://api-staging.cmcrestaurant.app/api/health
 ## 4. Xin chứng chỉ rồi bật TLS
 
 ```bash
+# staging — gộp hết tên miền của môi trường đó vào MỘT chứng chỉ
 sudo certbot certonly --webroot -w /var/www/html \
   -d staging.cmcrestaurant.app \
   -d order-staging.cmcrestaurant.app \
-  -d api-staging.cmcrestaurant.app
+  -d api-staging.cmcrestaurant.app \
+  -d staff-staging.cmcrestaurant.app \
+  -d kitchen-staging.cmcrestaurant.app \
+  -d admin-staging.cmcrestaurant.app
 
+# production
+sudo certbot certonly --webroot -w /var/www/html \
+  -d cmcrestaurant.app \
+  -d order.cmcrestaurant.app \
+  -d api.cmcrestaurant.app \
+  -d staff.cmcrestaurant.app \
+  -d kitchen.cmcrestaurant.app \
+  -d admin.cmcrestaurant.app
+```
+
+Rồi bật TLS cho từng môi trường. Tên thư mục chứng chỉ là tên miền **đầu tiên** trong lệnh certbot:
+
+```bash
+# staging
+export DEPLOY_ENV=staging FRONTEND_PORT=8081 BACKEND_PORT=5001
 export TLS_CERT_DIR=/etc/letsencrypt/live/staging.cmcrestaurant.app
 sudo -E /opt/cmc-restaurant/staging/deploy/scripts/write-nginx-config.sh
+
+# production
+export DEPLOY_ENV=production FRONTEND_PORT=8080 BACKEND_PORT=5000
+export TLS_CERT_DIR=/etc/letsencrypt/live/cmcrestaurant.app
+sudo -E /opt/cmc-restaurant/production/deploy/scripts/write-nginx-config.sh
 ```
+
+Hai tệp cấu hình nginx tách riêng theo `DEPLOY_ENV` (`cmc-staging.conf`, `cmc-production.conf`)
+nên chạy cái này không đè cái kia.
 
 Sau bước này cổng 80 chỉ còn hai việc: phục vụ thử thách ACME để gia hạn, và đẩy sang HTTPS.
 

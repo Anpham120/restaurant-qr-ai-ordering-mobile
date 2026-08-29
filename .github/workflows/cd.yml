@@ -96,6 +96,9 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
 
+          # Phải khai riêng cho từng môi trường: bỏ trống thì cả hai cùng về mặc định 8001 và
+          # môi trường lên sau hỏng vì cổng đã bị chiếm.
+          AI_SERVICE_PORT: ${{ vars.AI_SERVICE_PORT }}
           AI_SERVICE_URL: ${{ vars.AI_SERVICE_URL }}
           AI_INTERNAL_TOKEN: ${{ secrets.AI_INTERNAL_TOKEN }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}

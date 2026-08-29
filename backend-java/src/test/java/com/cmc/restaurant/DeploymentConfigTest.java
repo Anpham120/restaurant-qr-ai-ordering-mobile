@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,6 +41,8 @@ class DeploymentConfigTest {
 	private static final Path COMPOSE = GOC.resolve("deploy/docker-compose.java.yml");
 	private static final Path DEPLOY_SH = GOC.resolve("deploy/scripts/deploy-vps.sh");
 	private static final Path CD_WORKFLOW = GOC.resolve(".github/workflows/cd.yml");
+	private static final Path ENV_PROD = GOC.resolve("deploy/env/production.example.env");
+	private static final Path ENV_STAGING = GOC.resolve("deploy/env/staging.example.env");
 
 	/** {@code ${TEN}} hoặc {@code ${TEN:mặc định}} hoặc {@code ${TEN:?bắt buộc}}. */
 	private static final Pattern BIEN = Pattern.compile("\\$\\{([A-Z][A-Z0-9_]*)[:}]");
@@ -142,6 +146,40 @@ class DeploymentConfigTest {
 				.as("cd.yml không cấp biến mà deploy-vps.sh đòi — script sẽ thoát giữa chừng, "
 						+ "sau khi đã qua cửa duyệt")
 				.isEmpty();
+	}
+
+	@Test
+	@DisplayName("production và staging KHÔNG dùng chung cổng nào")
+	void theTwoEnvironmentsShareNoPort() throws IOException {
+		// Hai môi trường chạy trên CÙNG một máy — đó là lý do chúng có COMPOSE_PROJECT_NAME riêng.
+		// Nhưng tách project không tách cổng: compose vẫn gắn cổng ra máy chủ, nên trùng số thì môi
+		// trường lên sau chết với "port is already allocated", và người triển khai thấy một lỗi
+		// Docker chứ không thấy nguyên nhân là hai tệp cấu hình ghi cùng một con số.
+		//
+		// Lỗi có thật: cả hai tệp đều để AI_SERVICE_PORT=8001.
+		Map<String, String> prod = docCong(ENV_PROD);
+		Map<String, String> staging = docCong(ENV_STAGING);
+
+		assertThat(prod).as("không đọc được cổng nào từ tệp production").isNotEmpty();
+
+		Set<String> trung = new LinkedHashSet<>(prod.values());
+		trung.retainAll(new LinkedHashSet<>(staging.values()));
+
+		assertThat(trung)
+				.as("production %s và staging %s dùng chung cổng — môi trường lên sau sẽ không "
+						+ "khởi động được", prod, staging)
+				.isEmpty();
+	}
+
+	/** Mọi dòng {@code TEN_PORT=so} trong một tệp env. */
+	private static Map<String, String> docCong(Path tep) throws IOException {
+		assertThat(tep).as("không thấy tệp env mẫu").exists();
+		Matcher m = Pattern.compile("(?m)^([A-Z_]*PORT)=(\\d+)$").matcher(Files.readString(tep));
+		Map<String, String> cong = new LinkedHashMap<>();
+		while (m.find()) {
+			cong.put(m.group(1), m.group(2));
+		}
+		return cong;
 	}
 
 	private static Set<String> docTen(Path tep, Pattern mau) throws IOException {
