@@ -47,7 +47,16 @@ jobs:
         working-directory: backend-java
         run: ./gradlew --no-daemon test integrationTest
 
+      # Giá trị GIẢ, chỉ để đọc được tệp. Compose khai ba biến `:?bắt buộc` nên không có chúng
+      # thì `config` dừng ở biến đầu tiên và không kiểm được phần còn lại của tệp.
+      #
+      # KHÔNG dùng secret thật ở đây: bước này chỉ hỏi "tệp có đọc được không", và mượn bí mật cho
+      # một câu hỏi không cần tới chúng là mở rộng chỗ chúng đi qua mà không được gì.
       - name: Compose đọc được
+        env:
+          POSTGRES_PASSWORD: kiem-cu-phap
+          JWT_SIGNING_KEY: kiem-cu-phap
+          AI_INTERNAL_TOKEN: kiem-cu-phap
         run: docker compose -f deploy/docker-compose.java.yml config >/dev/null
 
   trien-khai:
