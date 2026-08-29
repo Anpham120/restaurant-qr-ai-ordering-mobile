@@ -101,6 +101,10 @@ jobs:
           AI_SERVICE_PORT: ${{ vars.AI_SERVICE_PORT }}
           AI_SERVICE_URL: ${{ vars.AI_SERVICE_URL }}
           AI_INTERNAL_TOKEN: ${{ secrets.AI_INTERNAL_TOKEN }}
+          # Địa chỉ cổng LLM. deploy-vps.sh có ghi biến này nhưng cd.yml trước đây bỏ sót, nên nó
+          # rỗng và compose rơi về mặc định host.docker.internal:20128 — địa chỉ chỉ tồn tại trên
+          # máy phát triển, trên VPS thì trỏ vào hư không và trợ lý luôn trả câu thoái hoá.
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
         run: |

@@ -134,7 +134,10 @@ services:
     environment:
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
       AI_SERVICE_PORT: 8001
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:20128/v1}
+      # Tên container trong mạng compose. KHÔNG dùng 127.0.0.1: trong container đó là chính nó,
+      # không phải máy chủ. Và KHÔNG dùng host.docker.internal: tên đó chỉ có trên Docker Desktop,
+      # còn máy chủ chạy Linux — mặc định cũ trỏ vào hư không, trợ lý im lặng trả câu thoái hoá.
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://9router:20128/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-cx/gpt-5.6-luna-review}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
@@ -157,6 +160,33 @@ services:
 
   # Frontend. Trước đây chỉ có ở compose bản .NET, nên `docker compose up` trên stack Java dựng
   # được API mà không có giao diện — tức không chạy thử được cả hệ thống bằng một lệnh.
+  # Cổng LLM. Nằm TRONG stack thay vì cài trên máy chủ: cùng một lệnh triển khai, cùng một mạng,
+  # và container khác gọi bằng tên `9router` chứ không cần biết địa chỉ máy chủ.
+  #
+  # KHÔNG khai `ports:` — cổng 20128 chỉ hiện trong mạng nội bộ của compose. 9router giữ khoá API
+  # của mọi nhà cung cấp; publish ra máy chủ là mở thêm một mặt tấn công cho thứ không ai gọi từ
+  # ngoài. Muốn mở bảng điều khiển thì đi qua đường hầm SSH (xem docs/trien-khai-may-chu.md).
+  9router:
+    image: ${NINE_ROUTER_IMAGE:-cmc-restaurant-9router:${DEPLOY_ENV:-local}}
+    build:
+      context: 9router
+    restart: unless-stopped
+    # BẮT BUỘC. Không có TTY thì 9router THOÁT NGAY với mã 0 — không lỗi, không cảnh báo, chỉ in
+    # "Exiting..." rồi biến mất. Đo thật: `docker run -d` container chết trong vài giây;
+    # `docker run -d -t` thì sống và trả HTTP 307.
+    #
+    # Vì nó thoát bằng mã 0 nên `restart: unless-stopped` cũng không cứu được, và nhật ký trông
+    # như mọi thứ bình thường.
+    tty: true
+    volumes:
+      - 9router-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:20128/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   frontend:
     image: ${FRONTEND_IMAGE:-cmc-restaurant-frontend:${DEPLOY_ENV:-local}}
     build:
@@ -198,6 +228,8 @@ services:
       start_period: 10s
 
 volumes:
+  # Cấu hình và khoá nhà cung cấp của 9router. Mất volume này là phải khai báo lại từ đầu.
+  9router-data:
   # Volume riêng, không dùng chung với stack .NET: hai bản chạy song song phải có CSDL độc lập thì
   # so khớp hành vi ở issue #15 mới có nghĩa.
   postgres-data-java:
