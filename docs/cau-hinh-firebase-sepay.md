@@ -190,10 +190,20 @@ PAYMENTS_SEPAY_APIKEY=…              # khoá webhook
 # CHỈ khai ở đây. Hai bản sao sẽ trôi khỏi nhau, và khi đó QR chỉ khách
 # một tài khoản còn đối soát trông chờ tài khoản khác: tiền vào mà không
 # đơn nào được đánh dấu đã trả.
-PAYMENTS_VIETQR_BANKID=MB
+PAYMENTS_VIETQR_BANKID=970436        # BIN 6 chữ số, KHÔNG phải tên viết tắt
 PAYMENTS_VIETQR_ACCOUNTNUMBER=0123456789
 PAYMENTS_VIETQR_ACCOUNTNAME=NGUYEN VAN A
 ```
+
+> **`BANKID` phải là mã BIN 6 chữ số.** Chuẩn EMVCo nhận diện ngân hàng bằng BIN, không bằng tên
+> viết tắt. Đặt `VCB` thì cổng ảnh của SePay vẫn nhận và mọi thứ trông như đang chạy, nhưng chuỗi
+> QR mang một mã ngân hàng vô nghĩa và app ngân hàng từ chối. Máy chủ chặn ngay lúc khởi động nếu
+> giá trị không phải 6 chữ số.
+>
+> **Cách tra BIN cho đúng, không đoán:** gọi
+> `https://qr.sepay.vn/img?acc=<số tài khoản>&bank=<tên viết tắt>&amount=1000&des=TEST`, giải mã
+> ảnh PNG trả về, rồi đọc 6 chữ số ngay sau `0006` trong chuỗi. Đoán sai BIN nghĩa là tiền đi sang
+> ngân hàng khác.
 
 ### Nội dung chuyển khoản phải giữ nguyên
 

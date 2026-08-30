@@ -127,7 +127,7 @@ API_SERVER_NAME       = api-staging.cmcrestaurant.app
 PUBLIC_API_BASE_URL   = https://api-staging.cmcrestaurant.app/api
 CORS_ALLOWED_ORIGINS  = https://staging.cmcrestaurant.app;https://order-staging.cmcrestaurant.app;https://admin-staging.cmcrestaurant.app;https://staff-staging.cmcrestaurant.app;https://kitchen-staging.cmcrestaurant.app
 
-PAYMENTS_VIETQR_BANKID        = <mã ngân hàng>
+PAYMENTS_VIETQR_BANKID        = <mã BIN 6 chữ số, ví dụ Vietcombank: 970436>
 PAYMENTS_VIETQR_ACCOUNTNUMBER = <số tài khoản nhận tiền>
 PAYMENTS_VIETQR_ACCOUNTNAME   = <tên chủ tài khoản>
 

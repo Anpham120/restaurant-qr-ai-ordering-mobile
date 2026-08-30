@@ -62,15 +62,33 @@ public class VietQrProvider {
 				+ "&amount=" + encode(amountText)
 				+ "&des=" + encode(transferContent);
 
+		// Ảnh QR mã hoá CHUỖI EMVCo, KHÔNG mã hoá đường dẫn ảnh ở trên.
+		//
+		// Bản trước làm `createQrDataUri(quickLink)` — tức mã QR chứa "https://qr.sepay.vn/img?…".
+		// Ảnh hiện ra hoàn toàn bình thường và quét được, nhưng app ngân hàng đọc ra một địa chỉ
+		// web thay vì lệnh chuyển tiền nên báo "mã QR không hợp lệ". Không có gì đỏ ở máy chủ;
+		// hỏng chỉ lộ khi có người cầm điện thoại quét thật. Xem EmvCoVietQr.
+		String qrPayload = EmvCoVietQr.taoChuoi(
+				properties.bankId(), properties.accountNumber(), amount, transferContent);
+
 		return new VietQrPayload(
 				amount, transferContent, properties.bankId(), properties.accountNumber(),
-				properties.accountName(), quickLink, quickLink, createQrDataUri(quickLink));
+				properties.accountName(), quickLink, qrPayload, createQrDataUri(qrPayload));
 	}
 
 	private void ensureConfigured() {
 		if (isBlank(properties.bankId()) || isBlank(properties.accountNumber())
 				|| isBlank(properties.accountName())) {
 			throw new IllegalStateException("VietQR bank configuration is missing.");
+		}
+		// Chuẩn EMVCo nhận diện ngân hàng bằng mã BIN 6 chữ số (Vietcombank là 970436), KHÔNG bằng
+		// tên viết tắt. Cổng ảnh của SePay thì nhận cả hai, nên đặt "VCB" vẫn ra ảnh và mọi thứ
+		// trông như đang chạy — trong khi chuỗi EMVCo mang một mã ngân hàng vô nghĩa và app ngân
+		// hàng từ chối. Chặn ngay ở đây để hỏng lúc cấu hình, không hỏng lúc khách đứng trả tiền.
+		if (!properties.bankId().matches("\\d{6}")) {
+			throw new IllegalStateException(
+					"PAYMENTS_VIETQR_BANKID phải là mã BIN 6 chữ số (ví dụ Vietcombank: 970436), "
+							+ "đang là: " + properties.bankId());
 		}
 	}
 
