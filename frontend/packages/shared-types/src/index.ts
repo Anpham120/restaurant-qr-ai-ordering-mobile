@@ -8,7 +8,10 @@ export type OrderEventSource = "Status" | "Payment";
 export type ChatRole = "user" | "assistant" | "system";
 
 export type AuthUser = { userId: string; fullName: string; email: string; role: UserRole };
-export type LoginRequest = { email: string; password: string };
+// `identifier`, KHÔNG phải `email`: backend nhận một ô cho cả hai loại người dùng — khách gõ số
+// điện thoại, nhân viên gõ email. Xem `AuthDtos.LoginRequest` bên Java. Gửi tên khác thì Jackson
+// để null và request chết ở 400 IDENTIFIER_REQUIRED trước cả bước kiểm mật khẩu.
+export type LoginRequest = { identifier: string; password: string };
 export type LoginResponse = { accessToken: string; expiresAt: string; user: AuthUser };
 export type ApiErrorBody = { error: { code: string; message: string; details: Record<string, unknown> } };
 export type Table = { tableCode: string; displayName: string; isActive: boolean };
