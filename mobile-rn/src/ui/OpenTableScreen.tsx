@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { AuthException } from '../core/auth/authApi';
-import { type AuthSession } from '../core/auth/authSession';
+import { type AuthSession, danhTinh } from '../core/auth/authSession';
 import { type TableSession } from '../core/tables/tableSession';
 import { type TableSessionRepository } from '../core/tables/tableSessionRepository';
 import { phanTichQrBan } from '../core/tables/quetQr';
@@ -164,7 +164,7 @@ export function OpenTableScreen({
               : 'Đang vào với tư cách khách vãng lai'}
           </Text>
           <Text style={kieuChung.chuPhu}>
-            {daDangNhap ? dangNhapVoi.user.email : 'Đăng nhập trước khi vào bàn nếu muốn tích điểm'}
+            {daDangNhap ? danhTinh(dangNhapVoi.user) : 'Đăng nhập trước khi vào bàn nếu muốn tích điểm'}
           </Text>
         </View>
       ) : (

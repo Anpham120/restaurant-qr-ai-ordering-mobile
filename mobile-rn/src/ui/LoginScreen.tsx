@@ -23,6 +23,13 @@ export interface LoginScreenProps {
    * kết luận là app hỏng. Máy chủ chưa cấu hình Google thì thà chỉ thấy ô mật khẩu.
    */
   layTokenGoogle?: LayTokenGoogle | undefined;
+  /**
+   * Mở màn tạo tài khoản bằng số điện thoại. Vắng mặt thì đường đó KHÔNG hiện.
+   *
+   * Cùng luật với `layTokenGoogle`: chưa có thư viện OTP thì thà không có nút, còn hơn để khách
+   * bấm vào một màn không chạy được.
+   */
+  onTaoTaiKhoan?: (() => void) | undefined;
 }
 
 /**
@@ -35,7 +42,12 @@ export interface LoginScreenProps {
  *
  * Đường tạo tài khoản đang dùng được là Google. Đường số điện thoại cần màn nhập OTP, chưa dựng.
  */
-export function LoginScreen({ repository, onDangNhapXong, layTokenGoogle }: LoginScreenProps) {
+export function LoginScreen({
+  repository,
+  onDangNhapXong,
+  layTokenGoogle,
+  onTaoTaiKhoan,
+}: LoginScreenProps) {
   const [dinhDanh, setDinhDanh] = useState('');
   const [matKhau, setMatKhau] = useState('');
   const [loi, setLoi] = useState<string | null>(null);
@@ -163,13 +175,25 @@ export function LoginScreen({ repository, onDangNhapXong, layTokenGoogle }: Logi
       {/* Nói khách chưa có tài khoản thì làm gì. Bỏ trống chỗ này là để họ tự đoán, và đoán sai
           thành ra gõ đại một số vào ô trên rồi nhận "không đúng" mãi.
 
-          Chỉ hiện khi Google bật được: máy chủ chưa cấu hình Google thì câu này chỉ đường vào
-          một nút không tồn tại. */}
-      {layTokenGoogle === undefined ? null : (
+          Ba trạng thái, không phải hai: có OTP thì đưa vào màn đăng ký; không có OTP nhưng có
+          Google thì chỉ sang nút Google; không có gì thì im lặng — chỉ đường tới một cửa không
+          tồn tại còn tệ hơn không nói gì. */}
+      {onTaoTaiKhoan !== undefined ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          disabled={dangGui}
+          onPress={onTaoTaiKhoan}
+          style={{ alignItems: 'center', paddingVertical: 10 }}
+        >
+          <Text style={{ color: MauQuan.chestnut, fontWeight: '600' }}>
+            Chưa có tài khoản? Tạo bằng số điện thoại
+          </Text>
+        </TouchableOpacity>
+      ) : layTokenGoogle !== undefined ? (
         <Text style={[kieuChung.chuPhu, { textAlign: 'center', paddingVertical: 10 }]}>
           Chưa có tài khoản? Bấm “Tiếp tục với Google” ở trên để tạo.
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-import { type AuthSession } from '../core/auth/authSession';
+import { type AuthSession, danhTinh } from '../core/auth/authSession';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { type PromotionApi } from '../core/promotions/promotionApi';
@@ -178,7 +178,7 @@ export function AccountTab(p: AccountTabProps) {
             <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
               {ses.user.fullName}
             </Text>
-            <Text style={kieuChung.chuPhu}>{ses.user.email}</Text>
+            <Text style={kieuChung.chuPhu}>{danhTinh(ses.user)}</Text>
             <TouchableOpacity
               accessibilityLabel="Đăng xuất"
               accessibilityRole="button"

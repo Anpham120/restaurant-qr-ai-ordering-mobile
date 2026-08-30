@@ -31,7 +31,9 @@ import { TableSessionRepository } from './src/core/tables/tableSessionRepository
 import { SecureTableSessionStore } from './src/core/tables/tableSessionStore';
 import { KhungChinh } from './src/ui/KhungChinh';
 import { layTokenGoogleThat } from './src/core/auth/googleSignIn';
+import { layGuiMaOtpThat } from './src/core/auth/phoneOtp';
 import { HoSoTaiKhoan } from './src/ui/HoSoTaiKhoan';
+import { DangKySoDienThoai } from './src/ui/DangKySoDienThoai';
 import { LoginScreen } from './src/ui/LoginScreen';
 import { ManCoNutVe } from './src/ui/ManCoNutVe';
 import { OpenTableScreen } from './src/ui/OpenTableScreen';
@@ -44,7 +46,7 @@ const banStore = new SecureTableSessionStore();
 const orderTokenStore = new OrderTokenStore();
 
 /** Màn hình đang mở ở tầng ngoài cùng. */
-type ManNgoai = 'caiDat' | 'dangNhap' | 'hoSo' | null;
+type ManNgoai = 'caiDat' | 'dangNhap' | 'dangKy' | 'hoSo' | null;
 
 /**
  * Dựng lại TOÀN BỘ client theo địa chỉ hiện tại.
@@ -79,6 +81,9 @@ function dungClient(cauHinh: CauHinhMayChu) {
  * lại đều dựng một hàm mới, và LoginScreen sẽ thấy prop đổi liên tục.
  */
 const LAY_TOKEN_GOOGLE = layTokenGoogleThat();
+
+/** Cùng lý do như {@link LAY_TOKEN_GOOGLE}: chạm vào require của thư viện native, tính một lần. */
+const GUI_MA_OTP = layGuiMaOtpThat();
 
 export default function App() {
   return (
@@ -209,6 +214,28 @@ function NoiDungApp() {
             void dongBo(ses, phienBan);
           }}
           layTokenGoogle={LAY_TOKEN_GOOGLE}
+          // Không có thư viện OTP thì KHÔNG hiện đường tạo tài khoản bằng số. Cùng luật với nút
+          // Google: một nút bấm vào chỉ để nhận lỗi còn tệ hơn không có nút.
+          onTaoTaiKhoan={GUI_MA_OTP === undefined ? undefined : () => setManNgoai('dangKy')}
+          repository={client.auth}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (manNgoai === 'dangKy' && GUI_MA_OTP !== undefined) {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <DangKySoDienThoai
+          guiMaOtp={GUI_MA_OTP}
+          onDangKyXong={(ses) => {
+            // Vào thẳng app, y như đăng nhập: `dangKy` đã gọi tiếp `/login` và trả về phiên thật.
+            setDangNhap(ses);
+            setManNgoai(null);
+            void dongBo(ses, phienBan);
+          }}
+          onQuayLai={() => setManNgoai('dangNhap')}
           repository={client.auth}
         />
       </SafeAreaView>

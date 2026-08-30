@@ -1,6 +1,6 @@
 import { ScrollView, Text, View } from 'react-native';
 
-import { type AuthSession } from '../core/auth/authSession';
+import { type AuthSession, danhTinh } from '../core/auth/authSession';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { LienKetSoDienThoai } from './LienKetSoDienThoai';
 import { MauQuan, kieuChung } from './theme';
@@ -33,7 +33,7 @@ export function HoSoTaiKhoan(p: HoSoTaiKhoanProps) {
         <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
           {p.dangNhap.user.fullName}
         </Text>
-        <Text style={kieuChung.chuPhu}>{p.dangNhap.user.email}</Text>
+        <Text style={kieuChung.chuPhu}>{danhTinh(p.dangNhap.user)}</Text>
       </View>
 
       {p.soDienThoai === null ? (

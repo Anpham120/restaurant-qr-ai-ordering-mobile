@@ -2,8 +2,29 @@
 export interface AuthUser {
   readonly userId: string;
   readonly fullName: string;
-  readonly email: string;
+  /**
+   * `null` với tài khoản tạo bằng số điện thoại — loại tài khoản đó KHÔNG có email.
+   *
+   * V22 đã cho `users.email` nhận NULL vì lý do này: nhân viên vẫn dùng email, khách thì không.
+   * Khai `string` ở đây là nói dối về dữ liệu backend thật sự trả về, và chỗ nào ghép chuỗi sẽ
+   * lặng lẽ in ra "null" hoặc để trống.
+   */
+  readonly email: string | null;
   readonly role: string;
+}
+
+/**
+ * Chuỗi nhận diện người dùng để hiển thị.
+ *
+ * Không dùng thẳng `email`: tài khoản tạo bằng số điện thoại không có email, và React vẽ `null`
+ * thành khoảng trắng — màn hồ sơ hiện ra một dòng trống ở đúng chỗ lẽ ra nói "bạn là ai".
+ *
+ * Lùi về họ tên chứ không lùi về số điện thoại vì `AuthUserResponse` của backend KHÔNG mang số.
+ */
+export function danhTinh(user: AuthUser): string {
+  const email = user.email;
+  if (email !== null && email.trim().length > 0) return email;
+  return user.fullName;
 }
 
 /** Phiên đăng nhập đã lưu trên máy: token, hạn dùng, và người dùng. */
@@ -37,7 +58,9 @@ export function authUserTuJson(json: unknown): AuthUser {
   return {
     userId: o.userId as string,
     fullName: o.fullName as string,
-    email: o.email as string,
+    // Ép kiểu thẳng như các trường khác sẽ cho ra `undefined` chứ không phải `null` khi backend
+    // bỏ trường này — và `undefined` lọt qua mọi phép so với `null`.
+    email: typeof o.email === 'string' ? o.email : null,
     role: o.role as string,
   };
 }
@@ -62,5 +85,5 @@ export function authSessionTuJson(json: unknown): AuthSession {
  * Nên ở đây phải có một hàm mô tả có ích để không ai phải log nguyên object.
  */
 export function moTaSession(session: AuthSession): string {
-  return `AuthSession(user: ${session.user.email}, role: ${session.user.role}, expiresAt: ${session.expiresAt})`;
+  return `AuthSession(user: ${danhTinh(session.user)}, role: ${session.user.role}, expiresAt: ${session.expiresAt})`;
 }
