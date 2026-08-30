@@ -26,7 +26,9 @@ import com.cmc.restaurant.realtime.RealtimeDtos;
 import com.cmc.restaurant.shared.ActorContext;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.RequestIdempotency;
+import com.cmc.restaurant.payments.BankTransferReconciler;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -295,6 +297,72 @@ public class TableInvoicePaymentService {
 		realtimeNotifier.tableInvoicePaymentConfirmed(
 				new RealtimeDtos.TableInvoicePaymentConfirmedEvent(response, now), s.tableCode());
 		return response;
+	}
+
+	/** Kết quả đối soát một khoản tiền về với một hoá đơn bàn. */
+	public enum KetQuaDoiSoat {
+		DA_XAC_NHAN, KHONG_THAY_HOA_DON, DA_TAT_TOAN, LECH_SO_TIEN
+	}
+
+	/** Không nhân viên nào bấm — tiền tự về. Cùng khuôn "System" mà đường đơn lẻ đang dùng. */
+	private static final ActorContext HE_THONG = new ActorContext(null, "System");
+
+	/**
+	 * Ghi nhận một khoản tiền về vào đúng hoá đơn bàn đã sinh ra mã QR.
+	 *
+	 * <p><b>LỖI CÓ THẬT phương thức này sinh ra để chữa.</b> Bộ đối soát chỉ nhận mã đơn lẻ
+	 * ({@code CMC ORD-1001}), trong khi mã QR mà app và web đưa cho khách ghi mã HOÁ ĐƠN BÀN
+	 * ({@code CMC INV-20260830-E7BF30C3}). Đo trên máy chủ thật: nội dung dạng {@code INV-} trả về
+	 * {@code unmatched}, dạng {@code ORD-} thì khớp. Nghĩa là khách chuyển tiền, tiền về thật,
+	 * webhook bắn về thật, máy chủ trả 200 — và không hoá đơn nào được đánh dấu đã trả. Tính năng
+	 * tự động chạy đúng ở luồng không ai dùng.
+	 *
+	 * <p>Gọi thẳng {@link #confirm} thay vì chép lại phần ghi nhận. Đường đó còn đóng phiên bàn,
+	 * hoàn tất các đơn, thu mã đổi điểm, cộng điểm và bắn realtime — chép lại nghĩa là hai bản sẽ
+	 * trôi khỏi nhau, và bản này im lặng bỏ sót một trong số đó.
+	 *
+	 * <p>Ba ca từ chối đều trả về giá trị chứ KHÔNG ném ngoại lệ: SePay gửi lại tới 17 lần trong
+	 * 24 giờ cho tới khi nhận được 200, nên một khoản tiền lệch phải cho ra câu trả lời gọn gàng
+	 * chứ không phải 500 rồi bị bắn lại mãi.
+	 */
+	@Transactional
+	public KetQuaDoiSoat xacNhanTuChuyenKhoan(
+			String maHoaDon, String maThamChieu, BigDecimal soTien) {
+		TableInvoiceEntity invoice = invoiceRepository.findByInvoiceCode(maHoaDon).orElse(null);
+		if (invoice == null) {
+			return KetQuaDoiSoat.KHONG_THAY_HOA_DON;
+		}
+		if (!"Pending".equals(invoice.getStatus())) {
+			// Thường là quầy đã bấm xác nhận tay trước. Bình thường, không phải lỗi.
+			return KetQuaDoiSoat.DA_TAT_TOAN;
+		}
+
+		PaymentEntity payment = paymentRepository.findByTableInvoiceId(invoice.getId()).orElse(null);
+		if (payment == null) {
+			return KetQuaDoiSoat.KHONG_THAY_HOA_DON;
+		}
+
+		// So số tiền sau khi CẮT phần lẻ, đúng cách mã QR ghi số. Không so thì khách chuyển thiếu
+		// vẫn được ghi đủ.
+		if (soTien == null || soTien.setScale(0, RoundingMode.DOWN)
+				.compareTo(payment.getAmount().setScale(0, RoundingMode.DOWN)) != 0) {
+			return KetQuaDoiSoat.LECH_SO_TIEN;
+		}
+
+		String ghiChu = "Tự động xác nhận từ giao dịch ngân hàng " + maThamChieu + ".";
+		confirm(invoice.getTableSessionId(),
+				new TableInvoiceDtos.PaymentActionRequest(ghiChu), HE_THONG);
+
+		// Ghi giao dịch MANG MÃ THAM CHIẾU của ngân hàng. Đây là thứ chỉ mục duy nhất ở V23 bám
+		// vào để chặn ghi trùng khi SePay gửi lại cùng một giao dịch.
+		transactionRepository.save(new PaymentTransactionEntity(
+				"ptx_" + UUID.randomUUID().toString().replace("-", ""), payment.getId(),
+				payment.getMethod().name(), "Confirmed", payment.getAmount(),
+				BankTransferReconciler.NHA_CUNG_CAP, maThamChieu, ghiChu,
+				OffsetDateTime.now(), null, null));
+		transactionRepository.flush();
+
+		return KetQuaDoiSoat.DA_XAC_NHAN;
 	}
 
 	@Transactional

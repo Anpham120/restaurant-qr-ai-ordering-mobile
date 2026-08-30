@@ -11,6 +11,14 @@ public interface TableInvoiceRepository extends JpaRepository<TableInvoiceEntity
 	Optional<TableInvoiceEntity> findByTableSessionId(String tableSessionId);
 
 	/**
+	 * Tra hoá đơn theo mã in trên mã QR — đường vào của đối soát tự động.
+	 *
+	 * <p>Ngân hàng chỉ gửi lại nội dung chuyển khoản, tức chuỗi {@code CMC INV-yyyyMMdd-XXXXXXXX}.
+	 * Không có cách nào khác đi từ một khoản tiền về ngược lại đúng hoá đơn đã sinh ra nó.
+	 */
+	Optional<TableInvoiceEntity> findByInvoiceCode(String invoiceCode);
+
+	/**
 	 * Bàn này còn hoá đơn đang chờ thanh toán không (#91).
 	 *
 	 * <p>Nối qua phiên bàn vì hoá đơn gắn với PHIÊN chứ không gắn thẳng với bàn. Đi từ bàn sang

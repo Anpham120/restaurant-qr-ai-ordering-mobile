@@ -28,7 +28,7 @@ class SePayWebhookServiceTest {
 		final List<BankTransferDtos.Transaction> daNhan = new ArrayList<>();
 
 		BoDoiSoatGhiLai() {
-			super(null, null, null, null);
+			super(null, null, null, null, null);
 		}
 
 		@Override
