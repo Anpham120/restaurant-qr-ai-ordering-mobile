@@ -101,6 +101,7 @@ dùng được luôn trên production.
 | `POSTGRES_PASSWORD` | `openssl rand -base64 48` |
 | `JWT_SIGNING_KEY` | `openssl rand -base64 48` |
 | `AI_INTERNAL_TOKEN` | `openssl rand -base64 48` |
+| `ADMIN_BOOTSTRAP_PASSWORD` | mật khẩu quản trị viên đầu tiên, ít nhất 8 ký tự |
 | `PAYMENTS_SEPAY_APIKEY` | khoá webhook SePay |
 | `FIREBASE_API_KEY` | Web API Key của dự án Firebase |
 | `LLM_API_KEY` | khoá mô hình ngôn ngữ |
@@ -135,7 +136,19 @@ GOOGLE_CLIENT_ID      = <web client id>.apps.googleusercontent.com
 
 AI_SERVICE_URL        = http://ai-service:8001
 LLM_MODEL             = <tên mô hình>
+
+ADMIN_BOOTSTRAP_EMAIL     = <email đăng nhập của quản trị viên đầu tiên>
+ADMIN_BOOTSTRAP_FULL_NAME = <tên hiển thị>
 ```
+
+> **Không có ba biến `ADMIN_BOOTSTRAP_*` thì bản triển khai tự khoá mình ra ngoài.** Không
+> migration nào chèn người dùng, và mọi đường tạo tài khoản nhân sự đều nằm sau lớp xác thực vai
+> trò Admin — nên cơ sở dữ liệu trống nghĩa là không có tài khoản nào đăng nhập được và cũng không
+> có cách nào tạo tài khoản đầu tiên qua API. Đã gặp thật: năm cổng web trả HTTP 200, trang đăng
+> nhập hiện bình thường, và không ai vào được.
+>
+> Sau lần đầu, `AdminBootstrap` thấy đã có quản trị viên nên bỏ qua — để nguyên ba biến ở đó cũng
+> không sao, nó KHÔNG đặt lại mật khẩu ở những lần triển khai sau.
 
 ### Variables — environment `production`
 

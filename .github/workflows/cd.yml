@@ -96,6 +96,14 @@ jobs:
 
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
 
+          # Tài khoản quản trị đầu tiên. Bỏ trống thì không tạo gì — chỉ lần triển khai đầu lên
+          # một cơ sở dữ liệu trống mới cần. Không migration nào chèn người dùng, và mọi đường tạo
+          # tài khoản nhân sự đều nằm sau lớp xác thực vai trò Admin, nên thiếu bước này là bản
+          # triển khai tự khoá mình ra ngoài: năm cổng web lên xanh, không ai đăng nhập được.
+          ADMIN_BOOTSTRAP_EMAIL: ${{ vars.ADMIN_BOOTSTRAP_EMAIL }}
+          ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.ADMIN_BOOTSTRAP_PASSWORD }}
+          ADMIN_BOOTSTRAP_FULL_NAME: ${{ vars.ADMIN_BOOTSTRAP_FULL_NAME }}
+
           PAYMENTS_VIETQR_BANKID: ${{ vars.PAYMENTS_VIETQR_BANKID }}
           PAYMENTS_VIETQR_ACCOUNTNUMBER: ${{ vars.PAYMENTS_VIETQR_ACCOUNTNUMBER }}
           PAYMENTS_VIETQR_ACCOUNTNAME: ${{ vars.PAYMENTS_VIETQR_ACCOUNTNAME }}

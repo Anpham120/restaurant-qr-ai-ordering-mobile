@@ -18,6 +18,9 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
 
 	boolean existsByEmailIgnoreCase(String email);
 
+	/** Đã có quản trị viên nào chưa — {@link AdminBootstrap} hỏi để không ghi đè tài khoản có sẵn. */
+	boolean existsByRole(String role);
+
 	/**
 	 * Admin cũ nhất KHÁC tài khoản đang bị xoá — nơi nhận lại lịch sử ca quầy (#90).
 	 *
