@@ -104,7 +104,15 @@ services:
       # Trên máy chủ công khai phải đặt BACKEND_JAVA_BIND=127.0.0.1. Để nguyên 0.0.0.0 nghĩa là
       # gọi thẳng http://<ip>:8081 được, ĐI VÒNG qua nginx — tức đi vòng qua TLS, và khoá webhook
       # SePay sẽ đi qua mạng ở dạng chữ thường.
-      - "${BACKEND_JAVA_BIND:-0.0.0.0}:${BACKEND_JAVA_PORT:-8081}:8081"
+      # Cổng HOST lấy từ BACKEND_PORT — CÙNG biến mà write-nginx-config.sh dùng để proxy.
+      #
+      # Trước đây chỗ này đọc BACKEND_JAVA_PORT, một cái tên KHÔNG tệp env nào khai, nên nó rơi về
+      # mặc định 8081. Hai hậu quả, đo thật trên máy chủ:
+      #   1. Đụng FRONTEND_PORT=8081 của staging -> "port is already allocated".
+      #   2. nginx proxy tới 127.0.0.1:5001 trong khi api nghe 8081 -> kể cả không đụng cổng thì
+      #      cũng không ai trả lời.
+      # BACKEND_JAVA_PORT ở khối environment phía trên vẫn giữ: đó là cổng BÊN TRONG container.
+      - "${BACKEND_JAVA_BIND:-0.0.0.0}:${BACKEND_PORT:-8081}:8081"
     healthcheck:
       # Cùng endpoint `/api/health` với bản .NET, nên pattern healthcheck không đổi.
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/api/health >/dev/null || exit 1"]

@@ -171,6 +171,48 @@ class DeploymentConfigTest {
 				.isEmpty();
 	}
 
+	@Test
+	@DisplayName("Cổng publish của compose CHỈ dùng biến mà tệp env có khai")
+	void everyPublishedPortUsesAKnownVariable() throws IOException {
+		// Dùng một tên biến không tệp env nào khai thì compose lặng lẽ rơi về giá trị mặc định
+		// trong chính tệp compose. Hai hậu quả đã gặp thật:
+		//   1. api rơi về 8081, đụng FRONTEND_PORT=8081 -> "port is already allocated";
+		//   2. write-nginx-config.sh proxy tới BACKEND_PORT=5001 trong khi api nghe 8081, nên kể
+		//      cả không đụng cổng thì nginx cũng trỏ vào chỗ không ai trả lời.
+		//
+		// Phép kiểm cổng ở trên KHÔNG bắt được: nó so hai tệp env với nhau, còn lỗi này nằm ở chỗ
+		// compose đọc một cái tên thứ ba.
+		String compose = Files.readString(COMPOSE);
+		Matcher dong = Pattern.compile("(?m)^\\s*- \"([^\"]*\\$\\{[^\"]*)\"").matcher(compose);
+
+		Set<String> dungTrongPorts = new LinkedHashSet<>();
+		while (dong.find()) {
+			Matcher bien = Pattern.compile("\\$\\{([A-Z][A-Z0-9_]*)").matcher(dong.group(1));
+			while (bien.find()) {
+				dungTrongPorts.add(bien.group(1));
+			}
+		}
+		assertThat(dungTrongPorts).as("không đọc được biến nào từ khối ports").isNotEmpty();
+
+		String envStaging = Files.readString(ENV_STAGING);
+		String envProd = Files.readString(ENV_PROD);
+		Set<String> khongKhai = new LinkedHashSet<>();
+		for (String ten : dungTrongPorts) {
+			// BIND là địa chỉ gắn, không phải cổng, và chỉ khai ở môi trường công khai.
+			if (ten.endsWith("_BIND")) {
+				continue;
+			}
+			if (!envStaging.contains(ten + "=") && !envProd.contains(ten + "=")) {
+				khongKhai.add(ten);
+			}
+		}
+
+		assertThat(khongKhai)
+				.as("compose publish cổng theo biến mà không tệp env nào khai — nó sẽ lặng lẽ dùng "
+						+ "mặc định, và không ai biết cho tới lúc đụng cổng hoặc nginx trỏ sai")
+				.isEmpty();
+	}
+
 	/** Mọi dòng {@code TEN_PORT=so} trong một tệp env. */
 	private static Map<String, String> docCong(Path tep) throws IOException {
 		assertThat(tep).as("không thấy tệp env mẫu").exists();
