@@ -11,10 +11,10 @@ export class AuthRepository {
     private readonly bayGio: () => Date = () => new Date(),
   ) {}
 
-  async dangNhap(email: string, password: string): Promise<AuthSession> {
-    // `trim()` vì bàn phím di động tự chèn dấu cách sau khi gợi ý email, và backend so khớp email
+  async dangNhap(dinhDanh: string, password: string): Promise<AuthSession> {
+    // `trim()` vì bàn phím di động tự chèn dấu cách sau khi gợi ý email, và backend so khớp
     // nguyên văn — một dấu cách vô hình thành "sai mật khẩu" không giải thích được.
-    const session = await this.api.dangNhap(email.trim(), password);
+    const session = await this.api.dangNhap(dinhDanh.trim(), password);
     await this.store.luu(session);
     return session;
   }
@@ -31,13 +31,24 @@ export class AuthRepository {
   }
 
   /**
-   * Tạo tài khoản rồi cất phiên, y như đăng nhập.
+   * Tạo tài khoản bằng số điện thoại đã xác minh OTP, rồi cất phiên y như đăng nhập.
    *
-   * Cùng một `trim()` cho email: khách vừa tạo tài khoản mà không đăng nhập được vì một dấu cách
-   * vô hình là cách tệ nhất để mở đầu.
+   * Cùng một `trim()` cho số: khách vừa tạo tài khoản mà không đăng nhập được vì một dấu cách
+   * vô hình là cách tệ nhất để mở đầu. KHÔNG `trim()` token — nó do Firebase trả về, không phải
+   * thứ khách gõ tay, và cắt xén một chuỗi ký là làm hỏng chữ ký.
    */
-  async dangKy(hoTen: string, email: string, password: string): Promise<AuthSession> {
-    const session = await this.api.dangKy(hoTen.trim(), email.trim(), password);
+  async dangKy(
+    hoTen: string,
+    phoneIdToken: string,
+    soDienThoai: string,
+    password: string,
+  ): Promise<AuthSession> {
+    const session = await this.api.dangKy(
+      hoTen.trim(),
+      phoneIdToken,
+      soDienThoai.trim(),
+      password,
+    );
     await this.store.luu(session);
     return session;
   }

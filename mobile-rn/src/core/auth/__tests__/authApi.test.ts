@@ -22,13 +22,22 @@ function apiTraVe(status: number, body: string, ghiLai?: jest.Mock) {
 describe('HttpAuthApi', () => {
   it('gửi đúng đường dẫn và thân JSON mà backend Java chờ', async () => {
     const ghiLai = jest.fn();
-    await apiTraVe(200, THAN_CONG, ghiLai).dangNhap('a@example.com', 'matkhau123');
+    await apiTraVe(200, THAN_CONG, ghiLai).dangNhap('0901234567', 'matkhau123');
 
     const [url, init] = ghiLai.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('http://test/api/auth/login');
     expect(init.method).toBe('POST');
+    // Tên trường phải là `identifier`, KHÔNG phải `email`.
+    //
+    // Backend đổi sang một ô cho cả hai loại người dùng (khách gõ số, nhân viên gõ email) nhưng
+    // app vẫn gửi `email`. Jackson không thấy `identifier` nên để null, và AuthController chặn
+    // ngay ở dòng đầu — 400 IDENTIFIER_REQUIRED, chưa từng tới bước kiểm mật khẩu. Đo trên máy
+    // chủ thật: MỌI lượt đăng nhập từ app đều hỏng, không riêng ca nào.
+    //
+    // Phép kiểm cũ khẳng định đúng cái app đang gửi, nên nó xanh trong khi app chết. Hai bên tự
+    // đồng ý với nhau; không có gì so app với backend. Đó là việc của `hopDongAuth.test.ts`.
     expect(JSON.parse(init.body as string)).toEqual({
-      email: 'a@example.com',
+      identifier: '0901234567',
       password: 'matkhau123',
     });
   });
@@ -63,7 +72,7 @@ describe('dịch lỗi theo MÃ, không hiển thị câu tiếng Anh của máy
 
     await expect(api.dangNhap('a@example.com', 'sai')).rejects.toMatchObject({
       code: 'INVALID_CREDENTIALS',
-      message: 'Email hoặc mật khẩu không đúng.',
+      message: 'Số điện thoại, email hoặc mật khẩu không đúng.',
     });
   });
 
@@ -83,9 +92,11 @@ describe('dịch lỗi theo MÃ, không hiển thị câu tiếng Anh của máy
     expect(loi!.message).not.toContain('Email or password');
   });
 
-  it('400 EMAIL_INVALID', async () => {
-    const api = apiTraVe(400, loiJson('EMAIL_INVALID', 'Email is invalid.'));
-    await expect(api.dangNhap('sai', 'x')).rejects.toMatchObject({ code: 'EMAIL_INVALID' });
+  it('400 IDENTIFIER_REQUIRED', async () => {
+    // Thay cho ca EMAIL_INVALID cũ: `/login` không còn phát mã đó nữa. AuthController chỉ ném ba
+    // mã — IDENTIFIER_REQUIRED, PASSWORD_REQUIRED, INVALID_CREDENTIALS.
+    const api = apiTraVe(400, loiJson('IDENTIFIER_REQUIRED', 'Nhập số điện thoại hoặc email.'));
+    await expect(api.dangNhap('', 'x')).rejects.toMatchObject({ code: 'IDENTIFIER_REQUIRED' });
   });
 
   it('502 trả thân HTML của nginx vẫn cho câu đọc được', async () => {

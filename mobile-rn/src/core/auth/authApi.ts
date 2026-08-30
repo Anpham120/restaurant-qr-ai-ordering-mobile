@@ -13,7 +13,13 @@ export class AuthException extends Error {
 }
 
 export interface AuthApi {
-  dangNhap(email: string, password: string): Promise<AuthSession>;
+  /**
+   * Một ô nhập cho cả hai loại người dùng: khách gõ số điện thoại, nhân viên gõ email.
+   *
+   * Backend đọc trường `identifier`, KHÔNG đọc `email` — xem `AuthDtos.LoginRequest`. Gửi sai tên
+   * thì Jackson để null và request chết ở 400 IDENTIFIER_REQUIRED trước cả bước kiểm mật khẩu.
+   */
+  dangNhap(dinhDanh: string, password: string): Promise<AuthSession>;
   /**
    * Đăng nhập bằng Google. Lần đầu thì backend tạo tài khoản luôn, không có bước đăng ký riêng.
    *
@@ -22,13 +28,25 @@ export interface AuthApi {
    */
   dangNhapGoogle(idToken: string): Promise<AuthSession>;
   /**
-   * Tạo tài khoản rồi đăng nhập luôn.
+   * Tạo tài khoản bằng số điện thoại ĐÃ xác minh OTP, rồi đăng nhập luôn.
    *
    * Backend trả 201 kèm hồ sơ chứ KHÔNG kèm phiên, nên phải gọi tiếp `/login`. Gộp hai lượt vào
    * một hàm vì với khách đó là một hành động: bắt họ tự đăng nhập lại ngay sau khi vừa tạo tài
    * khoản là bắt gõ mật khẩu hai lần cho cùng một việc.
+   *
+   * KHÔNG có đường tạo tài khoản bằng email nữa. Backend chỉ nhận `phoneIdToken`, và số điện
+   * thoại lấy TỪ token chứ không lấy từ thân request — điểm thưởng tính theo số, nên nhận một số
+   * chưa xác minh nghĩa là cho người lạ chiếm hồ sơ điểm của khách quen.
+   *
+   * @param soDienThoai số vừa xác minh, dùng để đăng nhập ngay sau đó. Backend không trả số về
+   *     trong phản hồi 201, và tài khoản tạo kiểu này không có email để đăng nhập thay.
    */
-  dangKy(hoTen: string, email: string, password: string): Promise<AuthSession>;
+  dangKy(
+    hoTen: string,
+    phoneIdToken: string,
+    soDienThoai: string,
+    password: string,
+  ): Promise<AuthSession>;
 }
 
 /** Gọi `/api/auth` của backend Java. */
@@ -38,13 +56,18 @@ export class HttpAuthApi implements AuthApi {
     private readonly goiMang: GoiMang = goiMangThat,
   ) {}
 
-  async dangKy(hoTen: string, email: string, password: string): Promise<AuthSession> {
+  async dangKy(
+    hoTen: string,
+    phoneIdToken: string,
+    soDienThoai: string,
+    password: string,
+  ): Promise<AuthSession> {
     let res: Awaited<ReturnType<GoiMang>>;
     try {
       res = await this.goiMang(`${this.baseUrl}/api/auth/register`, {
         method: 'POST',
         headers: HEADER_JSON,
-        body: JSON.stringify({ fullName: hoTen.trim(), email: email.trim(), password }),
+        body: JSON.stringify({ fullName: hoTen.trim(), phoneIdToken, password }),
       });
     } catch {
       throw new AuthException(
@@ -55,10 +78,7 @@ export class HttpAuthApi implements AuthApi {
 
     if (res.status !== 201) throw dichLoiDangKy(res.status, await res.text());
 
-    // Đăng nhập bằng chính chuỗi khách vừa gõ, không dùng bản đã cắt khoảng trắng của email ở
-    // trên: nếu backend chuẩn hoá email khác cách app cắt, lượt đăng nhập này phải hỏng ngay ở
-    // đây chứ không im lặng cho ra một phiên của tài khoản khác.
-    return this.dangNhap(email, password);
+    return this.dangNhap(soDienThoai, password);
   }
 
   async dangNhapGoogle(idToken: string): Promise<AuthSession> {
@@ -83,13 +103,13 @@ export class HttpAuthApi implements AuthApi {
     throw dichLoiGoogle(res.status, than);
   }
 
-  async dangNhap(email: string, password: string): Promise<AuthSession> {
+  async dangNhap(dinhDanh: string, password: string): Promise<AuthSession> {
     let res: Awaited<ReturnType<GoiMang>>;
     try {
       res = await this.goiMang(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: HEADER_JSON,
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier: dinhDanh, password }),
       });
     } catch {
       // Mất mạng trong quán là chuyện thường. Phân biệt rõ với sai mật khẩu: bảo khách kiểm tra
@@ -115,22 +135,41 @@ export class HttpAuthApi implements AuthApi {
  * phần backend cam kết giữ ổn định; câu chữ thì không.
  */
 /**
- * Lỗi đăng ký. Tách khỏi {@link dichLoi} vì cùng một mã nói hai chuyện khác nhau ở hai màn hình:
- * `EMAIL_INVALID` lúc đăng nhập là "gõ nhầm email", lúc đăng ký là "email này không dùng được".
+ * Lỗi đăng ký bằng số điện thoại.
+ *
+ * Ba mã cuối KHÔNG phải lỗi của khách và họ không tự sửa được. Bảo "thử lại" khi máy chủ chưa
+ * cấu hình Firebase là bắt người ta ngồi bấm mãi một nút không bao giờ chạy.
  */
 function dichLoiDangKy(status: number, than: string): AuthException {
   switch (maLoi(than)) {
-    case 'EMAIL_ALREADY_REGISTERED':
-      // Nói rõ việc cần làm tiếp. "Email đã tồn tại" khiến khách gõ lại mãi một email họ vốn đã
-      // có tài khoản.
+    case 'PHONE_ALREADY_REGISTERED':
+      // Nói rõ việc cần làm tiếp. "Số đã tồn tại" khiến khách gõ lại mãi một số họ vốn đã có
+      // tài khoản.
       return new AuthException(
-        'EMAIL_ALREADY_REGISTERED',
-        'Email này đã có tài khoản. Đăng nhập thay vì tạo mới nhé.',
+        'PHONE_ALREADY_REGISTERED',
+        'Số này đã có tài khoản. Đăng nhập thay vì tạo mới nhé.',
       );
     case 'PASSWORD_TOO_SHORT':
       return new AuthException('PASSWORD_TOO_SHORT', 'Mật khẩu phải có ít nhất 8 ký tự.');
-    case 'EMAIL_INVALID':
-      return new AuthException('EMAIL_INVALID', 'Email không hợp lệ.');
+    case 'FULL_NAME_REQUIRED':
+      return new AuthException('FULL_NAME_REQUIRED', 'Chưa nhập họ tên.');
+    case 'PHONE_TOKEN_REQUIRED':
+    case 'PHONE_TOKEN_INVALID':
+      // Token OTP hết hạn hoặc sai. Cách thoát duy nhất là xin mã mới, nên nói đúng thế.
+      return new AuthException(
+        'PHONE_TOKEN_INVALID',
+        'Mã xác minh đã hết hạn. Nhận mã mới rồi thử lại.',
+      );
+    case 'PHONE_VERIFY_NOT_CONFIGURED':
+      return new AuthException(
+        'PHONE_VERIFY_NOT_CONFIGURED',
+        'Máy chủ này chưa bật đăng ký bằng số điện thoại.',
+      );
+    case 'PHONE_VERIFY_UNREACHABLE':
+      return new AuthException(
+        'PHONE_VERIFY_UNREACHABLE',
+        'Máy chủ không liên hệ được dịch vụ xác minh. Thử lại sau ít phút.',
+      );
   }
 
   const chung = loiChungHttp(status, maLoi(than), 'Tạo tài khoản không thành công');
@@ -172,9 +211,12 @@ function dichLoiGoogle(status: number, than: string): AuthException {
 function dichLoi(status: number, than: string): AuthException {
   switch (maLoi(than)) {
     case 'INVALID_CREDENTIALS':
-      return new AuthException('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.');
-    case 'EMAIL_INVALID':
-      return new AuthException('EMAIL_INVALID', 'Email không hợp lệ.');
+      return new AuthException(
+        'INVALID_CREDENTIALS',
+        'Số điện thoại, email hoặc mật khẩu không đúng.',
+      );
+    case 'IDENTIFIER_REQUIRED':
+      return new AuthException('IDENTIFIER_REQUIRED', 'Chưa nhập số điện thoại hoặc email.');
     case 'PASSWORD_REQUIRED':
       return new AuthException('PASSWORD_REQUIRED', 'Chưa nhập mật khẩu.');
   }
