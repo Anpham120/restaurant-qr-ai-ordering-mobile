@@ -95,8 +95,6 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      ai-service:
-        condition: service_healthy
     ports:
       # Địa chỉ gắn cổng đổi theo môi trường, mặc định mở cho MỌI giao diện.
       #
@@ -118,6 +116,16 @@ services:
       start_period: 60s
 
   ai-service:
+    # Trong profile "ai" nên MẶC ĐỊNH KHÔNG dựng và không chạy. Bật bằng COMPOSE_PROFILES=ai.
+    #
+    # Hai lý do, và lý do thứ hai đúng cả khi lý do thứ nhất hết:
+    #
+    # 1. Máy chủ hiện tại phơi CPU model qemu64 — chỉ có sse4_2, không avx/avx2. torch dựng sẵn
+    #    chết ngay khi dựng ảnh với SIGILL (exit 132). Đo thật trên 221.121.2.60.
+    # 2. Hệ thống gọi món KHÔNG nên chết theo trợ lý. Trước đây api khai depends_on ai-service
+    #    service_healthy, nên một dịch vụ phụ hỏng là cả quán không nhận đơn được. Backend đã có
+    #    sẵn đường thoái hoá: hết thời gian chờ thì trả câu chuyển nhân viên.
+    profiles: ["ai"]
     image: ${AI_SERVICE_IMAGE:-cmc-restaurant-ai:${DEPLOY_ENV:-local}}
     build:
       context: ..

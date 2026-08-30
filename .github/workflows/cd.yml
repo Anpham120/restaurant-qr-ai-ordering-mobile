@@ -115,6 +115,9 @@ jobs:
           # máy phát triển, trên VPS thì trỏ vào hư không và trợ lý luôn trả câu thoái hoá.
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # Rỗng = triển khai KHÔNG có dịch vụ AI. Đặt thành "ai" khi CPU máy chủ có AVX2 để
+          # bật lại — không phải sửa mã.
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
         run: |
           chmod +x deploy/scripts/deploy-vps.sh
