@@ -17,4 +17,5 @@
  * **Web application**. Đúng, loại Web, kể cả khi app chạy trên Android — thư viện dùng web client
  * ID để xin `idToken`, còn Android client ID chỉ cần tồn tại (kèm SHA-1) chứ không điền vào đây.
  */
-export const GOOGLE_WEB_CLIENT_ID = '';
+export const GOOGLE_WEB_CLIENT_ID =
+  '1015049127458-o8ncqiln5blaei9ume0mahiq66063uvp.apps.googleusercontent.com';
