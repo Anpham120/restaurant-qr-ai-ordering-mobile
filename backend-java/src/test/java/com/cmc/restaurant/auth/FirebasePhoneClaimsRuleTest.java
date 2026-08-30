@@ -35,11 +35,15 @@ class FirebasePhoneClaimsRuleTest {
 	}
 
 	@Test
-	@DisplayName("Token hợp lệ: đọc ra số điện thoại đã chuẩn hoá")
+	@DisplayName("Token hợp lệ: đọc ra số điện thoại đã chuẩn hoá về DẠNG TRONG NƯỚC")
 	void readsAVerifiedPhone() {
-		// Chuẩn hoá về chữ số vì hồ sơ điểm khoá theo dạng đó. Trả nguyên "+84901234567" nghĩa là
-		// khách đăng ký xong không thấy điểm cũ của chính mình.
-		assertThat(FirebasePhoneClaimsRule.doc(hopLe(), DU_AN)).isEqualTo("84901234567");
+		// Chuẩn hoá vì hồ sơ điểm khoá theo dạng thu ngân gõ ở quầy. Trả nguyên "+84901234567"
+		// nghĩa là khách đăng ký xong không thấy điểm cũ của chính mình.
+		//
+		// Bản đầu của ca này khẳng định "84901234567" — tức chỉ bỏ dấu cộng. Ý định trong chú
+		// thích đúng, giá trị thì sai: thu ngân gõ "0901234567", nên "84901234567" vẫn là một khoá
+		// KHÁC và vẫn đúng cái hỏng mà chú thích cảnh báo. Xem PhoneNumberTest.
+		assertThat(FirebasePhoneClaimsRule.doc(hopLe(), DU_AN)).isEqualTo("0901234567");
 	}
 
 	@Test
