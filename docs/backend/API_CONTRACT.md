@@ -226,17 +226,21 @@ Quy tac:
 
 ### POST `/api/auth/register`
 
-Auth: public.
+Auth: public. **Chi app di dong.** Web khong co duong tao tai khoan khach: buoc thanh toan chi
+nhan so de tinh diem, va sau thanh toan chi moi tai app.
 
 Request:
 
 ```json
 {
   "fullName": "Nguyen Van A",
-  "email": "customer@example.com",
+  "phoneIdToken": "<ID token Firebase sau khi xac minh OTP>",
   "password": "12345678"
 }
 ```
+
+So dien thoai lay TU TOKEN, khong lay tu than request. Diem thuong tinh theo so, nen nhan mot so
+chua xac minh nghia la cho nguoi la chiem ho so diem cua khach quen — dung thu OTP sinh ra de bit.
 
 Response `200 OK`:
 
@@ -249,17 +253,21 @@ Response `200 OK`:
 }
 ```
 
-Loi chinh: `FULL_NAME_REQUIRED`, `EMAIL_REQUIRED`, `EMAIL_INVALID`, `PASSWORD_REQUIRED`, `PASSWORD_TOO_SHORT`, `EMAIL_ALREADY_REGISTERED`.
+Loi chinh: `FULL_NAME_REQUIRED`, `PHONE_TOKEN_REQUIRED`, `PHONE_TOKEN_INVALID`, `PASSWORD_TOO_SHORT`, `PHONE_ALREADY_REGISTERED`, `PHONE_VERIFY_NOT_CONFIGURED`, `PHONE_VERIFY_UNREACHABLE`.
 
 ### POST `/api/auth/login`
 
 Auth: public.
 
+Truong ten la **`identifier`**, KHONG phai `email` — mot o cho ca hai loai nguoi dung: khach go so
+dien thoai, nhan vien go email. Gui `email` thi Jackson de null va request chet o 400
+`IDENTIFIER_REQUIRED` truoc ca buoc kiem mat khau. Da xay ra that tren ca app lan web.
+
 Request:
 
 ```json
 {
-  "email": "admin@cmc.test",
+  "identifier": "admin@cmc.test",
   "password": "Admin@123"
 }
 ```
@@ -279,7 +287,12 @@ Response `200 OK`:
 }
 ```
 
-Loi chinh: `EMAIL_REQUIRED`, `PASSWORD_REQUIRED`, `INVALID_CREDENTIALS`.
+Loi chinh: `IDENTIFIER_REQUIRED`, `PASSWORD_REQUIRED`, `INVALID_CREDENTIALS`.
+
+Tai khoan `admin@cmc.test` o tren chi la vi du. **Khong migration nao chen nguoi dung** — tai
+khoan quan tri dau tien do `AdminBootstrap` tao tu bien `ADMIN_BOOTSTRAP_EMAIL` va
+`ADMIN_BOOTSTRAP_PASSWORD` luc khoi dong. Bo trong hai bien do thi co so du lieu khong co ai, va
+ban trien khai tu khoa minh ra ngoai.
 
 Lockout: sai mat khau 5 lan lien tiep → khoa tai khoan 15 phut. Khi bi khoa van tra `INVALID_CREDENTIALS` (khong lo tai khoan ton tai hoac dang bi khoa).
 
