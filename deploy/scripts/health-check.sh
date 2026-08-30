@@ -35,18 +35,50 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 
 primary_frontend_domain="$(printf '%s\n' "$FRONTEND_SERVER_NAMES" | awk '{print $1}')"
-frontend_url="${FRONTEND_HEALTH_URL:-https://${primary_frontend_domain}/}"
-api_health_url="${API_HEALTH_URL:-https://${API_SERVER_NAME}/api/health}"
-api_ready_url="${API_READY_URL:-https://${API_SERVER_NAME}/health/ready}"
+# Giao thức lấy từ PUBLIC_API_BASE_URL chứ KHÔNG ghi cứng https.
+#
+# Một bản triển khai chưa có chứng chỉ thì mọi thứ chạy trên http, và kiểm sức khoẻ gọi https
+# sẽ báo "không kết nối được cổng 443" — nghe như hệ thống hỏng, trong khi nó đang chạy bình
+# thường. Đo thật: cả stack lên xong, chỉ mỗi bước này đỏ.
+giao_thuc="https"
+case "${PUBLIC_API_BASE_URL:-}" in
+  http://*) giao_thuc="http" ;;
+esac
+
+frontend_url="${FRONTEND_HEALTH_URL:-${giao_thuc}://${primary_frontend_domain}/}"
+api_health_url="${API_HEALTH_URL:-${giao_thuc}://${API_SERVER_NAME}/api/health}"
+api_ready_url="${API_READY_URL:-${giao_thuc}://${API_SERVER_NAME}/health/ready}"
 ai_ready_url="${AI_READY_URL:-http://127.0.0.1:${AI_SERVICE_PORT:-8001}/ready}"
 ai_chat_url="${AI_CHAT_URL:-http://127.0.0.1:${AI_SERVICE_PORT:-8001}/v1/chat}"
-api_chat_sessions_url="${API_CHAT_SESSIONS_URL:-https://${API_SERVER_NAME}/api/chat/sessions}"
+api_chat_sessions_url="${API_CHAT_SESSIONS_URL:-${giao_thuc}://${API_SERVER_NAME}/api/chat/sessions}"
+
+# Bỏ qua phần AI khi bản triển khai KHÔNG có dịch vụ AI (profile "ai" tắt).
+#
+# Kiểm một dịch vụ mình cố ý không triển khai thì luôn đỏ, và cái đỏ đó che mất mọi thứ khác:
+# người triển khai thấy "health-check thất bại" và không biết phần gọi món vẫn tốt.
+co_ai=0
+case ",${COMPOSE_PROFILES:-}," in
+  *,ai,*) co_ai=1 ;;
+esac
+if [ "$co_ai" -eq 0 ]; then
+  echo "Bo qua kiem dich vu AI: COMPOSE_PROFILES khong bat profile ai."
+fi
 
 echo "Checking frontend: ${frontend_url}"
 curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors "$frontend_url" >/dev/null
 
 echo "Checking API health: ${api_health_url}"
 curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors "$api_health_url"
+
+# Không triển khai AI thì dừng ở đây, và dừng THÀNH CÔNG.
+#
+# Dừng trước cả bước /health/ready: chính chú thích của nó ghi "database and AI dependency",
+# nên nó sẽ đỏ vì một dịch vụ mình cố ý không dựng. Một cái đỏ như thế che mất mọi thứ khác —
+# người triển khai chỉ thấy "health-check thất bại" và không biết phần gọi món vẫn tốt.
+if [ "$co_ai" -eq 0 ]; then
+  echo "Xong: frontend va API deu tra loi. Bo qua phan AI vi profile ai khong bat."
+  exit 0
+fi
 
 echo "Checking API readiness (database and AI dependency): ${api_ready_url}"
 curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors "$api_ready_url"
