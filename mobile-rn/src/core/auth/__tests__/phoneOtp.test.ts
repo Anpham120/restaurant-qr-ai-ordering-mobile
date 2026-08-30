@@ -43,10 +43,20 @@ describe('sangE164 — đổi số khách gõ sang dạng Firebase bắt buộc'
 });
 
 describe('taoGuiMaOtp', () => {
+  /**
+   * Bản giả theo API **modular** của `@react-native-firebase` bản 26.
+   *
+   * Bản 26 đã bỏ hẳn lối cũ `auth().signInWithPhoneNumber(...)` — gói không còn `export default`.
+   * Bản giả này cố tình dựng đúng hình dạng mới, nên nếu mã sản phẩm quay về lối cũ thì phép kiểm
+   * đỏ ngay ở đây thay vì chết trên máy thật.
+   */
   function thuVienGia(token = 'id-token-cua-firebase') {
-    const daGoi: { so?: string; ma?: string } = {};
-    const thuVien = () => ({
-      async signInWithPhoneNumber(so: string) {
+    const daGoi: { so?: string; ma?: string; authDaTruyen?: unknown } = {};
+    const AUTH = { day: 'la-doi-tuong-auth' };
+    const thuVien = {
+      getAuth: () => AUTH,
+      async signInWithPhoneNumber(auth: unknown, so: string) {
+        daGoi.authDaTruyen = auth;
         daGoi.so = so;
         return {
           async confirm(ma: string) {
@@ -55,8 +65,8 @@ describe('taoGuiMaOtp', () => {
           },
         };
       },
-    });
-    return { thuVien, daGoi };
+    };
+    return { thuVien, daGoi, AUTH };
   }
 
   it('gửi số đã đổi sang dạng E.164, không gửi nguyên chuỗi khách gõ', async () => {
@@ -77,27 +87,40 @@ describe('taoGuiMaOtp', () => {
     expect(token).toBe('tok-abc');
   });
 
+  it('truyền đối tượng auth của getAuth() vào signInWithPhoneNumber', async () => {
+    // API modular nhận `auth` làm THAM SỐ ĐẦU. Quên nó thì thư viện nhận số điện thoại vào chỗ
+    // `auth` và số vào chỗ `_appVerifier` — sai hoàn toàn, mà TypeScript không cản được vì
+    // `require` trả `any`.
+    const { thuVien, daGoi, AUTH } = thuVienGia();
+
+    await taoGuiMaOtp(thuVien)('0901234567');
+
+    expect(daGoi.authDaTruyen).toBe(AUTH);
+  });
+
   it('số sai định dạng thì ném NGAY, không gọi thư viện', async () => {
     let daGoi = false;
-    const thuVien = () => ({
+    const thuVien = {
+      getAuth: () => ({}),
       async signInWithPhoneNumber() {
         daGoi = true;
         throw new Error('không được tới đây');
       },
-    });
+    };
 
     await expect(taoGuiMaOtp(thuVien)('123')).rejects.toThrow('SO_DIEN_THOAI_KHONG_HOP_LE');
     expect(daGoi).toBe(false);
   });
 
   it('confirm trả null thì ném lỗi rõ ràng, không đọc .user của null', async () => {
-    // Thư viện khai kiểu trả về là `UserCredential | null`. Đọc thẳng `.user` thì app chết bằng
-    // một lỗi nói về `undefined`, không nói gì về mã xác minh.
-    const thuVien = () => ({
+    // Thư viện khai kiểu trả về là `UserCredential | null` — xem `ConfirmationResult.d.ts`. Đọc
+    // thẳng `.user` thì app chết bằng một lỗi nói về `undefined`, không nói gì về mã xác minh.
+    const thuVien = {
+      getAuth: () => ({}),
       async signInWithPhoneNumber() {
         return { async confirm() { return null; } };
       },
-    });
+    };
 
     const cho = await taoGuiMaOtp(thuVien)('0901234567');
 

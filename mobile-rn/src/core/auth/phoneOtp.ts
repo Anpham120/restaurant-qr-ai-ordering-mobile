@@ -56,13 +56,23 @@ export function sangE164(so: string): string | null {
   return null;
 }
 
-/** Hình dạng tối thiểu mà mã này cần ở thư viện. Khai ở đây để không kéo kiểu của nó ra khắp nơi. */
+/**
+ * Hình dạng tối thiểu mà mã này cần ở thư viện. Khai ở đây để không kéo kiểu của nó ra khắp nơi.
+ *
+ * Đây là API **modular**. `@react-native-firebase` bản 26 đã BỎ HẲN API cũ dạng `auth().xxx()` —
+ * gói không còn `export default` nào. Viết theo lối cũ vẫn biên dịch trót lọt vì `require` trả
+ * `any`, rồi chết lúc chạy trên máy thật bằng "auth is not a function" — tức lỗi chỉ lộ ra ở khâu
+ * đắt nhất để phát hiện. Đã kiểm chứng bằng chính tệp .d.ts trong node_modules.
+ */
 interface ThuVienFirebase {
-  (): {
-    signInWithPhoneNumber(so: string): Promise<{
-      confirm(ma: string): Promise<{ user: { getIdToken(): Promise<string> } } | null>;
-    }>;
-  };
+  getAuth(): unknown;
+  signInWithPhoneNumber(
+    auth: unknown,
+    soDienThoai: string,
+  ): Promise<{
+    /** Trả `UserCredential | null` — xem `ConfirmationResult.d.ts`. Chỗ `null` đó có thật. */
+    confirm(ma: string): Promise<{ user: { getIdToken(): Promise<string> } } | null>;
+  }>;
 }
 
 /**
@@ -77,7 +87,7 @@ export function taoGuiMaOtp(thuVien: ThuVienFirebase): GuiMaOtp {
       throw new Error('SO_DIEN_THOAI_KHONG_HOP_LE');
     }
 
-    const luot = await thuVien().signInWithPhoneNumber(e164);
+    const luot = await thuVien.signInWithPhoneNumber(thuVien.getAuth(), e164);
 
     return {
       async xacNhan(ma: string): Promise<string> {
@@ -106,8 +116,14 @@ export function taoGuiMaOtp(thuVien: ThuVienFirebase): GuiMaOtp {
 export function layGuiMaOtpThat(): GuiMaOtp | undefined {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('@react-native-firebase/auth') as { default: ThuVienFirebase };
-    return taoGuiMaOtp(mod.default);
+    const mod = require('@react-native-firebase/auth') as Partial<ThuVienFirebase>;
+    // Kiểm hình dạng thay vì tin vào phép ép kiểu. `require` trả `any`, nên ép kiểu ở đây không
+    // kiểm chứng gì cả — đổi phiên bản thư viện mà đổi luôn API thì mã vẫn biên dịch và chỉ chết
+    // trên máy thật. Bản 26 đã bỏ API cũ đúng theo kiểu đó một lần rồi.
+    if (typeof mod.getAuth !== 'function' || typeof mod.signInWithPhoneNumber !== 'function') {
+      return undefined;
+    }
+    return taoGuiMaOtp(mod as ThuVienFirebase);
   } catch {
     return undefined;
   }
