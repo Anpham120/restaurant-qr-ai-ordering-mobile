@@ -125,7 +125,7 @@ POSTGRES_USER         = restaurant_user
 FRONTEND_SERVER_NAMES = staging.cmcrestaurant.app order-staging.cmcrestaurant.app admin-staging.cmcrestaurant.app staff-staging.cmcrestaurant.app kitchen-staging.cmcrestaurant.app
 API_SERVER_NAME       = api-staging.cmcrestaurant.app
 PUBLIC_API_BASE_URL   = https://api-staging.cmcrestaurant.app/api
-CORS_ALLOWED_ORIGINS  = https://staging.cmcrestaurant.app;https://order-staging.cmcrestaurant.app;https://admin-staging.cmcrestaurant.app;https://staff-staging.cmcrestaurant.app;https://kitchen-staging.cmcrestaurant.app
+CORS_ALLOWED_ORIGINS  = https://staging.cmcrestaurant.app,https://order-staging.cmcrestaurant.app,https://admin-staging.cmcrestaurant.app,https://staff-staging.cmcrestaurant.app,https://kitchen-staging.cmcrestaurant.app
 
 PAYMENTS_VIETQR_BANKID        = <mã BIN 6 chữ số, ví dụ Vietcombank: 970436>
 PAYMENTS_VIETQR_ACCOUNTNUMBER = <số tài khoản nhận tiền>
@@ -165,7 +165,7 @@ BACKEND_JAVA_BIND     = 127.0.0.1
 FRONTEND_SERVER_NAMES = cmcrestaurant.app order.cmcrestaurant.app admin.cmcrestaurant.app staff.cmcrestaurant.app kitchen.cmcrestaurant.app
 API_SERVER_NAME       = api.cmcrestaurant.app
 PUBLIC_API_BASE_URL   = https://api.cmcrestaurant.app/api
-CORS_ALLOWED_ORIGINS  = https://cmcrestaurant.app;https://order.cmcrestaurant.app;https://admin.cmcrestaurant.app;https://staff.cmcrestaurant.app;https://kitchen.cmcrestaurant.app
+CORS_ALLOWED_ORIGINS  = https://cmcrestaurant.app,https://order.cmcrestaurant.app,https://admin.cmcrestaurant.app,https://staff.cmcrestaurant.app,https://kitchen.cmcrestaurant.app
 ```
 
 Bên `staging` nhớ thêm `AI_SERVICE_PORT = 8002` — bỏ trống thì cả hai cùng về mặc định 8001 và
