@@ -94,6 +94,13 @@ jobs:
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
           CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
 
+          # Thư mục chứng chỉ Let's Encrypt trên máy chủ. Bỏ trống = HTTP thuần.
+          #
+          # Không truyền biến này thì mỗi lượt triển khai ghi đè cấu hình nginx về HTTP, kể cả khi
+          # chứng chỉ vẫn nằm nguyên trên máy. Hỏng khó thấy: trang vẫn lên trên HTTP, nhưng bundle
+          # đã dựng để gọi API qua HTTPS nên trình duyệt chặn mọi lời gọi.
+          TLS_CERT_DIR: ${{ vars.TLS_CERT_DIR }}
+
           JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
 
           # Tài khoản quản trị đầu tiên. Bỏ trống thì không tạo gì — chỉ lần triển khai đầu lên

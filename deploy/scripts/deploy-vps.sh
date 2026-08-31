@@ -143,6 +143,13 @@ FRONTEND_SERVER_NAMES=$(env_quote "$FRONTEND_SERVER_NAMES")
   FIREBASE_PROJECT_ID=$(env_quote "$FIREBASE_PROJECT_ID")
   GOOGLE_CLIENT_ID=$(env_quote "$GOOGLE_CLIENT_ID")
   BACKEND_JAVA_BIND=$(env_quote "${BACKEND_JAVA_BIND:-127.0.0.1}")
+  # Thư mục chứng chỉ TLS. Bỏ trống = nginx chạy HTTP thuần.
+  #
+  # PHẢI đi qua đây, không thể chỉ đặt tay trên máy chủ một lần: script này cũng gọi
+  # `write-nginx-config.sh`, nên mỗi lượt triển khai ghi đè cấu hình nginx. Đặt TLS bằng tay rồi
+  # triển khai lại là mất TLS — và mất một cách khó thấy, vì trang vẫn lên trên HTTP trong khi
+  # bundle đã được dựng để gọi API qua HTTPS. Đã gặp thật.
+  TLS_CERT_DIR=$(env_quote "${TLS_CERT_DIR:-}")
 RUN_DB_MIGRATIONS_ON_STARTUP=$(env_quote "${RUN_DB_MIGRATIONS_ON_STARTUP:-false}")
 CHAT_AI_PROVIDER=$(env_quote "${CHAT_AI_PROVIDER:-python-rag}")
 AI_SERVICE_URL=$(env_quote "$AI_SERVICE_URL")
