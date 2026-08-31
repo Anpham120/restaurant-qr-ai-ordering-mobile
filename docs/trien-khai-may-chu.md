@@ -196,7 +196,7 @@ Sau đó dựng nginx HTTP thuần trên máy chủ:
 export DEPLOY_ENV=staging FRONTEND_PORT=8081 BACKEND_PORT=5001
 export FRONTEND_SERVER_NAMES="staging.cmcrestaurant.app order-staging.cmcrestaurant.app"
 export API_SERVER_NAME=api-staging.cmcrestaurant.app
-sudo -E /opt/cmc-restaurant/staging/deploy/scripts/write-nginx-config.sh
+bash /opt/cmc-restaurant/staging/repo/deploy/scripts/write-nginx-config.sh
 ```
 
 Kiểm tra:
@@ -236,12 +236,12 @@ Rồi bật TLS cho từng môi trường. Tên thư mục chứng chỉ là tê
 # staging
 export DEPLOY_ENV=staging FRONTEND_PORT=8081 BACKEND_PORT=5001
 export TLS_CERT_DIR=/etc/letsencrypt/live/staging.cmcrestaurant.app
-sudo -E /opt/cmc-restaurant/staging/deploy/scripts/write-nginx-config.sh
+bash /opt/cmc-restaurant/staging/repo/deploy/scripts/write-nginx-config.sh
 
 # production
 export DEPLOY_ENV=production FRONTEND_PORT=8080 BACKEND_PORT=5000
 export TLS_CERT_DIR=/etc/letsencrypt/live/cmcrestaurant.app
-sudo -E /opt/cmc-restaurant/production/deploy/scripts/write-nginx-config.sh
+bash /opt/cmc-restaurant/production/repo/deploy/scripts/write-nginx-config.sh
 ```
 
 Hai tệp cấu hình nginx tách riêng theo `DEPLOY_ENV` (`cmc-staging.conf`, `cmc-production.conf`)
