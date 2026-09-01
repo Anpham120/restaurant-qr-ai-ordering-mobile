@@ -3,6 +3,7 @@ package com.cmc.restaurant.auth;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -32,6 +33,13 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
+				// PHẢI có, và phải đứng trong chuỗi này chứ không chỉ khai ở tầng MVC.
+				//
+				// Thiếu dòng này thì bộ lọc CORS của Spring Security không tồn tại, và preflight
+				// OPTIONS tới đường cần đăng nhập rơi vào `anyRequest().authenticated()` -> 401 kèm
+				// không header CORS nào. Trình duyệt chặn, app trắng trơn sau khi đăng nhập.
+				// Xem WebCorsConfig.corsConfigurationSource để biết vì sao curl không phát hiện ra.
+				.cors(Customizer.withDefaults())
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.exceptionHandling(exceptions -> exceptions
