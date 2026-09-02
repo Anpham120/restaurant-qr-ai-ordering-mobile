@@ -47,6 +47,31 @@ jobs:
         working-directory: backend-java
         run: ./gradlew --no-daemon test integrationTest
 
+      # Frontend ĐƯỢC DỰNG LẠI VÀ TRIỂN KHAI trong chính lượt này, nhưng trước đây không phép kiểm
+      # nào chạm tới nó — bundle web đi thẳng lên máy chủ. Đúng lớp lỗi đã gặp sáu lần: hỏng ở tầng
+      # trình duyệt trong khi backend vẫn xanh.
+      #
+      # `build` nằm trong đây chứ không chỉ `test`: nó chạy `tsc --noEmit` cho từng app rồi mới
+      # `vite build`, nên một lỗi kiểu chỉ có ở app con cũng chặn được trước khi đụng máy chủ.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cài phụ thuộc frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Phép kiểm frontend
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend dựng được
+        working-directory: frontend
+        run: npm run build
+
       # Giá trị GIẢ, chỉ để đọc được tệp. Compose khai ba biến `:?bắt buộc` nên không có chúng
       # thì `config` dừng ở biến đầu tiên và không kiểm được phần còn lại của tệp.
       #

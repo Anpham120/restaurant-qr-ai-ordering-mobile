@@ -8,6 +8,14 @@
 name: ci-mobile
 
 on:
+  # Chạy tay trên MỘT nhánh bất kỳ.
+  #
+  # KHÔNG thêm nhánh tính năng vào `push` ở trên: ghi chú ngay dưới đây giải thích vì sao, và lý
+  # do đó có số đo thật. Nhưng một nhánh CHƯA MỞ PR thì không có gì kích hoạt CI cả — mã đi
+  # thẳng lên máy chủ qua `cd` mà chưa lần nào qua lint/typecheck/test. Nút bấm tay lấp đúng
+  # khoảng đó mà không làm PR chạy trùng.
+  workflow_dispatch:
+
   push:
     branches: [develop, main]
     paths:
