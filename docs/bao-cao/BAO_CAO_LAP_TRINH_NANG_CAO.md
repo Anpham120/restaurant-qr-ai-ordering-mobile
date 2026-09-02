@@ -38,15 +38,15 @@ bản Java **kém hơn**.
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.3.4 |
-| Endpoint | 93 |
+| Endpoint | 97 |
 | Module | 13 — `auth`, `cart`, `chat`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`, `reports`, `shared`, `tables` |
-| Tệp nguồn `.java` | 193 |
-| Dòng mã nguồn | 14.610 |
-| Tệp test | 21 |
-| Dòng mã test | 2.821 |
-| Phương thức `@Test` | 154 |
+| Tệp nguồn `.java` | 220 |
+| Dòng mã nguồn | 17.498 |
+| Tệp test | 40 |
+| Dòng mã test | 5.150 |
+| Phương thức `@Test` | 281 |
 | Quy tắc ArchUnit | 3 |
-| Migration Flyway | 12 tệp, 1.667 dòng SQL |
+| Migration Flyway | 23 tệp, 2.072 dòng SQL |
 
 > Bảng này SINH TỪ MÃ (`docs/build_bao_cao_lap_trinh_nang_cao.py`), có cổng `--check` ở CI.
 > Quy tắc ArchUnit khai bằng trường `ArchRule` chứ không phải `@Test`, nên chúng KHÔNG nằm

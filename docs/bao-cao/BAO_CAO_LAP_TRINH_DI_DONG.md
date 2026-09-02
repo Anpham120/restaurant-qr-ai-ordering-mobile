@@ -29,14 +29,14 @@ tầng đang nằm không.
 | Expo SDK | 57.0.15 |
 | React Native | 0.86.2 |
 | Node (ghim ở CI) | 22 |
-| Tệp nguồn `.ts`/`.tsx` | 49 |
-| Dòng mã nguồn | 5.962 |
-| Tệp test | 42 |
-| Dòng mã test | 5.528 |
-| Ca kiểm khai báo (`it` + `test`) | 395 |
-| Màn hình | 14 — `AccountTab`, `CartScreen`, `ChatScreen`, `HistoryScreen`, `KhungChinh`, `LoginScreen`, `LoyaltyScreen`, `MenuScreen`, `OpenTableScreen`, `OrdersScreen`, `PaymentScreen`, `PromotionsScreen`, `QrScanScreen`, `ServerSettingsScreen` |
+| Tệp nguồn `.ts`/`.tsx` | 58 |
+| Dòng mã nguồn | 7.691 |
+| Tệp test | 51 |
+| Dòng mã test | 7.228 |
+| Ca kiểm khai báo (`it` + `test`) | 487 |
+| Màn hình | 19 — `AccountTab`, `CartScreen`, `ChatScreen`, `DangKySoDienThoai`, `HistoryScreen`, `HoSoTaiKhoan`, `KhungChinh`, `LienKetSoDienThoai`, `LoginScreen`, `LoyaltyScreen`, `ManCoNutVe`, `MenuScreen`, `OpenTableScreen`, `OrdersScreen`, `PaymentScreen`, `PromotionsScreen`, `QrScanScreen`, `ServerSettingsScreen`, `TheHang` |
 | Nhóm lớp lõi | 11 — `auth`, `cart`, `cauHinh`, `chat`, `loyalty`, `mang`, `menu`, `orders`, `payment`, `promotions`, `tables` |
-| Phụ thuộc ngoài | 3 — `expo-camera`, `expo-clipboard`, `expo-secure-store` |
+| Phụ thuộc ngoài | 7 — `@react-native-firebase/app`, `@react-native-firebase/auth`, `@react-native-google-signin/google-signin`, `expo-camera`, `expo-clipboard`, `expo-secure-store`, `react-native-safe-area-context` |
 
 > Bảng này SINH TỪ MÃ (`docs/build_bao_cao_lap_trinh_di_dong.py`), có cổng `--check` ở CI.
 > Không đếm `node_modules`, `android`, `ios`: đó là thứ công cụ sinh ra.

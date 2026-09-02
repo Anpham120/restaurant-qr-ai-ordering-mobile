@@ -11,20 +11,21 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**93 endpoint** trong **12 module**, đọc trực tiếp từ
+**97 endpoint** trong **12 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/93 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/97 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
 
-### auth (9)
+### auth (10)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
 | `POST` | `/api/auth/change-password` | `auth/AuthController.java` |
+| `POST` | `/api/auth/google` | `auth/AuthController.java` |
 | `POST` | `/api/auth/login` | `auth/AuthController.java` |
 | `GET` | `/api/auth/me` | `auth/AuthController.java` |
 | `POST` | `/api/auth/register` | `auth/AuthController.java` |
@@ -64,7 +65,7 @@
 | `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `counter/CounterController.java` |
 | `POST` | `/api/counter/shifts/{shiftId}/close` | `counter/CounterController.java` |
 
-### loyalty (13)
+### loyalty (16)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -77,10 +78,13 @@
 | `POST` | `/api/admin/loyalty/rewards` | `loyalty/AdminLoyaltyController.java` |
 | `DELETE` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
 | `PUT` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
+| `POST` | `/api/loyalty/link` | `loyalty/LoyaltyController.java` |
 | `GET` | `/api/loyalty/lookup` | `loyalty/LoyaltyController.java` |
 | `GET` | `/api/loyalty/me` | `loyalty/LoyaltyController.java` |
+| `POST` | `/api/loyalty/me/link-code` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/me/phone` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/me/redeem` | `loyalty/LoyaltyController.java` |
+| `POST` | `/api/loyalty/redemptions/{redemptionId}/honour` | `loyalty/LoyaltyController.java` |
 
 ### menu (14)
 
@@ -125,7 +129,7 @@
 | `POST` | `/api/orders/{orderCode}/payment/fail` | `payments/PaymentController.java` |
 | `POST` | `/api/orders/{orderCode}/payment/refund` | `payments/PaymentController.java` |
 | `POST` | `/api/orders/{orderCode}/payment/request` | `payments/PaymentController.java` |
-| `POST` | `/api/payments/webhooks/casso` | `payments/CassoWebhookController.java` |
+| `POST` | `/api/payments/webhooks/sepay` | `payments/SePayWebhookController.java` |
 
 ### promotions (7)
 
