@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { moTaBepDong, moTaUocLuong } from "./uocLuongLenMon";
 import { Link, useSearchParams } from "react-router-dom";
 import { Banknote, CheckCircle2, QrCode, ReceiptText } from "lucide-react";
 import { useI18n } from "@cmc/i18n";
@@ -278,7 +279,24 @@ export function SessionOrdersPage() {
             </header>
             <ul>
               {order.items.map((item) => (
-                <li key={item.orderItemId}><span>{item.quantity}× {localizeMenuItemName(item.menuItemId, item.name, locale)}</span><em>{t(labelGuestItemStatus(item.status, order.status))}</em></li>
+                <li key={item.orderItemId}>
+                  <span>{item.quantity}× {localizeMenuItemName(item.menuItemId, item.name, locale)}</span>
+                  {/*
+                    Máy chủ ĐÃ gửi ước lượng kèm từng món từ lâu, web thì vứt đi vì kiểu OrderItem
+                    không khai ba trường đó. App di động hiển thị nó, web không — nên khách quét QR
+                    bằng trình duyệt không biết bao giờ có món.
+                  */}
+                  {moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh) ? (
+                    <small className="uoc-luong">
+                      {moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh)}
+                      {moTaBepDong(
+                        item.kitchenClosed,
+                        moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh),
+                      ) ? <> · {moTaBepDong(item.kitchenClosed, "x")}</> : null}
+                    </small>
+                  ) : null}
+                  <em>{t(labelGuestItemStatus(item.status, order.status))}</em>
+                </li>
               ))}
             </ul>
             <footer><span>{t("Trạng thái: {status}", { status: t(labelOrderStatus(order.status)) })}</span><strong data-money>{formatMoney(order.subtotalAmount)}</strong></footer>

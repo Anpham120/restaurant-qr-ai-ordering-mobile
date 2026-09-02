@@ -87,6 +87,17 @@ export type OrderTrackingItem = {
   status: OrderItemStatus;
   lineTotal: number;
   updatedAt: string;
+
+  /**
+   * Ước lượng thời gian lên món, do máy chủ tính (gộp tải bếp + độ trễ bếp tự khai).
+   *
+   * `null` khi món không còn chờ nữa. Ba trường này máy chủ ĐÃ gửi từ lâu — đo thật: một món
+   * `Pending` trả về 24–41 phút — nhưng kiểu của web không khai nên web vứt đi, và khách quét QR
+   * bằng trình duyệt không thấy ước lượng nào, trong khi app di động thì có.
+   */
+  estimatedReadyMinutesLow?: number | null;
+  estimatedReadyMinutesHigh?: number | null;
+  kitchenClosed?: boolean;
 };
 
 export type OrderTrackingOrder = {
