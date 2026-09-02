@@ -1,6 +1,6 @@
 # CMC Restaurant — chỉ mục tài liệu
 
-**59 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
+**61 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
 `docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không
 tồn tại, và không thể bỏ sót tệp mới.
 
@@ -67,10 +67,12 @@ Thêm tài liệu mới: đặt đúng thư mục rồi chạy `python docs/buil
 | [KICH_BAN_WEB.md](bao-cao/KICH_BAN_WEB.md) | Kịch bản thuyết trình — Công nghệ lập trình Web |
 | [PHAN_CONG_CONG_VIEC.md](bao-cao/PHAN_CONG_CONG_VIEC.md) | Phân công công việc — giai đoạn hoàn thiện và bảo vệ |
 | [PHAN_UNG_VAN_DAP.md](bao-cao/PHAN_UNG_VAN_DAP.md) | BỘ CÂU HỎI PHẢN ỨNG — NHÓM TRƯỞNG (AI & DEVOPS) |
+| [cau-hinh-firebase-sepay.md](cau-hinh-firebase-sepay.md) | Cấu hình Firebase, Google và SePay |
 | [PIPELINE_AND_DEPLOY.md](devops/PIPELINE_AND_DEPLOY.md) | CI/CD, triển khai và vận hành production |
 | [OPS_APP.md](frontend/OPS_APP.md) | Ứng dụng vận hành — workspace và quầy |
 | [BAO_CAO_SO_KHOP_NET_JAVA.md](pm/BAO_CAO_SO_KHOP_NET_JAVA.md) | Báo cáo so khớp hành vi song song: .NET vs Java |
 | [KE_HOACH_HOC_KY_2026-2.md](pm/KE_HOACH_HOC_KY_2026-2.md) | Kế hoạch học kỳ 2026-2 — Fork cá nhân CMC Restaurant |
+| [trien-khai-may-chu.md](trien-khai-may-chu.md) | Triển khai lên máy chủ |
 
 ## Quy trình nhóm
 
