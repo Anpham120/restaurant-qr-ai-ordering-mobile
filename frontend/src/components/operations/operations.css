@@ -1404,3 +1404,35 @@
   line-height: 1.55;
   color: var(--ops-text-muted, #4a5568);
 }
+
+/* Ô nhập tiền khách đưa ở quầy — chỉ hiện với hoá đơn tiền mặt. */
+.ops-cash-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.ops-cash-box input {
+  width: 8.5rem;
+  padding: 6px 8px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Tiền thối phải đọc được từ xa hơn phần còn lại: đây là con số người ta đếm ra khỏi ngăn kéo. */
+.ops-cash-change {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-cash-short {
+  font-variant-numeric: tabular-nums;
+  color: #b42318;
+}
+
+.ops-cash-hint {
+  opacity: 0.7;
+  font-size: 0.9em;
+}

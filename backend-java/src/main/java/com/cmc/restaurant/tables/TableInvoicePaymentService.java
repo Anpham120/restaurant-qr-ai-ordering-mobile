@@ -246,6 +246,13 @@ public class TableInvoicePaymentService {
 		OffsetDateTime now = OffsetDateTime.now();
 		String note = noteOr(request, "Staff confirmed table invoice payment.");
 
+		// Tính TRƯỚC MỌI thay đổi. Khách đưa thiếu là một lỗi của người nhập, và nó phải chặn lại
+		// khi chưa có gì bị ghi — không phải sau khi hoá đơn đã bị đánh dấu đã thu và phiên bàn đã
+		// đóng. Luật nằm ở TienKhachDua vì đó là toàn bộ phần dễ sai.
+		java.math.BigDecimal khachDua = request == null ? null : request.amountTendered();
+		java.math.BigDecimal thoiLai =
+				com.cmc.restaurant.tables.domain.TienKhachDua.thoiLai(s.invoice().getTotalAmount(), khachDua);
+
 		s.invoice().settle("Confirmed", now);
 		s.payment().setStatus(PaymentStatus.Confirmed);
 		s.payment().setPaidAt(now);
@@ -261,7 +268,9 @@ public class TableInvoicePaymentService {
 					"Payment was modified by another request. Reload and try again.");
 		}
 
-		transactionRepository.save(settlementTransaction(s.payment(), "Confirmed", note, now));
+		PaymentTransactionEntity giaoDich = settlementTransaction(s.payment(), "Confirmed", note, now);
+		giaoDich.ghiTienMat(khachDua, thoiLai);
+		transactionRepository.save(giaoDich);
 
 		// Từ đây trở xuống là việc PHỤ TRỢ — tiền đã ghi xong. Thứ tự theo bản .NET.
 		List<OrderDtos.OrderResponse> completed =
@@ -351,7 +360,7 @@ public class TableInvoicePaymentService {
 
 		String ghiChu = "Tự động xác nhận từ giao dịch ngân hàng " + maThamChieu + ".";
 		confirm(invoice.getTableSessionId(),
-				new TableInvoiceDtos.PaymentActionRequest(ghiChu), HE_THONG);
+				new TableInvoiceDtos.PaymentActionRequest(ghiChu, null), HE_THONG);
 
 		// Ghi giao dịch MANG MÃ THAM CHIẾU của ngân hàng. Đây là thứ chỉ mục duy nhất ở V23 bám
 		// vào để chặn ghi trùng khi SePay gửi lại cùng một giao dịch.

@@ -155,7 +155,11 @@ export function createApiClient(options: ApiClientOptions = {}) {
           body: JSON.stringify(payload),
         },
       ),
-      confirmPayment: (sessionId: string, payload: { note?: string | null } = {}) =>
+      // `amountTendered` chỉ dùng cho tiền mặt. Bỏ trống = khách đưa đúng; máy chủ từ chối nếu đưa thiếu.
+      confirmPayment: (
+        sessionId: string,
+        payload: { note?: string | null; amountTendered?: number | null } = {},
+      ) =>
         request<TableInvoice>(`/table-sessions/${encodeURIComponent(sessionId)}/invoice/payment/confirm`, {
           method: "POST",
           body: JSON.stringify(payload),

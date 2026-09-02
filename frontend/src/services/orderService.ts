@@ -258,8 +258,16 @@ export async function requestTableInvoicePayment(
   ) as Promise<TableInvoicePaymentRequestResponse>;
 }
 
-export async function confirmTableInvoicePayment(sessionId: string, note?: string): Promise<TableInvoice> {
-  return api.tableInvoices.confirmPayment(sessionId, { note }) as Promise<TableInvoice>;
+/**
+ * @param amountTendered tiền khách đưa, CHỈ dùng cho tiền mặt. Bỏ trống nghĩa là khách đưa đúng —
+ *                       khác hẳn 0 nghĩa là khách đưa 0 đồng. Máy chủ từ chối nếu đưa thiếu.
+ */
+export async function confirmTableInvoicePayment(
+  sessionId: string,
+  note?: string,
+  amountTendered?: number,
+): Promise<TableInvoice> {
+  return api.tableInvoices.confirmPayment(sessionId, { note, amountTendered }) as Promise<TableInvoice>;
 }
 
 export async function cancelTableInvoicePayment(sessionId: string, note?: string): Promise<TableInvoice> {

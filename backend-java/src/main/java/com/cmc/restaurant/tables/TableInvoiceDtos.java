@@ -39,7 +39,11 @@ public final class TableInvoiceDtos {
 	}
 
 	/** Ghi chú nhân viên nhập khi xác nhận hoặc huỷ — tối đa 500 ký tự, đúng bản .NET. */
-	public record PaymentActionRequest(String note) {
+	/**
+	 * @param amountTendered tiền khách đưa, CHỈ dùng cho tiền mặt. {@code null} nghĩa là khách đưa
+	 *                       đúng — khác hẳn 0 nghĩa là khách đưa 0 đồng.
+	 */
+	public record PaymentActionRequest(String note, java.math.BigDecimal amountTendered) {
 	}
 
 	public record TableInvoicePaymentRequest(

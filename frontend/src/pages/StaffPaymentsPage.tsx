@@ -12,9 +12,28 @@ import { Banknote, Check, CreditCard, QrCode, RefreshCw, X } from "lucide-react"
 import "../components/operations/operations.css";
 import { useOpsConfirm } from "../components/operations/OpsConfirmProvider";
 import { locThanhToanTuDong, themThongBao } from "../components/operations/opsCashierAlerts";
+import { docTienDua, thieuTien, tinhThoiLai } from "../components/operations/opsCashTendered";
 import type { ThongBaoDaThu } from "../components/operations/opsCashierAlerts";
 
 const formatVnd = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
+
+/**
+ * Số tiền phải thối, hiện NGAY trong lúc gõ.
+ *
+ * Đây là toàn bộ giá trị của tính năng: người đứng quầy đọc con số thay vì tự trừ nhẩm trong lúc
+ * khách đứng chờ. Hiện sau khi bấm thì đã muộn — tiền đã đưa ra khỏi ngăn kéo.
+ */
+function ThoiLai({ khachDua, tong }: { khachDua: string | undefined; tong: number }) {
+  const thoi = tinhThoiLai(khachDua, tong);
+  if (thoi === null) {
+    // Đang nhập thiếu thì nói THẲNG là thiếu, không hiện một con số âm — "-5.000đ" là thứ người
+    // đang vội đọc lướt thành 5.000.
+    return thieuTien(khachDua, tong)
+      ? <strong className="ops-cash-short">Khách đưa thiếu {formatVnd(tong - Math.floor(Number(khachDua)))}</strong>
+      : <span className="ops-cash-hint">Để trống nếu khách đưa đúng</span>;
+  }
+  return <strong className="ops-cash-change">Thối lại {formatVnd(thoi)}</strong>;
+}
 
 /**
  * Những hoá đơn được phép xác nhận HÀNG LOẠT.
@@ -59,6 +78,14 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
   useEffect(() => {
     loadInvoices().finally(() => setIsLoading(false));
   }, [loadInvoices]);
+
+  /**
+   * Tiền khách đưa, theo từng phiên bàn, dạng CHUỖI đúng như người ta gõ.
+   *
+   * Giữ chuỗi chứ không giữ số: người đang gõ "5" trên đường tới "50000" không được bị hiểu là
+   * khách đưa 5 đồng, và một ô nhập tự nhảy số trong lúc gõ là ô nhập không ai tin.
+   */
+  const [tienDua, setTienDua] = useState<Record<string, string>>({});
 
   /** Hoá đơn vừa TỰ chốt qua chuyển khoản — thứ thu ngân không tự tay bấm nên phải được báo. */
   const [daThu, setDaThu] = useState<ThongBaoDaThu[]>([]);
@@ -328,15 +355,45 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
                 </div>
                 {invoice.promotionCode ? <p>Ưu đãi: <strong>{invoice.promotionCode}</strong> (-{formatVnd(invoice.discountAmount)})</p> : null}
                 {invoice.customerPhoneNumber ? <p>Tích điểm: <strong>{invoice.customerPhoneNumber}</strong></p> : null}
+                {invoice.method === "COD" ? (
+                  <div className="ops-cash-box">
+                    {/*
+                      Chỉ hiện với tiền mặt. Chuyển khoản không có khái niệm "khách đưa", và một ô
+                      nhập vô nghĩa đứng đó là một ô sẽ có người điền nhầm vào.
+
+                      Để TRỐNG được, nghĩa là khách đưa đúng. Bắt buộc nhập làm chậm quầy ở ca
+                      thường gặp nhất mà không chặn thêm nhầm lẫn nào.
+                    */}
+                    <label htmlFor={`tien-dua-${invoice.tableSessionId}`}>Khách đưa</label>
+                    <input
+                      id={`tien-dua-${invoice.tableSessionId}`}
+                      inputMode="numeric"
+                      onChange={(e) => setTienDua((truoc) => ({
+                        ...truoc,
+                        [invoice.tableSessionId]: e.target.value.replace(/[^d]/g, ""),
+                      }))}
+                      placeholder={String(invoice.totalAmount)}
+                      value={tienDua[invoice.tableSessionId] ?? ""}
+                    />
+                    <ThoiLai khachDua={tienDua[invoice.tableSessionId]} tong={invoice.totalAmount} />
+                  </div>
+                ) : null}
                 <div className="ops-card-actions">
                   <button
                     className="ops-btn ops-btn--success ops-btn--sm"
-                    disabled={pendingSessionId === invoice.tableSessionId}
+                    disabled={
+                      pendingSessionId === invoice.tableSessionId
+                      || thieuTien(tienDua[invoice.tableSessionId], invoice.totalAmount)
+                    }
                     onClick={() => void runAction(
                       invoice.tableSessionId,
                       // Dự đoán: hoá đơn chuyển sang "đã thu", tức rời khỏi danh sách chờ ngay.
                       (current) => ({ ...current, status: "Confirmed" }),
-                      () => confirmTableInvoicePayment(invoice.tableSessionId, "Thu ngân xác nhận đã thu đủ."),
+                      () => confirmTableInvoicePayment(
+                        invoice.tableSessionId,
+                        "Thu ngân xác nhận đã thu đủ.",
+                        docTienDua(tienDua[invoice.tableSessionId]),
+                      ),
                       `Đã thanh toán bàn ${invoice.tableCode}`,
                     )}
                     type="button"
