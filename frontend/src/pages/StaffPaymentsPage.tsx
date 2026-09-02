@@ -11,6 +11,8 @@ import { matchesTableFilter, normalizeTableCode } from "../components/operations
 import { Banknote, Check, CreditCard, QrCode, RefreshCw, X } from "lucide-react";
 import "../components/operations/operations.css";
 import { useOpsConfirm } from "../components/operations/OpsConfirmProvider";
+import { locThanhToanTuDong, themThongBao } from "../components/operations/opsCashierAlerts";
+import type { ThongBaoDaThu } from "../components/operations/opsCashierAlerts";
 
 const formatVnd = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
 
@@ -58,7 +60,27 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     loadInvoices().finally(() => setIsLoading(false));
   }, [loadInvoices]);
 
-  useOpsRealtime({ refresh: loadInvoices, pollIntervalMs: 5_000 });
+  /** Hoá đơn vừa TỰ chốt qua chuyển khoản — thứ thu ngân không tự tay bấm nên phải được báo. */
+  const [daThu, setDaThu] = useState<ThongBaoDaThu[]>([]);
+
+  /**
+   * Phiên mà CHÍNH trang này vừa xác nhận bằng tay.
+   *
+   * Máy chủ phát cùng một sự kiện cho cả hai đường chốt hoá đơn, và sự kiện không mang thông tin
+   * ai chốt. Chỉ trang này biết mình vừa bấm gì, nên việc phân biệt phải nằm ở đây.
+   *
+   * Dùng ref chứ không dùng state: nó chỉ để lọc, không được kéo theo một lần vẽ lại.
+   */
+  const tuBamRef = useRef<Set<string>>(new Set());
+
+  useOpsRealtime({
+    refresh: loadInvoices,
+    pollIntervalMs: 5_000,
+    onEvent: (event) => {
+      const tb = locThanhToanTuDong(event, tuBamRef.current);
+      if (tb) setDaThu((truoc) => themThongBao(truoc, tb));
+    },
+  });
 
   const awaiting = useMemo(
     () => {
@@ -103,6 +125,8 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     successMessage: string,
   ) {
     const truoc = invoices.find((invoice) => invoice.tableSessionId === sessionId);
+    // Đánh dấu TRƯỚC khi gọi máy chủ: sự kiện thời gian thực có thể về trước cả câu trả lời HTTP.
+    tuBamRef.current.add(sessionId);
     setPendingSessionId(sessionId);
     setNotice("");
     setInvoices((prev) =>
@@ -143,6 +167,9 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     }))) return;
 
     const muc = codAwaiting;
+    // Cùng lý do với thao tác đơn lẻ: đánh dấu TRƯỚC khi gọi máy chủ, để sự kiện thời gian thực
+    // về sớm cũng không bật thông báo cho thứ chính người này vừa bấm.
+    for (const m of muc) tuBamRef.current.add(m.tableSessionId);
     setNotice("");
     // Đánh dấu cả nhóm trước, rồi hoàn tác từng hoá đơn nào máy chủ từ chối — cùng lý do với thao
     // tác đơn lẻ: không đụng tới những hoá đơn khác đang có trên màn hình.
@@ -212,6 +239,35 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
           <button className="ops-btn ops-btn--ghost ops-btn--sm" onClick={() => void loadInvoices()} type="button"><RefreshCw aria-hidden="true" size={14} /> Làm mới</button>
         </div>
       )}
+
+      {/*
+        Khách chuyển khoản xong thì hoá đơn tự rời cột "Bàn chờ thu" — im lặng. Người đứng quầy
+        đang nhìn chỗ khác sẽ không biết bàn nào vừa trả tiền, và vẫn đi đòi tiền bàn đã trả.
+
+        `aria-live="assertive"` chứ không phải "polite": đây là tiền vừa vào, và nó phải cắt ngang
+        việc đang làm. Giữ đến khi bấm bỏ, KHÔNG tự tắt theo giờ — một thông báo tiền bạc biến mất
+        trong lúc người ta quay đi là đúng cái hỏng mà nó sinh ra để chặn.
+      */}
+      {daThu.length > 0 ? (
+        <div aria-live="assertive" className="ops-notice ops-notice--success" role="status">
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+            {daThu.map((tb) => (
+              <li key={tb.invoiceCode} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <QrCode aria-hidden="true" size={16} />
+                <strong>Bàn {tb.tableCode || "?"} đã thanh toán {formatVnd(tb.totalAmount)}</strong>
+                <span style={{ opacity: 0.75 }}>chuyển khoản tự động · {tb.invoiceCode}</span>
+                <button
+                  className="ops-btn ops-btn--ghost ops-btn--sm"
+                  onClick={() => setDaThu((truoc) => truoc.filter((x) => x.invoiceCode !== tb.invoiceCode))}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={12} /> Đã xem
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {error ? <div className="ops-notice ops-notice--danger">{error}</div> : null}
       {notice ? <div className="ops-notice ops-notice--info">{notice}</div> : null}
