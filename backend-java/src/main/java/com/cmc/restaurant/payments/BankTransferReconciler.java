@@ -39,7 +39,13 @@ public class BankTransferReconciler {
 	 */
 	public static final String NHA_CUNG_CAP = "SePay";
 
-	private static final Pattern ORDER_CODE = Pattern.compile("CMC\\s+(ORD-\\d+)", Pattern.CASE_INSENSITIVE);
+	/**
+	 * Mã đơn lẻ, tìm trên nội dung ĐÃ CHUẨN HOÁ — xem {@link #chuanHoa}.
+	 *
+	 * <p>Chặn đuôi bằng {@code (?![0-9])}: bỏ hết dấu xong, chữ số của mã có thể dính liền chữ số
+	 * kế tiếp của ngân hàng, và một mã dài ra vài chữ số là tra sai đơn.
+	 */
+	private static final Pattern ORDER_CODE = Pattern.compile("CMCORD(\\d+)(?![0-9])");
 
 	/**
 	 * Mã hoá đơn bàn: {@code CMC INV-yyyyMMdd-XXXXXXXX}.
@@ -49,8 +55,7 @@ public class BankTransferReconciler {
 	 * thể gọi nhiều lượt. Thiếu mẫu này thì mọi khoản tiền về đều trả {@code unmatched} — đo trên
 	 * máy chủ thật trước khi sửa.
 	 */
-	private static final Pattern INVOICE_CODE =
-			Pattern.compile("CMC\\s+(INV-\\d{8}-[0-9A-F]{8})", Pattern.CASE_INSENSITIVE);
+	private static final Pattern INVOICE_CODE = Pattern.compile("CMCINV(\\d{8})([0-9A-F]{8})");
 
 	private static final ActorContext CASSO_ACTOR = new ActorContext(null, "System");
 
@@ -170,13 +175,43 @@ public class BankTransferReconciler {
 		return timTheoMau(INVOICE_CODE, description);
 	}
 
+	/**
+	 * Bỏ MỌI thứ không phải chữ-số và viết hoa toàn bộ.
+	 *
+	 * <p><b>LỖI CÓ THẬT, đo bằng chính thân webhook SePay gửi về.</b> Mã QR ghi
+	 * {@code CMC INV-20260902-33987CAE}. MB Bank lưu lại thành:
+	 *
+	 * <pre>
+	 *   MBVCB.15865148942.401977.CMC INV 20260902 33987CAE.CT tu 1041485738 PHAM DUY AN
+	 *   toi 003120082006 DO TUAN ANH tai MB- Ma GD ACSP/ zu401977
+	 * </pre>
+	 *
+	 * <p>Dấu gạch bị đổi thành khoảng trắng. Mẫu cũ đòi đúng {@code INV-<8 số>-<8 hex>} nên trượt,
+	 * webhook trả {@code unmatched} kèm HTTP 200, SePay ghi "thành công" — và tiền vào tài khoản
+	 * thật trong khi hoá đơn nằm chờ người duyệt tay. Không có gì báo động.
+	 *
+	 * <p>Chuẩn hoá cả hai phía rồi mới so là cách duy nhất không phụ thuộc vào việc từng ngân hàng
+	 * chọn giữ hay bỏ ký tự nào. Mã hoá đơn có độ dài CỐ ĐỊNH (8 số + 8 hex) nên bỏ dấu vẫn tách
+	 * lại được chính xác — đó là thứ làm phép này an toàn.
+	 */
+	private static String chuanHoa(String description) {
+		return description.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
+	}
+
 	private static String timTheoMau(Pattern mau, String description) {
 		if (description == null) {
 			return null;
 		}
-		// `find` chứ không `matches`: ngân hàng thường bọc thêm chữ của họ quanh nội dung khách gõ.
-		Matcher matcher = mau.matcher(description);
-		return matcher.find() ? matcher.group(1).toUpperCase(Locale.ROOT) : null;
+		// `find` chứ không `matches`: ngân hàng luôn bọc thêm chữ của họ quanh nội dung khách gõ.
+		Matcher matcher = mau.matcher(chuanHoa(description));
+		if (!matcher.find()) {
+			return null;
+		}
+		// Dựng LẠI mã đúng dạng chuẩn: nội dung đã bị bỏ hết dấu, nhưng phần còn lại của hệ thống
+		// tra cứu theo `INV-yyyyMMdd-XXXXXXXX`.
+		return mau == INVOICE_CODE
+				? "INV-" + matcher.group(1) + "-" + matcher.group(2)
+				: "ORD-" + matcher.group(1);
 	}
 
 	/**

@@ -47,6 +47,50 @@ class DoiSoatHoaDonBanTest {
 	}
 
 	@Test
+	@DisplayName("CHUỖI THẬT của MB Bank — dấu gạch bị đổi thành khoảng trắng")
+	void findsTheCodeInTheRealMbBankContent() {
+		// Chép NGUYÊN VĂN từ thân webhook SePay gửi về, giao dịch #78606855 lúc 21:35:14.
+		//
+		// Mã QR ghi "CMC INV-20260902-33987CAE". MB Bank lưu thành "CMC INV 20260902 33987CAE" —
+		// dấu gạch thành khoảng trắng. Mẫu cũ đòi đúng dấu gạch nên trượt, webhook trả `unmatched`
+		// kèm HTTP 200, SePay ghi "thành công", và tiền vào tài khoản thật trong khi hoá đơn nằm
+		// chờ duyệt tay. Không có gì báo động — đây là lý do phải có chuỗi THẬT trong phép kiểm,
+		// chứ không phải chuỗi tự bịa cho đẹp.
+		String thatSuNhanDuoc = "MBVCB.15865148942.401977.CMC INV 20260902 33987CAE.CT tu "
+				+ "1041485738 PHAM DUY AN toi 003120082006 DO TUAN ANH tai MB- Ma GD ACSP/ zu401977";
+
+		assertThat(BankTransferReconciler.timMaHoaDon(thatSuNhanDuoc))
+				.isEqualTo("INV-20260902-33987CAE");
+	}
+
+	@Test
+	@DisplayName("Mọi kiểu ngân hàng cắt dấu đều phải tìm ra")
+	void survivesEverySeparatorTheBankMightStrip() {
+		// Mỗi ngân hàng chuẩn hoá nội dung một kiểu. Chỉ khớp đúng một dạng nghĩa là đổi ngân hàng
+		// là hỏng lại, và hỏng ÂM THẦM.
+		for (String noiDung : new String[] {
+			"CMC INV-20260902-33987CAE",
+			"CMC INV 20260902 33987CAE",
+			"CMCINV202609023 3987CAE".replace(" ", ""),
+			"CMC-INV-20260902-33987CAE",
+			"cmc inv 20260902 33987cae",
+			"NHAN TU 104 CMC INV 20260902 33987CAE CT tu ABC",
+		}) {
+			assertThat(BankTransferReconciler.timMaHoaDon(noiDung))
+					.as("nội dung: %s", noiDung)
+					.isEqualTo("INV-20260902-33987CAE");
+		}
+	}
+
+	@Test
+	@DisplayName("Mã đơn lẻ cũng chịu được việc bị cắt dấu")
+	void findsAnOrderCodeWithStrippedSeparators() {
+		assertThat(BankTransferReconciler.extractOrderCode("CMC ORD 1001 CT tu ABC"))
+				.isEqualTo("ORD-1001");
+		assertThat(BankTransferReconciler.extractOrderCode("CMC ORD-1001")).isEqualTo("ORD-1001");
+	}
+
+	@Test
 	@DisplayName("Mã đơn lẻ KHÔNG bị nhận nhầm thành mã hoá đơn, và ngược lại")
 	void theTwoPatternsNeverOverlap() {
 		// Hai đường ghi tiền khác nhau. Nhận nhầm nghĩa là tra sai bảng rồi trả "không tìm thấy",
