@@ -8,7 +8,6 @@ import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
 import com.cmc.restaurant.orders.application.OrderLoyaltyPort;
 import com.cmc.restaurant.shared.ApiException;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
