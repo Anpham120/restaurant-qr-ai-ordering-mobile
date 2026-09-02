@@ -130,7 +130,10 @@ describe('tạo tài khoản bằng số điện thoại', () => {
     // "Số này đã có tài khoản. Đăng nhập thay vì tạo mới nhé." là lời khuyên cụ thể. Thay nó bằng
     // "mã xác minh không đúng" khiến khách xin mã mới mãi cho một việc không bao giờ chạy.
     const api = new ApiGhiLai(
-      new AuthException('PHONE_ALREADY_REGISTERED', 'Số này đã có tài khoản. Đăng nhập thay vì tạo mới nhé.'),
+      new AuthException(
+        'PHONE_ALREADY_REGISTERED',
+        'Số này đã có tài khoản. Đăng nhập thay vì tạo mới nhé.',
+      ),
     );
     await render(dung(api, otpGia()).cay);
 

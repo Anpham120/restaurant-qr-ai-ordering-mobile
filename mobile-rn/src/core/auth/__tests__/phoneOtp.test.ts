@@ -118,7 +118,11 @@ describe('taoGuiMaOtp', () => {
     const thuVien = {
       getAuth: () => ({}),
       async signInWithPhoneNumber() {
-        return { async confirm() { return null; } };
+        return {
+          async confirm() {
+            return null;
+          },
+        };
       },
     };
 

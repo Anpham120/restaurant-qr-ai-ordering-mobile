@@ -165,10 +165,7 @@ describe('KHÔNG còn đường tạo tài khoản bằng email', () => {
   // về thì phải có người cố ý mang nó về, chứ không phải lẫn vào trong một lần sửa khác.
   it('không có ô họ tên và không có nút chuyển sang đăng ký', async () => {
     await render(
-      <LoginScreen
-        repository={repoVoi(new ApiGiaLap(PHIEN_HOP_LE))}
-        onDangNhapXong={jest.fn()}
-      />,
+      <LoginScreen repository={repoVoi(new ApiGiaLap(PHIEN_HOP_LE))} onDangNhapXong={jest.fn()} />,
     );
 
     expect(screen.queryByLabelText('Họ tên')).toBeNull();

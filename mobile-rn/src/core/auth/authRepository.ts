@@ -43,12 +43,7 @@ export class AuthRepository {
     soDienThoai: string,
     password: string,
   ): Promise<AuthSession> {
-    const session = await this.api.dangKy(
-      hoTen.trim(),
-      phoneIdToken,
-      soDienThoai.trim(),
-      password,
-    );
+    const session = await this.api.dangKy(hoTen.trim(), phoneIdToken, soDienThoai.trim(), password);
     await this.store.luu(session);
     return session;
   }

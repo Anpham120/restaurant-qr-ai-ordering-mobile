@@ -164,7 +164,9 @@ export function OpenTableScreen({
               : 'Đang vào với tư cách khách vãng lai'}
           </Text>
           <Text style={kieuChung.chuPhu}>
-            {daDangNhap ? danhTinh(dangNhapVoi.user) : 'Đăng nhập trước khi vào bàn nếu muốn tích điểm'}
+            {daDangNhap
+              ? danhTinh(dangNhapVoi.user)
+              : 'Đăng nhập trước khi vào bàn nếu muốn tích điểm'}
           </Text>
         </View>
       ) : (

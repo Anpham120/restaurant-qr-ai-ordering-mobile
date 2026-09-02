@@ -87,7 +87,6 @@ export function LoginScreen({
     }
   }, [dangGui, layTokenGoogle, onDangNhapXong, repository]);
 
-
   return (
     <View style={[kieuChung.man, { padding: 24, gap: 12 }]}>
       <Text style={kieuChung.tieuDe}>Đăng nhập</Text>
@@ -135,9 +134,7 @@ export function LoginScreen({
         onPress={gui}
         style={[kieuChung.nutChinh, dangGui ? kieuChung.nutTat : null]}
       >
-        <Text style={kieuChung.chuNutChinh}>
-          {dangGui ? 'Đang đăng nhập…' : 'Đăng nhập'}
-        </Text>
+        <Text style={kieuChung.chuNutChinh}>{dangGui ? 'Đang đăng nhập…' : 'Đăng nhập'}</Text>
       </TouchableOpacity>
 
       {/*

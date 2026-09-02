@@ -78,7 +78,7 @@ class BanApiGiaLap implements TableSessionApi {
 
 const authApiGiaLap: AuthApi = {
   dangNhapGoogle: async () => {
-    throw new Error("khong dung toi");
+    throw new Error('khong dung toi');
   },
   dangNhap: async () => {
     throw new Error('không dùng tới trong bộ test này');

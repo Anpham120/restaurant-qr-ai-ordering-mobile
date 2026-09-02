@@ -195,7 +195,9 @@ export function DangKySoDienThoai(p: DangKySoDienThoaiProps) {
         onPress={p.onQuayLai}
         style={{ alignItems: 'center', paddingVertical: 10 }}
       >
-        <Text style={{ color: MauQuan.chestnut, fontWeight: '600' }}>Đã có tài khoản? Đăng nhập</Text>
+        <Text style={{ color: MauQuan.chestnut, fontWeight: '600' }}>
+          Đã có tài khoản? Đăng nhập
+        </Text>
       </TouchableOpacity>
     </View>
   );
