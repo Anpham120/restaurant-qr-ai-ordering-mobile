@@ -90,6 +90,10 @@ class FirebasePhoneVerifier implements PhoneTokenVerifier {
 					"Xác minh số điện thoại không thành công. Thử lại.");
 		}
 
+		// Dự án đọc từ CHÍNH token — `accounts:lookup` không trả `projectId`. Xem
+		// FirebasePhoneClaimsRule.kiemDuAn.
+		FirebasePhoneClaimsRule.kiemDuAn(idToken, projectId);
+
 		return FirebasePhoneClaimsRule.doc(than, projectId);
 	}
 
