@@ -58,7 +58,23 @@ export function chuanHoaDiaChi(nhapVao: string, congMacDinh: number): string | n
   // `URL.port` bỏ trống với cổng mặc định của scheme, nên `example.com:80` sẽ trông như không có
   // cổng và bị gán nhầm cổng mặc định của app. Đọc thẳng từ chuỗi để giữ đúng thứ người dùng gõ.
   const congGoTay = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*?:(\d+)(?:[/?#]|$)/i.exec(s);
-  const cong = congGoTay?.[1] ?? (uri.port !== '' ? uri.port : String(congMacDinh));
+
+  // Gõ `https://` mà KHÔNG gõ cổng nghĩa là bản triển khai thật sau nginx và TLS — tức 443, không
+  // phải cổng LAN của app.
+  //
+  // LỖI CÓ THẬT, đo bằng chính hàm này:
+  //
+  //   "api.cmcrestaurant.app"           -> http://api.cmcrestaurant.app:8081    không ai nghe
+  //   "https://api.cmcrestaurant.app"   -> https://api.cmcrestaurant.app:8081   không ai nghe
+  //   "https://api.cmcrestaurant.app:443" -> https://api.cmcrestaurant.app:443  chạy
+  //
+  // Máy chủ công khai chỉ mở 80 và 443; 8081 là cổng nội bộ của container. Nên HAI cách gõ tự
+  // nhiên nhất đều cho ra cấu hình chết, và người dùng chỉ thấy "không kết nối được máy chủ" —
+  // không có gì chỉ ra rằng cái sai là một con số app tự thêm vào.
+  //
+  // `congMacDinh` giữ nguyên vai trò cho `http://` trong mạng LAN của quán, đúng lý do nó sinh ra.
+  const macDinhTheoScheme = uri.protocol === 'https:' ? '443' : String(congMacDinh);
+  const cong = congGoTay?.[1] ?? (uri.port !== '' ? uri.port : macDinhTheoScheme);
 
   return `${uri.protocol}//${uri.hostname}:${cong}`;
 }
