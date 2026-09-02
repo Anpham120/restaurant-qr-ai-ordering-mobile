@@ -74,6 +74,26 @@ export function suyRaDiaChiAnh(apiBaseUrl: string, congAnh = 8080): string {
   try {
     const uri = new URL(apiBaseUrl);
     if (uri.hostname.length === 0) return apiBaseUrl;
+
+    // KHÔNG có cổng trong địa chỉ = bản triển khai thật, đứng sau nginx và TLS.
+    //
+    // Gắn `:8080` vào đây là cho ra một địa chỉ KHÔNG TỚI ĐƯỢC: máy chủ công khai chỉ mở 80 và
+    // 443, còn 8080 là cổng nội bộ của container. Đo trên máy chủ thật:
+    //
+    //   https://api.cmcrestaurant.app:8080/menu-images/…  -> không kết nối được
+    //   https://api.cmcrestaurant.app/menu-images/…       -> 401 (miền này là API, đòi đăng nhập)
+    //   https://order.cmcrestaurant.app/menu-images/…      -> 200 image/webp
+    //
+    // Ảnh do container web phục vụ, và nginx gắn nó vào các miền giao diện chứ không gắn vào miền
+    // API. Nên đổi tiền tố `api.` thành `order.` — cùng quy ước mà cổng quản trị đang dùng để dựng
+    // link đặt món.
+    if (uri.port === '') {
+      const host = uri.hostname.startsWith('api-')
+        ? uri.hostname.replace(/^api-/, 'order-')
+        : uri.hostname.replace(/^api\./, 'order.');
+      return `${uri.protocol}//${host}`;
+    }
+
     return `${uri.protocol}//${uri.hostname}:${congAnh}`;
   } catch {
     // Địa chỉ hỏng thì trả nguyên vào, không nổ: nơi gọi đang dựng giao diện, và một ngoại lệ ở

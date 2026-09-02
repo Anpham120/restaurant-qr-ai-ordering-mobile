@@ -248,6 +248,56 @@ class DeploymentConfigTest {
 				.isEmpty();
 	}
 
+	@Test
+	@DisplayName("nginx chuyển tiếp WebSocket ở ĐÚNG đường mà WebSocketConfig khai")
+	void nginxUpgradesTheSamePathTheAppListensOn() throws IOException {
+		// LỖI CÓ THẬT, và là lần THỨ HAI cùng một chữ `s`:
+		//   - deploy-vps.sh suy ra `/hubs/orders`, mã Java khai `/hub/orders`
+		//   - nginx mở header nâng cấp ở `location /hubs/`, client gọi `/hub/orders`
+		//
+		// Cả hai đều là đường của bản .NET (SignalR) chép sang. Hậu quả của lỗi nginx: WebSocket rơi
+		// vào `location /` — khối KHÔNG có header nâng cấp — nên nginx cắt mất `Upgrade`, Tomcat trả
+		// 400 "Can Upgrade only to WebSocket", và client thử lại vô hạn. Giao diện hiện "Đang kết
+		// nối lại…" mãi mãi, không lỗi nào rõ ràng, máy chủ vẫn xanh.
+		Path wsConfig = GOC.resolve(
+				"backend-java/src/main/java/com/cmc/restaurant/realtime/WebSocketConfig.java");
+		Matcher diem = Pattern.compile("addEndpoint\\(\"(/[^\"]+)\"\\)")
+				.matcher(Files.readString(wsConfig));
+		assertThat(diem.find()).as("không thấy addEndpoint trong WebSocketConfig").isTrue();
+
+		String duong = diem.group(1);            // ví dụ /hub/orders
+		String tienTo = duong.replaceAll("/[^/]+$", "/");  // -> /hub/
+
+		// Cắt tệp theo từng khối `location`, rồi hỏi khối nào có header nâng cấp.
+		//
+		// KHÔNG dùng một regex ôm cả khối: thân khối chứa `${BACKEND_PORT}`, nên mọi mẫu kiểu
+		// `[^}]*` dừng ngay ở dấu ngoặc của biến và không tìm thấy gì. Bản đầu của ca này mắc đúng
+		// lỗi đó và báo "nginx không mở nâng cấp ở đâu cả" trong khi cấu hình hoàn toàn đúng — một
+		// phép kiểm đỏ vì chính nó hỏng thì tệ hơn không có.
+		String nginx = Files.readString(GOC.resolve("deploy/scripts/write-nginx-config.sh"));
+		Set<String> duongNangCap = new LinkedHashSet<>();
+		Matcher moKhoi = Pattern.compile("(?m)^\\s*location\\s+(\\S+)\\s*\\{").matcher(nginx);
+		int truoc = -1;
+		String tenTruoc = null;
+		while (moKhoi.find()) {
+			if (tenTruoc != null && nginx.substring(truoc, moKhoi.start()).contains("proxy_set_header Upgrade")) {
+				duongNangCap.add(tenTruoc);
+			}
+			tenTruoc = moKhoi.group(1);
+			truoc = moKhoi.end();
+		}
+		if (tenTruoc != null && nginx.substring(truoc).contains("proxy_set_header Upgrade")) {
+			duongNangCap.add(tenTruoc);
+		}
+
+		assertThat(duongNangCap)
+				.as("nginx mở header nâng cấp ở %s, nhưng ứng dụng nghe ở %s — WebSocket sẽ rơi vào "
+						+ "khối `location /` không có Upgrade và không bao giờ kết nối được",
+						duongNangCap, duong)
+				.isNotEmpty()
+				.allMatch(duong::startsWith);
+	}
+
 	private static Map<String, String> docCong(Path tep) throws IOException {
 		assertThat(tep).as("không thấy tệp env mẫu").exists();
 		Matcher m = Pattern.compile("(?m)^([A-Z_]*PORT)=(\\d+)$").matcher(Files.readString(tep));

@@ -58,6 +58,30 @@ describe('suy ra địa chỉ ảnh', () => {
     expect(suyRaDiaChiAnh('https://quan.example.com:8081')).toBe('https://quan.example.com:8080');
   });
 
+  it('địa chỉ KHÔNG có cổng thì đổi api. thành order., KHÔNG gắn 8080', () => {
+    // LỖI CÓ THẬT. Bản triển khai đứng sau nginx chỉ mở 80/443; 8080 là cổng nội bộ của container.
+    // Gắn nó vào cho ra một địa chỉ không tới được, và app im lặng không tải được ảnh món nào.
+    //
+    // Đo trên máy chủ thật:
+    //   https://api.cmcrestaurant.app:8080/menu-images/…  -> không kết nối được
+    //   https://api.cmcrestaurant.app/menu-images/…       -> 401 (miền API)
+    //   https://order.cmcrestaurant.app/menu-images/…      -> 200 image/webp
+    expect(suyRaDiaChiAnh('https://api.cmcrestaurant.app/api')).toBe(
+      'https://order.cmcrestaurant.app',
+    );
+  });
+
+  it('miền staging dùng dấu gạch nối thay vì dấu chấm', () => {
+    // `api-staging.` chứ không phải `api.staging.` — quy ước tên miền của dự án.
+    expect(suyRaDiaChiAnh('https://api-staging.cmcrestaurant.app/api')).toBe(
+      'https://order-staging.cmcrestaurant.app',
+    );
+  });
+
+  it('không có tiền tố api thì giữ nguyên host', () => {
+    expect(suyRaDiaChiAnh('https://quan.example.com/api')).toBe('https://quan.example.com');
+  });
+
   it('địa chỉ hỏng thì trả nguyên vào, không nổ', () => {
     // Ở Dart, `Uri.tryParse` trả null. Ở JavaScript, `new URL` NÉM. Nơi gọi đang dựng giao diện,
     // nên một ngoại lệ lọt ra sẽ làm trắng màn hình vì một chuỗi cấu hình sai.
