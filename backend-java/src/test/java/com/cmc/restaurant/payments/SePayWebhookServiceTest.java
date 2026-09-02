@@ -3,6 +3,9 @@ package com.cmc.restaurant.payments;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.cmc.restaurant.shared.ApiException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -141,5 +144,72 @@ class SePayWebhookServiceTest {
 		SePayWebhookService dv = new SePayWebhookService(new SePayProperties(KHOA), new BoDoiSoatGhiLai());
 
 		assertThat(dv.xuLy(null).success()).isTrue();
+	}
+	/** Bản trả về một kết quả CHỌN TRƯỚC, để soi việc ghi log theo từng loại kết quả. */
+	static final class BoDoiSoatTraSan extends BankTransferReconciler {
+		private final String outcome;
+
+		BoDoiSoatTraSan(String outcome) {
+			super(null, null, null, null, null);
+			this.outcome = outcome;
+		}
+
+		@Override
+		public BankTransferDtos.TransactionResult reconcile(BankTransferDtos.Transaction giaoDich) {
+			return new BankTransferDtos.TransactionResult(
+					giaoDich.reference(), outcome, null, "chi tiết của " + outcome);
+		}
+	}
+
+	/** Gắn tai nghe vào logger của lớp đang kiểm, trả lại danh sách sự kiện đã ghi. */
+	private static ListAppender<ILoggingEvent> ngheLog() {
+		ch.qos.logback.classic.Logger logger =
+				(ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(SePayWebhookService.class);
+		ListAppender<ILoggingEvent> tai = new ListAppender<>();
+		tai.start();
+		logger.addAppender(tai);
+		return tai;
+	}
+
+	@Test
+	@DisplayName("Tiền vào mà KHÔNG chốt được hoá đơn thì phải ghi log kèm nội dung chuyển khoản")
+	void logsEveryTransferThatSettlesNothing() {
+		// Đường này hỏng ÂM THẦM: tiền vào thật, webhook trả 200, SePay ghi "thành công", hoá đơn
+		// vẫn chờ duyệt tay. Đã xảy ra thật, và lý do chỉ đọc được bằng cách vào bảng điều khiển
+		// SePay soi thân trả về của MỘT lượt gọi — thứ không tra cứu được và sẽ hết hạn.
+		//
+		// Nội dung chuyển khoản PHẢI có trong log: nghi ngờ số một là ngân hàng sửa nội dung nên mã
+		// không còn khớp mẫu, và không có chuỗi thật thì mọi lần sửa mẫu đều là đoán.
+		for (String outcome : new String[] {"unmatched", "amount_mismatch", "duplicate", "ignored"}) {
+			ListAppender<ILoggingEvent> tai = ngheLog();
+			SePayWebhookService dv =
+					new SePayWebhookService(new SePayProperties(KHOA), new BoDoiSoatTraSan(outcome));
+
+			dv.xuLy(tienVao("CMC INV-20260902-5B732382", null, new BigDecimal("35000")));
+
+			assertThat(tai.list)
+					.as("kết quả %s phải được ghi log", outcome)
+					.hasSize(1);
+			ILoggingEvent su = tai.list.get(0);
+			assertThat(su.getLevel()).isEqualTo(Level.WARN);
+			assertThat(su.getFormattedMessage())
+					.contains(outcome)
+					.contains("CMC INV-20260902-5B732382")
+					.contains("35000");
+		}
+	}
+
+	@Test
+	@DisplayName("Chốt được hoá đơn thì KHÔNG ghi log cảnh báo")
+	void staysQuietWhenTheMoneyIsRecorded() {
+		// Không có ca này thì phép kiểm trên vẫn xanh dù lớp ghi log MỌI giao dịch — và một cảnh
+		// báo bắn ở mọi lượt là một cảnh báo không ai đọc nữa.
+		ListAppender<ILoggingEvent> tai = ngheLog();
+		SePayWebhookService dv =
+				new SePayWebhookService(new SePayProperties(KHOA), new BoDoiSoatTraSan("confirmed"));
+
+		dv.xuLy(tienVao("CMC INV-20260902-5B732382", null, new BigDecimal("35000")));
+
+		assertThat(tai.list).isEmpty();
 	}
 }

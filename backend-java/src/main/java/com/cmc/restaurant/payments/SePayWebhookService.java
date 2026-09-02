@@ -3,6 +3,8 @@ package com.cmc.restaurant.payments;
 import com.cmc.restaurant.shared.ApiException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,16 @@ public class SePayWebhookService {
 	/** Chỉ tiền VÀO mới là thanh toán. Bỏ sót phép kiểm này thì một lệnh chuyển tiền RA khỏi tài
 	 * khoản, tình cờ mang mã đơn trong nội dung, cũng đánh dấu đơn đó đã trả tiền. */
 	private static final String TIEN_VAO = "in";
+
+	/**
+	 * Kết quả DUY NHẤT nghĩa là tiền đã được ghi vào một hoá đơn.
+	 *
+	 * <p>Mọi giá trị khác đều nghĩa là tiền vào tài khoản mà không hoá đơn nào được chốt — và đó là
+	 * thứ phải ghi lại.
+	 */
+	private static final String DA_GHI_TIEN = "confirmed";
+
+	private static final Logger log = LoggerFactory.getLogger(SePayWebhookService.class);
 
 	private final SePayProperties properties;
 	private final BankTransferReconciler reconciler;
@@ -78,7 +90,34 @@ public class SePayWebhookService {
 				than.transactionDate());
 
 		BankTransferDtos.TransactionResult kq = doiSoatPhanLoaiTranhChap(giaoDich);
+		ghiLaiNeuKhongGhiDuocTien(giaoDich, kq);
 		return new SePayDtos.WebhookResponse(true, kq.outcome(), kq.orderCode(), kq.detail());
+	}
+
+	/**
+	 * Ghi log MỌI giao dịch vào tài khoản mà không chốt được hoá đơn nào.
+	 *
+	 * <p><b>Vì sao cần.</b> Đường này hỏng ÂM THẦM theo đúng nghĩa đen: tiền vào tài khoản thật,
+	 * webhook trả {@code 200}, SePay ghi "thành công", và hoá đơn vẫn nằm chờ người duyệt tay.
+	 * Không có gì báo động. Đã xảy ra thật, và để tìm ra lý do phải đi vòng qua bảng điều khiển
+	 * SePay đọc thân trả về của MỘT lượt gọi — thứ không tra cứu được và sẽ hết hạn.
+	 *
+	 * <p>Ghi luôn <b>nội dung chuyển khoản nhận được</b>, vì nghi ngờ số một là ngân hàng sửa nội
+	 * dung trước khi lưu (bỏ dấu gạch, cắt bớt) nên mã hoá đơn không còn khớp mẫu. Không có chuỗi
+	 * thật thì mọi lần sửa mẫu đều là đoán.
+	 *
+	 * <p>Mức {@code WARN} chứ không phải {@code INFO}: đây là tiền của khách chưa được ghi nhận,
+	 * và nó cần lọt qua mọi bộ lọc log mặc định.
+	 */
+	private static void ghiLaiNeuKhongGhiDuocTien(
+			BankTransferDtos.Transaction giaoDich, BankTransferDtos.TransactionResult kq) {
+		if (DA_GHI_TIEN.equals(kq.outcome())) {
+			return;
+		}
+		log.warn("SePay: tiền vào nhưng KHÔNG chốt hoá đơn nào."
+						+ " outcome={} mã={} tham_chiếu={} số_tiền={} nội_dung=[{}] lý_do={}",
+				kq.outcome(), kq.orderCode(), giaoDich.reference(), giaoDich.amount(),
+				giaoDich.description(), kq.detail());
 	}
 
 	/**
