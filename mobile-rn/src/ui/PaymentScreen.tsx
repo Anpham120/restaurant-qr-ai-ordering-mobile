@@ -12,7 +12,12 @@ import {
 
 import { AuthException } from '../core/auth/authApi';
 import { KhoaDatDon } from '../core/orders/khoaDatDon';
-import { type Invoice, huongDanChoXacNhan, nhanTrangThaiHoaDon } from '../core/payment/invoice';
+import {
+  type Invoice,
+  daTraXong,
+  huongDanChoXacNhan,
+  nhanTrangThaiHoaDon,
+} from '../core/payment/invoice';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
 import { type Promotion } from '../core/promotions/promotion';
 import { type PromotionApi } from '../core/promotions/promotionApi';
@@ -299,7 +304,12 @@ export function PaymentScreen({
             />
           ) : null}
 
-          {hd.status === 'Paid' ? (
+          {/*
+            Hoá đơn BÀN tất toán bằng `Confirmed`; `Paid` còn lại từ đường thanh toán theo ĐƠN.
+            Chỉ kiểm một cái nghĩa là khách vừa chuyển khoản xong không thấy lời cảm ơn nào, và
+            màn hình đứng im như chưa có gì xảy ra.
+          */}
+          {daTraXong(hd.status) ? (
             <Text style={[kieuChung.chu, { textAlign: 'center', marginTop: 12 }]}>
               Cảm ơn bạn. Hẹn gặp lại!
             </Text>

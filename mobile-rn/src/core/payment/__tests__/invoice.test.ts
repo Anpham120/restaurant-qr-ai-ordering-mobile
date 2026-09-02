@@ -9,9 +9,22 @@ describe('nhãn trạng thái hoá đơn', () => {
   });
 
   it('phủ hết trạng thái hoá đơn', () => {
-    for (const s of ['NotRequested', 'Pending', 'Paid', 'Cancelled']) {
+    for (const s of ['NotRequested', 'Pending', 'Paid', 'Confirmed', 'Cancelled']) {
       expect(nhanTrangThaiHoaDon(s)).not.toBe(s);
     }
+  });
+
+  it('hoá đơn đã tất toán nói "Đã thanh toán", dù máy chủ gọi tên nào', () => {
+    // LỖI CÓ THẬT. Máy chủ chốt hoá đơn BÀN bằng `Confirmed`, không phải `Paid` — đo trên
+    // production:
+    //
+    //     GET /api/table-sessions/{id}/invoice  ->  {"status":"Confirmed", ...}
+    //
+    // App chỉ biết `Paid`, nên rơi vào nhánh mặc định và trả về nguyên chữ tiếng Anh: khách vừa
+    // chuyển khoản xong nhìn thấy "Confirmed" giữa màn hình tiếng Việt. Web đã xử lý cả hai từ
+    // lâu (`AdminOrderManager`, `VietQrPaymentModal`); app thì chưa.
+    expect(nhanTrangThaiHoaDon('Confirmed')).toBe('Đã thanh toán');
+    expect(nhanTrangThaiHoaDon('Paid')).toBe('Đã thanh toán');
   });
 
   it('trạng thái lạ trả nguyên văn', () => {

@@ -80,6 +80,19 @@ describe('hiện hoá đơn', () => {
     expect(screen.queryByText(/Tôi đã trả/)).toBeNull();
     expect(screen.queryByText(/Xác nhận/)).toBeNull();
   });
+
+  it('trả xong bằng chuyển khoản thì cảm ơn, không hiện chữ "Confirmed"', async () => {
+    // LỖI CÓ THẬT. Hoá đơn BÀN tất toán bằng `Confirmed` — đo trên production. Màn hình chỉ kiểm
+    // `Paid`, nên khách vừa chuyển khoản xong không thấy lời cảm ơn nào và màn hình đứng im như
+    // chưa có gì xảy ra; phía trên còn hiện nguyên chữ "Confirmed" giữa màn hình tiếng Việt.
+    //
+    // Ca `Paid` nằm ở phép kiểm đơn vị của `nhanTrangThaiHoaDon`/`daTraXong`. Render hai lần trong
+    // MỘT ca làm rò trạng thái sang các describe sau — đã thử và làm đỏ 12 ca không liên quan.
+    await render(<PaymentScreen api={apiVoi(hoaDon({ status: 'Confirmed' }))} phienBan={PHIEN} />);
+
+    await screen.findByText(/Cảm ơn bạn/);
+    expect(screen.queryByText('Confirmed')).toBeNull();
+  });
 });
 
 describe('yêu cầu thanh toán', () => {
