@@ -40,8 +40,43 @@ RUN pip install --no-cache-dir -r requirements.txt
 #
 # `HF_HOME` trỏ vào chỗ người dùng `app` đọc được. Đặt TRƯỚC khi tạo user để lớp này cache được.
 ENV HF_HOME=/opt/hf
-ENV SENTENCE_TRANSFORMERS_HOME=/opt/hf
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"     && chmod -R a+rX /opt/hf
+# CỐ Ý KHÔNG đặt `SENTENCE_TRANSFORMERS_HOME`.
+#
+# Đặt nó làm sentence-transformers đọc ở `/opt/hf/models--...`, trong khi `snapshot_download` ghi
+# vào `/opt/hf/hub/models--...` — HAI GỐC CACHE KHÁC NHAU. Lúc còn cho tải trực tuyến thì không ai
+# thấy: lượt nạp chỉ đơn giản tải lại lần nữa vào gốc của nó. Chỉ khi chặn bằng `HF_HUB_OFFLINE=1`
+# nó mới lộ ra — và lộ bằng một lỗi nói về MẠNG, không nói về đường dẫn:
+#
+#     OSError: We could not connect to https://huggingface.co ... and could not find them in the
+#     cached files.
+#
+# Để trống thì cả hai cùng dùng `HF_HOME/hub`, và cờ ngoại tuyến trở thành phép kiểm thật.
+#
+# CHỈ tải trọng số mà lúc chạy THẬT SỰ dùng.
+#
+# Kho `BAAI/bge-m3` mang hai bộ trọng số cho cùng một mô hình:
+#
+#     pytorch_model.bin        ~2,2GB   ← sentence-transformers nạp cái này
+#     onnx/model.onnx_data     ~2,1GB   ← chỉ dùng nếu chạy qua ONNX Runtime
+#
+# Dịch vụ này chạy qua torch, nên bộ ONNX là dung lượng chết: nằm trong ảnh, không tốn byte RAM
+# nào, và không ai đọc tới. Đo trước khi sửa: /opt/hf = 4,3GB.
+#
+# LỊCH SỬ HAI LẦN SAI, giữ lại vì mỗi lần sai theo một kiểu đáng nhớ:
+#
+#   lần 1  tải đủ rồi XOÁ .bin, nhưng lượt nạp kiểm chứng phía sau TẢI LẠI đúng tệp vừa xoá.
+#          Log in ra "đã bỏ", `du` vẫn 4,3GB. Xoá rồi dọn thua không tải thứ thừa.
+#
+#   lần 2  chặn tải lại bằng cờ ngoại tuyến, rồi đòi `model.safetensors`. Build hỏng — vì kho NÀY
+#          không có safetensors. Giả thuyết "hai định dạng trùng" đúng, nhưng đoán sai LÀ HAI CÁI
+#          NÀO. Chỉ `list_repo_files` mới trả lời được, và đó là việc lẽ ra phải làm đầu tiên.
+#
+# Lượt nạp thứ hai chạy NGOẠI TUYẾN có chủ đích: nếu cache còn thiếu thì build HỎNG tại đây, thay
+# vì âm thầm tải bù và biến `HF_HUB_OFFLINE=1` ở tầng sau thành một lời hứa suông.
+RUN python -c "import huggingface_hub, pathlib, sys; p = huggingface_hub.snapshot_download('BAAI/bge-m3', ignore_patterns=['onnx/*', '*.h5', '*.msgpack']); w = pathlib.Path(p) / 'pytorch_model.bin'; sys.exit('khong co pytorch_model.bin trong ' + p) if not w.exists() else print('trong so:', w, round(w.stat().st_size / 1e9, 2), 'GB')" \
+    && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')" \
+    && du -sh /opt/hf \
+    && chmod -R a+rX /opt/hf
 
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --create-home app \
@@ -103,19 +138,43 @@ COPY --chown=app:app data ./data
 # Mô-đun `rag.precompute` gọi cùng hàm `doan_toan_kho()` mà `answer.py` gọi, nên hai bên không lệch
 # được nữa. Đây là cách sửa bằng cấu trúc, không phải bằng việc nhớ sửa hai chỗ.
 ENV AI_EMBEDDING_CACHE=/opt/hf/corpus-vectors.json
+
+# CHẶN mọi lần gọi mạng ra Hugging Face — kể từ ĐÂY, tức TRƯỚC `rag.precompute`, không chỉ lúc chạy.
+#
+# Mô hình đã nằm trong ảnh, nên một lần kiểm phiên bản là thuần rủi ro: mạng chậm thì nó làm chậm
+# khởi động, mạng chặn thì nó có thể làm hỏng.
+#
+# LỖI CÓ THẬT, đo trên ảnh dựng xong. Hai dòng này trước đây nằm SAU `rag.precompute`, nên bước ấy
+# còn ra mạng được — và nó ra thật:
+#
+#     snapshots/5617a9f6…/pytorch_model.bin   2,27GB   <- snapshot_download, nhánh main
+#     snapshots/9a0624b8…/model.safetensors   2,27GB   <- rag.precompute, refs/pr/130
+#
+# `transformers` ưu tiên safetensors; nhánh `main` của `BAAI/bge-m3` KHÔNG có, nên nó lấy từ PR
+# chuyển đổi tự động `refs/pr/130`. Kết quả: HAI bộ trọng số của CÙNG một mô hình, và việc loại bỏ
+# bộ ONNX ở trên không tiết kiệm được byte nào — `/opt/hf` vẫn 4,3GB, y hệt trước khi sửa.
+#
+# Bằng chứng rằng chặn là đủ, không cần đổi mã: bước ở trên đã nạp `SentenceTransformer` NGOẠI
+# TUYẾN thành công từ `pytorch_model.bin` đã cache. Ngoại tuyến thì `transformers` không hỏi Hub
+# được nữa và dùng đúng bộ đã có.
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
+
 # `cd /app/ai/app` là bắt buộc để `python -m rag.precompute` tìm được gói `rag` — cùng lý do với
 # `--app-dir app` của `CMD` ở cuối tệp: mọi mô-đun trong `ai/app` dùng import PHẲNG.
 RUN cd /app/ai/app && python -m rag.precompute && chmod -R a+rX /opt/hf
+
+# Sau khi đệm đã ghi xong: trong ảnh chỉ được còn ĐÚNG MỘT bộ trọng số. Bước này làm lỗi trên
+# không thể quay lại âm thầm — nó sẽ làm HỎNG build thay vì lặng lẽ phình thêm 2,27GB.
+RUN so=$(find /opt/hf -type f -size +1G | wc -l); \
+    echo "so tep trong so >1GB: $so"; find /opt/hf -type f -size +1G -printf '  %s %p\n'; \
+    du -sh /opt/hf; \
+    if [ "$so" -ne 1 ]; then echo "PHAI co dung 1 bo trong so, dang co $so"; exit 1; fi
 
 WORKDIR /app/ai
 
 ENV AI_SERVICE_HOST=0.0.0.0
 ENV AI_SERVICE_PORT=8001
-
-# CHẶN mọi lần gọi mạng ra Hugging Face lúc chạy. Mô hình đã có trong ảnh, nên một lần kiểm phiên
-# bản là thuần rủi ro: mạng chậm thì nó làm chậm khởi động, mạng chặn thì nó có thể làm hỏng.
-ENV HF_HUB_OFFLINE=1
-ENV TRANSFORMERS_OFFLINE=1
 
 USER app
 
