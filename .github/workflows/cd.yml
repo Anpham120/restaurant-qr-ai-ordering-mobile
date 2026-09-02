@@ -92,6 +92,13 @@ jobs:
           FRONTEND_SERVER_NAMES: ${{ vars.FRONTEND_SERVER_NAMES }}
           API_SERVER_NAME: ${{ vars.API_SERVER_NAME }}
           PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+
+          # Hai địa chỉ đi vào BUNDLE lúc build. Bỏ sót thì compose rơi về http://127.0.0.1:8080,
+          # và link QR bàn trong cổng quản trị trỏ về máy của người đang xem — trang mở ra đứng im
+          # mà không báo lỗi gì.
+          PUBLIC_ORDERING_BASE_URL: ${{ vars.PUBLIC_ORDERING_BASE_URL }}
+          PUBLIC_ORDER_HUB_URL: ${{ vars.PUBLIC_ORDER_HUB_URL }}
+          PUBLIC_MARKETING_BASE_URL: ${{ vars.PUBLIC_MARKETING_BASE_URL }}
           CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
 
           # Thư mục chứng chỉ Let's Encrypt trên máy chủ. Bỏ trống = HTTP thuần.

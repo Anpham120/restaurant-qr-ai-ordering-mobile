@@ -214,6 +214,40 @@ class DeploymentConfigTest {
 	}
 
 	/** Mọi dòng {@code TEN_PORT=so} trong một tệp env. */
+	@Test
+	@DisplayName("Mọi biến PUBLIC_* trong compose đều được cd.yml cấp")
+	void everyPublicUrlReachesTheBuild() throws IOException {
+		// Các biến PUBLIC_* đi vào BUNDLE lúc build, không đọc lúc chạy. Bỏ sót một cái thì compose
+		// lặng lẽ rơi về mặc định trong chính tệp compose — và mặc định đó viết cho MÁY PHÁT TRIỂN.
+		//
+		// LỖI CÓ THẬT: PUBLIC_ORDERING_BASE_URL không được khai ở đâu, nên bundle quản trị dựng với
+		// `http://127.0.0.1:8080`, và mọi link QR bàn trỏ về máy của người đang xem. Trang mở ra
+		// tưởng đang tải rồi đứng im — không lỗi nào hiện lên, không log nào đỏ. Người dùng phải tự
+		// nhìn thanh địa chỉ mới thấy.
+		//
+		// Ca này canh cả LỚP lỗi đó, không riêng hai biến đã sót.
+		Matcher m = Pattern.compile("\\$\\{(PUBLIC_[A-Z0-9_]*)[:}]")
+				.matcher(Files.readString(COMPOSE));
+		Set<String> composeDung = new LinkedHashSet<>();
+		while (m.find()) {
+			composeDung.add(m.group(1));
+		}
+		assertThat(composeDung).as("không đọc được biến PUBLIC_* nào từ compose").isNotEmpty();
+
+		String wf = Files.readString(CD_WORKFLOW);
+		Set<String> thieu = new LinkedHashSet<>();
+		for (String ten : composeDung) {
+			if (!wf.contains(ten + ":")) {
+				thieu.add(ten);
+			}
+		}
+
+		assertThat(thieu)
+				.as("compose dùng biến mà cd.yml không cấp — bundle sẽ dựng với địa chỉ máy phát "
+						+ "triển, và hỏng KHÔNG có triệu chứng nào ngoài link trỏ sai")
+				.isEmpty();
+	}
+
 	private static Map<String, String> docCong(Path tep) throws IOException {
 		assertThat(tep).as("không thấy tệp env mẫu").exists();
 		Matcher m = Pattern.compile("(?m)^([A-Z_]*PORT)=(\\d+)$").matcher(Files.readString(tep));

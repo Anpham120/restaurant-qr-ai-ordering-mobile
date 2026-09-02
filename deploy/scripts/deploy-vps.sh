@@ -128,7 +128,21 @@ DB_MAX_POOL_SIZE=$(env_quote "${DB_MAX_POOL_SIZE:-50}")
 FRONTEND_SERVER_NAMES=$(env_quote "$FRONTEND_SERVER_NAMES")
   API_SERVER_NAME=$(env_quote "$API_SERVER_NAME")
   PUBLIC_API_BASE_URL=$(env_quote "$PUBLIC_API_BASE_URL")
-  PUBLIC_ORDER_HUB_URL=$(env_quote "${PUBLIC_ORDER_HUB_URL:-${PUBLIC_API_BASE_URL%/api}/hubs/orders}")
+  # `/hub/orders` SỐ ÍT. Bản .NET dùng `/hubs/orders`, và giá trị suy ra ở đây từng chép theo bản
+  # đó — trong khi `WebSocketConfig.addEndpoint` khai `/hub/orders`, có hẳn chú thích giải thích vì
+  # sao hai bên khác nhau (giao thức khác: STOMP chứ không phải SignalR).
+  #
+  # Sai một chữ `s` thì WebSocket không bao giờ kết nối, và nó hỏng IM LẶNG: bếp không tự thấy đơn
+  # mới, quầy không tự thấy trạng thái đổi, phải tải lại trang mới có dữ liệu. Không lỗi nào hiện
+  # lên vì kết nối hỏng chỉ là một lần thử bất thành trong nền.
+  PUBLIC_ORDER_HUB_URL=$(env_quote "${PUBLIC_ORDER_HUB_URL:-${PUBLIC_API_BASE_URL%/api}/hub/orders}")
+  # Hai địa chỉ này đi vào BUNDLE lúc build, không đọc lúc chạy — sai là phải dựng lại cả ảnh.
+  #
+  # Bỏ sót thì compose rơi về mặc định `http://127.0.0.1:8080`, và mọi link QR bàn trong cổng quản
+  # trị trỏ về MÁY CỦA NGƯỜI ĐANG XEM. Trang mở ra tưởng như đang tải rồi đứng im, không lỗi nào
+  # hiện lên. Đã gặp thật.
+  PUBLIC_ORDERING_BASE_URL=$(env_quote "${PUBLIC_ORDERING_BASE_URL:-}")
+  PUBLIC_MARKETING_BASE_URL=$(env_quote "${PUBLIC_MARKETING_BASE_URL:-}")
   CORS_ALLOWED_ORIGINS=$(env_quote "$CORS_ALLOWED_ORIGINS")
   JWT_SIGNING_KEY=$(env_quote "$JWT_SIGNING_KEY")
   ADMIN_BOOTSTRAP_EMAIL=$(env_quote "${ADMIN_BOOTSTRAP_EMAIL:-}")
