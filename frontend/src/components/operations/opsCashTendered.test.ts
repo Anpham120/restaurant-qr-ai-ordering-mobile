@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { docTienDua, thieuTien, tinhThoiLai } from "./opsCashTendered";
+import { chiGiuChuSo, docTienDua, thieuTien, tinhThoiLai } from "./opsCashTendered";
+
+describe("lọc chữ số trong ô nhập tiền", () => {
+  it("giữ đúng chữ số người ta gõ", () => {
+    // Bản đầu viết thẳng trong JSX là `/[^d]/g` — thiếu dấu gạch chéo ngược, nên nó xoá mọi ký tự
+    // KHÔNG PHẢI chữ `d`. Gõ "50000" thì ô tự xoá sạch và không bao giờ nhận được số nào.
+    expect(chiGiuChuSo("50000")).toBe("50000");
+    expect(chiGiuChuSo("5")).toBe("5");
+  });
+
+  it("bỏ mọi thứ không phải chữ số", () => {
+    // Bàn phím quầy hay dính dấu chấm/phẩy phân cách nghìn, và người ta dán từ chỗ khác vào.
+    expect(chiGiuChuSo("50.000")).toBe("50000");
+    expect(chiGiuChuSo("50,000đ")).toBe("50000");
+    expect(chiGiuChuSo(" 50 000 ")).toBe("50000");
+    expect(chiGiuChuSo("abc")).toBe("");
+  });
+
+  it("chữ d không được sống sót", () => {
+    // Ca đối chứng cho đúng lỗi cũ: mẫu hỏng giữ lại `d` và vứt hết chữ số.
+    expect(chiGiuChuSo("d5d0d")).toBe("50");
+  });
+});
 
 describe("tiền khách đưa ở quầy", () => {
   it("để trống KHÔNG phải là 0 đồng", () => {

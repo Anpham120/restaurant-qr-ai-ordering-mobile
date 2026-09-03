@@ -6,6 +6,20 @@
  * đúng cái nhầm lẫn mà tính năng này sinh ra để chặn.
  */
 
+/**
+ * Chỉ giữ lại chữ số của thứ người ta vừa gõ.
+ *
+ * <p><b>LỖI CÓ THẬT.</b> Bản đầu viết thẳng trong JSX là {@code replace(/[^d]/g, "")} — thiếu dấu
+ * gạch chéo ngược, nên nó xoá mọi ký tự KHÔNG PHẢI chữ `d`. Gõ "50000" vào ô "Khách đưa" thì ô tự
+ * xoá sạch và không bao giờ nhận được số nào. Ô nhập hoàn toàn không dùng được.
+ *
+ * <p>Lọt được vì mọi phép kiểm đều gọi thẳng {@code docTienDua}/{@code tinhThoiLai} với chuỗi
+ * dựng sẵn, không đi qua ô nhập. Tách ra thành hàm là để nó nằm trong tầm phép kiểm.
+ */
+export function chiGiuChuSo(nhapVao: string): string {
+  return nhapVao.replace(/[^0-9]/g, "");
+}
+
 /** Chuỗi trong ô nhập thành số, hoặc {@code undefined} khi để trống. */
 export function docTienDua(nhapVao: string | undefined): number | undefined {
   // Để TRỐNG nghĩa là khách đưa đúng — khác hẳn gõ 0 nghĩa là khách đưa 0 đồng. Trả 0 ở đây làm

@@ -1405,34 +1405,321 @@
   color: var(--ops-text-muted, #4a5568);
 }
 
-/* Ô nhập tiền khách đưa ở quầy — chỉ hiện với hoá đơn tiền mặt. */
-.ops-cash-box {
+
+/* ==========================================================================
+   Màn hình Thu ngân (POS)
+
+   Nguyên tắc: một việc tại một thời điểm. Bản trước xếp chồng bốn dải thông
+   báo, sáu ô số, một lưới thẻ và một bảng lịch sử trên cùng một trang — người
+   đứng quầy phải cuộn qua thứ đã xong mới thấy thứ chưa làm.
+
+   Ở đây: một thanh tiêu đề mang đúng con số cần, hai tab, và chỉ nội dung của
+   tab đang chọn. Thông báo tiền vào NỔI ở góc thay vì chen vào dòng chảy, để
+   nó không đẩy danh sách xuống đúng lúc người ta đang nhắm bấm.
+   ========================================================================== */
+
+.pos {
+  display: grid;
+  gap: 14px;
+}
+
+.pos-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pos-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Con số duy nhất còn lại từ sáu ô cũ. Đứng cạnh tiêu đề, không chiếm một hàng thẻ riêng. */
+.pos-sum {
+  margin: 0;
+  margin-inline-end: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pos-sum span {
+  font-size: 0.8rem;
+  color: var(--ops-text-muted, #4a5568);
+}
+
+.pos-sum strong {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--ops-border, #e2e8f0);
+}
+
+.pos-tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  /* 44px chiều cao: đây là màn hình cảm ứng ở quầy, không phải trang đọc bằng chuột. */
+  min-height: 44px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ops-text-muted, #4a5568);
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.pos-tab:hover {
+  color: inherit;
+}
+
+.pos-tab--on {
+  color: inherit;
+  border-bottom-color: var(--ops-accent, #2563eb);
+}
+
+.pos-tab-count {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ops-surface-alt, #eef2f7);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-tab--on .pos-tab-count {
+  background: var(--ops-accent, #2563eb);
+  color: #fff;
+}
+
+.pos-bulk {
+  margin-inline-start: auto;
+}
+
+.pos-kbd {
+  margin-inline-start: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* MỘT chỗ cho thông báo trong dòng chảy, thay cho bốn dải xếp chồng. */
+.pos-msg {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--ops-surface-alt, #eef2f7);
+  font-size: 0.9rem;
+}
+
+.pos-msg--err {
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.pos-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.pos-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ops-border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--ops-surface, #fff);
+}
+
+.pos-card--hl {
+  border-color: var(--ops-accent, #2563eb);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+/* Hai thứ duy nhất đọc được từ xa. Mọi thứ khác nhỏ hơn hẳn, có chủ đích. */
+.pos-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pos-table {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pos-amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--ops-text-muted, #4a5568);
+}
+
+.pos-items > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ops-text-muted, #4a5568);
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.pos-items > ul {
+  margin: 6px 0 0;
+  padding: 0 0 0 2px;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+  font-size: 0.85rem;
+}
+
+.pos-items > ul span {
+  font-variant-numeric: tabular-nums;
+  color: var(--ops-text-muted, #4a5568);
+}
+
+.pos-cash {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 8px 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--ops-surface-alt, #eef2f7);
 }
 
-.ops-cash-box input {
-  width: 8.5rem;
-  padding: 6px 8px;
+.pos-cash label {
+  font-size: 0.85rem;
+  color: var(--ops-text-muted, #4a5568);
+}
+
+.pos-cash input {
+  width: 7.5rem;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--ops-border, #cbd5e1);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-/* Tiền thối phải đọc được từ xa hơn phần còn lại: đây là con số người ta đếm ra khỏi ngăn kéo. */
+/* Tiền thối phải đọc được từ xa hơn phần còn lại: đây là con số đếm ra khỏi ngăn kéo. */
 .ops-cash-change {
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
 }
 
+/* Nói THẲNG là thiếu, không hiện số âm — "-5.000đ" là thứ người đang vội đọc lướt thành 5.000. */
 .ops-cash-short {
   font-variant-numeric: tabular-nums;
   color: #b42318;
 }
 
 .ops-cash-hint {
+  font-size: 0.85rem;
+  color: var(--ops-text-muted, #4a5568);
+}
+
+.pos-act {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pos-confirm {
+  flex: 1;
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+
+/*
+  "Hủy yêu cầu" là chữ, không phải nút. Hai nút cạnh nhau cùng cỡ là cách mời người ta bấm nhầm
+  vào lúc đông khách — và một trong hai cái đó đụng vào tiền.
+*/
+.pos-cancel {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 8px 4px;
+  min-height: 44px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ops-text-muted, #4a5568);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.pos-cancel:hover:not(:disabled) {
+  color: #b42318;
+}
+
+.pos-cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pos-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pos-toast span {
+  display: grid;
+  gap: 2px;
+}
+
+.pos-toast small {
+  opacity: 0.75;
+  font-size: 0.78rem;
+}
+
+.pos-toast-x {
+  appearance: none;
+  margin-inline-start: auto;
+  background: none;
+  border: 0;
+  padding: 4px;
+  color: inherit;
   opacity: 0.7;
-  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.pos-toast-x:hover {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-tab {
+    transition: none;
+  }
 }

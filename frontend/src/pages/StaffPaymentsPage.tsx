@@ -12,7 +12,7 @@ import { Banknote, Check, CreditCard, QrCode, RefreshCw, X } from "lucide-react"
 import "../components/operations/operations.css";
 import { useOpsConfirm } from "../components/operations/OpsConfirmProvider";
 import { locThanhToanTuDong, themThongBao } from "../components/operations/opsCashierAlerts";
-import { docTienDua, thieuTien, tinhThoiLai } from "../components/operations/opsCashTendered";
+import { chiGiuChuSo, docTienDua, thieuTien, tinhThoiLai } from "../components/operations/opsCashTendered";
 import type { ThongBaoDaThu } from "../components/operations/opsCashierAlerts";
 
 const formatVnd = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
@@ -91,6 +91,15 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
   const [daThu, setDaThu] = useState<ThongBaoDaThu[]>([]);
 
   /**
+   * Đang xem việc phải làm, hay xem lại việc đã xong.
+   *
+   * Trước đây hai danh sách xếp CHỒNG nhau trên cùng một trang, dưới bốn dải thông báo và sáu ô
+   * số. Người đứng quầy phải cuộn qua thứ đã xong mới thấy thứ chưa làm. Quầy thu tiền chỉ có một
+   * việc tại một thời điểm; phần còn lại là tra cứu, và tra cứu thì để sau một cú bấm.
+   */
+  const [tab, setTab] = useState<"cho" | "xong">("cho");
+
+  /**
    * Phiên mà CHÍNH trang này vừa xác nhận bằng tay.
    *
    * Máy chủ phát cùng một sự kiện cho cả hai đường chốt hoá đơn, và sự kiện không mang thông tin
@@ -121,11 +130,17 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     () => invoices.filter((invoice) => invoice.status === "Confirmed" || invoice.status === "Paid"),
     [invoices],
   );
-  const stats = useMemo(() => [
-    { label: "Bàn chờ thu", value: String(awaiting.length), detail: tableFilter ? `Lọc bàn ${tableFilter}` : "Hóa đơn toàn phiên" },
-    { label: "Tổng cần thu", value: formatVnd(awaiting.reduce((sum, invoice) => sum + invoice.totalAmount, 0)), detail: "Sau ưu đãi" },
-    { label: "Đã xác nhận", value: String(collected.length), detail: "Phiên đã đóng" },
-  ], [awaiting, collected, tableFilter]);
+  /**
+   * Tổng tiền còn phải thu.
+   *
+   * Trước đây đây là một trong SÁU ô số chiếm hết chiều cao màn hình trước khi thấy hoá đơn nào.
+   * Hai con số quầy thật sự dùng là "còn mấy bàn" và "còn bao nhiêu tiền"; số bàn đã nằm trên tab
+   * rồi, nên chỉ còn con số này, và nó về nằm trên thanh tiêu đề.
+   */
+  const conPhaiThu = useMemo(
+    () => awaiting.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
+    [awaiting],
+  );
 
   useEffect(() => {
     if (!tableFilter || awaiting.length === 0) return;
@@ -252,190 +267,235 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
     return <div className="ops-empty"><div className="ops-empty-icon"><CreditCard aria-hidden="true" /></div>Đang tải...</div>;
   }
 
+
+  const dangCho = tab === "cho";
+  const danhSach = dangCho ? awaiting : collected;
+
   return (
-    <div>
-      {!embedded ? (
-        <div className="ops-page-header">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-            <div><h1>Thu ngân</h1><p>Xác nhận thanh toán cho toàn bộ hóa đơn của phiên bàn</p></div>
-            <button className="ops-btn ops-btn--ghost ops-btn--sm" onClick={() => void loadInvoices()} type="button"><RefreshCw aria-hidden="true" size={14} /> Làm mới</button>
-          </div>
-        </div>
-      ) : (
-        <div className="ops-toolbar">
-          <button className="ops-btn ops-btn--ghost ops-btn--sm" onClick={() => void loadInvoices()} type="button"><RefreshCw aria-hidden="true" size={14} /> Làm mới</button>
-        </div>
-      )}
+    <div className="pos">
+      {/*
+        MỘT thanh, không phải một khối tiêu đề rồi ba ô số rồi bốn dải thông báo.
+
+        Quầy thu tiền chỉ cần hai con số: còn mấy bàn, còn bao nhiêu tiền. Số bàn đã nằm trên tab
+        bên dưới, nên ở đây chỉ còn số tiền — và nó đứng cạnh tiêu đề thay vì chiếm một hàng thẻ
+        riêng.
+      */}
+      <header className="pos-bar">
+        {!embedded ? <h1 className="pos-title">Thu ngân</h1> : null}
+        <p className="pos-sum">
+          <span>Còn phải thu</span>
+          <strong data-money>{formatVnd(conPhaiThu)}</strong>
+        </p>
+        <button className="ops-btn ops-btn--ghost ops-btn--sm" onClick={() => void loadInvoices()} type="button">
+          <RefreshCw aria-hidden="true" size={14} /> Làm mới
+        </button>
+      </header>
 
       {/*
-        Khách chuyển khoản xong thì hoá đơn tự rời cột "Bàn chờ thu" — im lặng. Người đứng quầy
-        đang nhìn chỗ khác sẽ không biết bàn nào vừa trả tiền, và vẫn đi đòi tiền bàn đã trả.
+        Hai danh sách nằm sau TAB thay vì xếp chồng. Trước đây phải cuộn qua bảng "đã thu" mới hết
+        trang, và việc đã xong chiếm chỗ ngang với việc chưa làm.
 
-        `aria-live="assertive"` chứ không phải "polite": đây là tiền vừa vào, và nó phải cắt ngang
-        việc đang làm. Giữ đến khi bấm bỏ, KHÔNG tự tắt theo giờ — một thông báo tiền bạc biến mất
-        trong lúc người ta quay đi là đúng cái hỏng mà nó sinh ra để chặn.
+        Số đếm nằm ngay trên tab: đó là thứ duy nhất cần biết về danh sách mình không đang xem.
       */}
-      {daThu.length > 0 ? (
-        <div aria-live="assertive" className="ops-notice ops-notice--success" role="status">
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
-            {daThu.map((tb) => (
-              <li key={tb.invoiceCode} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <QrCode aria-hidden="true" size={16} />
-                <strong>Bàn {tb.tableCode || "?"} đã thanh toán {formatVnd(tb.totalAmount)}</strong>
-                <span style={{ opacity: 0.75 }}>chuyển khoản tự động · {tb.invoiceCode}</span>
-                <button
-                  className="ops-btn ops-btn--ghost ops-btn--sm"
-                  onClick={() => setDaThu((truoc) => truoc.filter((x) => x.invoiceCode !== tb.invoiceCode))}
-                  type="button"
-                >
-                  <X aria-hidden="true" size={12} /> Đã xem
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <div className="pos-tabs" role="tablist" aria-label="Danh sách hóa đơn">
+        <button
+          aria-selected={dangCho}
+          className={`pos-tab${dangCho ? " pos-tab--on" : ""}`}
+          onClick={() => setTab("cho")}
+          role="tab"
+          type="button"
+        >
+          Chờ thu <span className="pos-tab-count">{awaiting.length}</span>
+        </button>
+        <button
+          aria-selected={!dangCho}
+          className={`pos-tab${!dangCho ? " pos-tab--on" : ""}`}
+          onClick={() => setTab("xong")}
+          role="tab"
+          type="button"
+        >
+          Đã thu <span className="pos-tab-count">{collected.length}</span>
+        </button>
 
-      {error ? <div className="ops-notice ops-notice--danger">{error}</div> : null}
-      {notice ? <div className="ops-notice ops-notice--info">{notice}</div> : null}
-
-      <div className="ops-stats">
-        {stats.map((stat) => (
-          <div className="ops-stat-card" key={stat.label}>
-            <div className="ops-stat-label">{stat.label}</div>
-            <div className="ops-stat-value">{stat.value}</div>
-            <div className="ops-stat-detail">{stat.detail}</div>
-          </div>
-        ))}
+        {dangCho && codAwaiting.length > 0 ? (
+          <button
+            className="ops-btn ops-btn--success ops-btn--sm pos-bulk"
+            onClick={() => void bulkConfirmCod()}
+            title="Phím tắt: C"
+            type="button"
+          >
+            <Banknote aria-hidden="true" size={14} /> Thu tất cả tiền mặt ({codAwaiting.length})
+            <kbd className="pos-kbd">C</kbd>
+          </button>
+        ) : null}
       </div>
 
-      {tableFilter ? (
-        <div className="ops-notice ops-notice--info">
-          Đang ưu tiên hóa đơn bàn <strong>{tableFilter}</strong>
+      {/*
+        MỘT chỗ cho thông báo, không phải bốn dải xếp chồng. Lỗi đè lên tin thường vì lỗi là thứ
+        chặn việc; tin lọc bàn xuống cuối vì nó chỉ là ngữ cảnh.
+      */}
+      {error || notice || tableFilter ? (
+        <p className={`pos-msg${error ? " pos-msg--err" : ""}`} role="status">
+          {error || notice || <>Đang ưu tiên hóa đơn bàn <strong>{tableFilter}</strong></>}
+        </p>
+      ) : null}
+
+      {danhSach.length === 0 ? (
+        <div className="ops-empty" style={{ padding: 32 }}>
+          {dangCho ? "Không có bàn nào chờ thu" : "Chưa thu hóa đơn nào"}
         </div>
       ) : null}
 
-      {awaiting.length > 0 ? (
-        <section style={{ marginBottom: 24 }}>
-          <div className="ops-toolbar" style={{ marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Hóa đơn chờ thu ({awaiting.length})</h3>
-            {codAwaiting.length > 0 ? (
-              <button
-                className="ops-btn ops-btn--success ops-btn--sm"
-                onClick={() => void bulkConfirmCod()}
-                type="button"
-                // Nhắc phím tắt ngay trên nút: một phím tắt không ai biết thì không tồn tại.
-                title="Phím tắt: C"
-              >
-                <Banknote aria-hidden="true" size={14} />
-                Thu tất cả tiền mặt ({codAwaiting.length}) · phím C
-              </button>
-            ) : null}
-          </div>
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
-            {awaiting.map((invoice, index) => (
+      {dangCho ? (
+        <div className="pos-grid">
+          {awaiting.map((invoice, index) => {
+            const laTienMat = invoice.method === "COD";
+            const dua = tienDua[invoice.tableSessionId];
+            return (
               <article
-                className={`ops-card${tableFilter && matchesTableFilter(invoice.tableCode, tableFilter) ? " ops-card--highlight" : ""}`}
+                className={`pos-card${tableFilter && matchesTableFilter(invoice.tableCode, tableFilter) ? " pos-card--hl" : ""}`}
                 key={invoice.tableSessionId}
                 ref={index === 0 && tableFilter ? highlightRef : undefined}
               >
-                <div className="ops-card-header">
-                  <span className="ops-card-code">Phiên {invoice.orderRounds.length} lượt gọi</span>
-                  <span className="ops-card-table">Bàn {invoice.tableCode}</span>
+                {/*
+                  Bàn và số tiền là hai thứ duy nhất đọc từ xa được, nên chúng đứng riêng một hàng
+                  và to hơn hẳn phần còn lại. Mọi thứ khác gộp vào MỘT dòng phụ.
+                */}
+                <div className="pos-card-top">
+                  <span className="pos-table">{invoice.tableCode}</span>
+                  <span className="pos-amount" data-money>{formatVnd(invoice.totalAmount)}</span>
                 </div>
-                <div className="ops-card-meta">
-                  <span className="ops-badge ops-badge--pending">
-                    {invoice.method === "COD" ? <Banknote aria-hidden="true" size={14} /> : <QrCode aria-hidden="true" size={14} />}
-                    {invoice.method === "COD" ? "Tiền mặt" : "VietQR"} · Chờ thu
-                  </span>
-                  <strong>{formatVnd(invoice.totalAmount)}</strong>
-                </div>
-                <div className="ops-card-items">
-                  {invoice.items.map((item) => <span className="ops-card-item-chip" key={item.menuItemId}>{item.quantity}× {item.name}</span>)}
-                </div>
-                {invoice.promotionCode ? <p>Ưu đãi: <strong>{invoice.promotionCode}</strong> (-{formatVnd(invoice.discountAmount)})</p> : null}
-                {invoice.customerPhoneNumber ? <p>Tích điểm: <strong>{invoice.customerPhoneNumber}</strong></p> : null}
-                {invoice.method === "COD" ? (
-                  <div className="ops-cash-box">
-                    {/*
-                      Chỉ hiện với tiền mặt. Chuyển khoản không có khái niệm "khách đưa", và một ô
-                      nhập vô nghĩa đứng đó là một ô sẽ có người điền nhầm vào.
 
-                      Để TRỐNG được, nghĩa là khách đưa đúng. Bắt buộc nhập làm chậm quầy ở ca
-                      thường gặp nhất mà không chặn thêm nhầm lẫn nào.
-                    */}
+                <p className="pos-meta">
+                  {laTienMat ? <Banknote aria-hidden="true" size={13} /> : <QrCode aria-hidden="true" size={13} />}
+                  {laTienMat ? "Tiền mặt" : "VietQR"}
+                  <span aria-hidden="true">·</span>
+                  {invoice.orderRounds.length} lượt gọi
+                  {invoice.promotionCode ? <><span aria-hidden="true">·</span>{invoice.promotionCode} −{formatVnd(invoice.discountAmount)}</> : null}
+                  {invoice.customerPhoneNumber ? <><span aria-hidden="true">·</span>{invoice.customerPhoneNumber}</> : null}
+                </p>
+
+                {/*
+                  Danh sách món GẤP LẠI. Nó dài nhất thẻ và hầu như không được đọc — thu ngân nhìn
+                  số tiền, không đối chiếu từng món. Nhưng khi khách thắc mắc thì phải có, nên gấp
+                  chứ không bỏ.
+                */}
+                <details className="pos-items">
+                  <summary>{invoice.items.length} món</summary>
+                  <ul>
+                    {invoice.items.map((item) => (
+                      <li key={item.menuItemId}><span>{item.quantity}×</span> {item.name}</li>
+                    ))}
+                  </ul>
+                </details>
+
+                {laTienMat ? (
+                  <div className="pos-cash">
                     <label htmlFor={`tien-dua-${invoice.tableSessionId}`}>Khách đưa</label>
                     <input
                       id={`tien-dua-${invoice.tableSessionId}`}
                       inputMode="numeric"
                       onChange={(e) => setTienDua((truoc) => ({
                         ...truoc,
-                        [invoice.tableSessionId]: e.target.value.replace(/[^d]/g, ""),
+                        [invoice.tableSessionId]: chiGiuChuSo(e.target.value),
                       }))}
                       placeholder={String(invoice.totalAmount)}
-                      value={tienDua[invoice.tableSessionId] ?? ""}
+                      value={dua ?? ""}
                     />
-                    <ThoiLai khachDua={tienDua[invoice.tableSessionId]} tong={invoice.totalAmount} />
+                    <ThoiLai khachDua={dua} tong={invoice.totalAmount} />
                   </div>
                 ) : null}
-                <div className="ops-card-actions">
+
+                {/*
+                  MỘT nút chính. "Hủy yêu cầu" là việc hiếm và không thể lẫn với việc thu tiền, nên
+                  nó là chữ chứ không phải nút — hai nút cạnh nhau cùng cỡ là cách mời người ta bấm
+                  nhầm vào lúc đông khách.
+                */}
+                <div className="pos-act">
                   <button
-                    className="ops-btn ops-btn--success ops-btn--sm"
-                    disabled={
-                      pendingSessionId === invoice.tableSessionId
-                      || thieuTien(tienDua[invoice.tableSessionId], invoice.totalAmount)
-                    }
+                    className="ops-btn ops-btn--success pos-confirm"
+                    disabled={pendingSessionId === invoice.tableSessionId || thieuTien(dua, invoice.totalAmount)}
                     onClick={() => void runAction(
                       invoice.tableSessionId,
-                      // Dự đoán: hoá đơn chuyển sang "đã thu", tức rời khỏi danh sách chờ ngay.
                       (current) => ({ ...current, status: "Confirmed" }),
                       () => confirmTableInvoicePayment(
                         invoice.tableSessionId,
                         "Thu ngân xác nhận đã thu đủ.",
-                        docTienDua(tienDua[invoice.tableSessionId]),
+                        docTienDua(dua),
                       ),
                       `Đã thanh toán bàn ${invoice.tableCode}`,
                     )}
                     type="button"
-                  ><Check aria-hidden="true" size={14} /> Xác nhận thu</button>
+                  >
+                    <Check aria-hidden="true" size={16} /> Xác nhận thu
+                  </button>
                   <button
-                    className="ops-btn ops-btn--ghost ops-btn--sm"
+                    className="pos-cancel"
                     disabled={pendingSessionId === invoice.tableSessionId}
                     onClick={() => void runAction(
                       invoice.tableSessionId,
-                      // Huỷ yêu cầu thì bàn quay lại trạng thái chưa yêu cầu thu, nên nó rời danh
-                      // sách chờ mà KHÔNG sang danh sách đã thu.
                       (current) => ({ ...current, status: "NotRequested" }),
                       () => cancelTableInvoicePayment(invoice.tableSessionId, "Hủy yêu cầu để bàn tiếp tục gọi món."),
                       `Đã hủy yêu cầu bàn ${invoice.tableCode}`,
                     )}
                     type="button"
-                  ><X aria-hidden="true" size={14} /> Hủy yêu cầu</button>
+                  >
+                    Hủy yêu cầu
+                  </button>
                 </div>
               </article>
-            ))}
-          </div>
-        </section>
-      ) : <div className="ops-empty" style={{ padding: 24 }}>Không có hóa đơn chờ thu</div>}
+            );
+          })}
+        </div>
+      ) : null}
 
-      {collected.length > 0 ? (
-        <section>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Đã thu ({collected.length})</h3>
-          <table className="ops-table">
-            <thead><tr><th>Bàn</th><th>Số lượt gọi</th><th>Phương thức</th><th>Tổng tiền</th><th>Trạng thái</th></tr></thead>
-            <tbody>
-              {collected.map((invoice) => (
-                <tr key={invoice.tableSessionId}>
-                  <td><strong>{invoice.tableCode}</strong></td>
-                  <td>{invoice.orderRounds.length}</td>
-                  <td>{invoice.method === "COD" ? "Tiền mặt" : "VietQR"}</td>
-                  <td>{formatVnd(invoice.totalAmount)}</td>
-                  <td><span className="ops-badge ops-badge--confirmed">Đã xác nhận</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+      {!dangCho && collected.length > 0 ? (
+        <table className="ops-table">
+          <thead><tr><th>Bàn</th><th>Lượt gọi</th><th>Phương thức</th><th>Tổng tiền</th></tr></thead>
+          <tbody>
+            {collected.map((invoice) => (
+              <tr key={invoice.tableSessionId}>
+                <td><strong>{invoice.tableCode}</strong></td>
+                <td>{invoice.orderRounds.length}</td>
+                <td>{invoice.method === "COD" ? "Tiền mặt" : "VietQR"}</td>
+                <td data-money>{formatVnd(invoice.totalAmount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+
+      {/*
+        Thông báo tiền vào NỔI, không chen vào dòng chảy trang.
+
+        Bản trước chèn nó lên đầu trang, nên mỗi lần có bàn trả tiền là toàn bộ danh sách bị đẩy
+        xuống — đúng lúc người ta đang nhắm bấm một nút. Nổi ở góc thì nó thấy được mà không dịch
+        chuyển thứ gì.
+
+        `aria-live="assertive"`: đây là tiền vừa vào, nó phải cắt ngang. Giữ đến khi bấm bỏ, KHÔNG
+        tự tắt — một thông báo tiền bạc biến mất trong lúc người ta quay đi là đúng cái hỏng nó
+        sinh ra để chặn.
+      */}
+      {daThu.length > 0 ? (
+        <div aria-live="assertive" className="ops-toast-stack" role="status">
+          {daThu.map((tb) => (
+            <div className="ops-toast pos-toast" key={tb.invoiceCode}>
+              <QrCode aria-hidden="true" size={16} />
+              <span>
+                <strong>Bàn {tb.tableCode || "?"} đã thanh toán {formatVnd(tb.totalAmount)}</strong>
+                <small>chuyển khoản tự động</small>
+              </span>
+              <button
+                aria-label={`Bỏ thông báo bàn ${tb.tableCode}`}
+                className="pos-toast-x"
+                onClick={() => setDaThu((truoc) => truoc.filter((x) => x.invoiceCode !== tb.invoiceCode))}
+                type="button"
+              >
+                <X aria-hidden="true" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       ) : null}
     </div>
   );
