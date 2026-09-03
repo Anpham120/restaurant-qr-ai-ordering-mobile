@@ -14,7 +14,10 @@ import {
   canDropKitchenOrder,
   getItemTapAdvanceStatus,
   itemActionLabel,
+  labelKitchenColumn,
   labelKitchenItemStatus,
+  labelKitchenOrderStatus,
+  moTaChipMon,
   getKitchenBoardAdvancePlan,
   getKitchenBoardColumn,
   getKitchenPrimaryAction,
@@ -195,15 +198,8 @@ function OrderCard({
                 event.stopPropagation();
                 if (next) onItemTap(order, item.orderItemId, next);
               }}
-              title={
-                next === "Preparing"
-                  ? "Chạm để bắt đầu nấu"
-                  : next === "Ready"
-                    ? "Chạm khi món xong"
-                    : next === "Served"
-                      ? "Chạm khi đưa món đi"
-                      : undefined
-              }
+              aria-label={moTaChipMon(item.quantity, item.name, item.status)}
+              title={moTaChipMon(item.quantity, item.name, item.status)}
             >
               {isItemPending ? "..." : `${item.quantity}× ${item.name}`}
             </button>
@@ -249,7 +245,7 @@ function OrderDetailModal({
           <div>
             <h2 id="kitchen-order-title">{order.orderCode}</h2>
             <div className="ops-card-meta" style={{ marginTop: 4 }}>
-              <span className={statusBadgeClass(order.status)}>{order.status}</span>
+              <span className={statusBadgeClass(order.status)}>{labelKitchenOrderStatus(order.status)}</span>
               {order.tableCode ? <span>Bàn {order.tableCode}</span> : null}
               <span>{formatVnd(order.totalAmount)}</span>
             </div>
@@ -558,7 +554,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
 
       <div className="ops-board ops-board--kitchen">
         <KitchenColumn
-          title="Đơn mới"
+          title={labelKitchenColumn("confirmed")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="confirmed"
           orders={confirmed}
@@ -571,7 +567,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "confirmed"}
         />
         <KitchenColumn
-          title="Đang nấu"
+          title={labelKitchenColumn("preparing")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="preparing"
           orders={preparing}
@@ -584,7 +580,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "preparing"}
         />
         <KitchenColumn
-          title="Sẵn sàng"
+          title={labelKitchenColumn("ready")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="ready"
           orders={ready}
@@ -597,7 +593,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "ready"}
         />
         <KitchenColumn
-          title="Đã phục vụ"
+          title={labelKitchenColumn("served")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="served"
           orders={served}

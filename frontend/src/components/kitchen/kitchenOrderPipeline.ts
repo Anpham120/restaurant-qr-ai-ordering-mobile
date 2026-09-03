@@ -112,27 +112,27 @@ export function getKitchenPrimaryAction(order: Order): KitchenPrimaryAction {
     const remaining = progress.total - progress.ready;
     if (remaining <= 0) {
       return {
-        label: "Chuyển sẵn sàng",
-        detail: "Tất cả món đã xong",
+        label: "Cả đơn đã nấu xong",
+        detail: "Chuyển đơn sang chờ ra món",
         disabled: false,
       };
     }
     return {
-      label: remaining === 1 ? "Xong món cuối" : `Xong ${remaining} món còn lại`,
-      detail: `${progress.ready}/${progress.total} món đã sẵn sàng`,
+      label: remaining === 1 ? "Nấu xong món cuối" : `Nấu xong ${remaining} món`,
+      detail: `${progress.ready}/${progress.total} món đã xong`,
       disabled: false,
     };
   }
 
   if (column === "ready") {
     return {
-      label: "Báo đã phục vụ",
-      detail: "Gửi thông báo cho quầy / phục vụ",
+      label: "Ra hết món",
+      detail: "Cả đơn rời bếp",
       disabled: false,
     };
   }
 
-  return { label: "Hoàn tất", detail: "", disabled: true };
+  return { label: "Đã ra hết món", detail: "", disabled: true };
 }
 
 export function getKitchenBoardColumn(status: OrderStatus): KitchenBoardColumn | null {
@@ -196,37 +196,106 @@ export function canDropKitchenOrder(
 }
 
 /**
- * Chữ trên nút hành động của MỘT món, ở bảng chi tiết đơn.
+ * TỪ VỰNG CỦA BẾP — một trạng thái, một tên gọi, trên toàn màn hình.
+ *
+ * <p>Trước bản này màn bếp nói bốn thứ tiếng cho cùng một trạng thái, và cả bốn cùng hiện một lúc:
+ * tiêu đề cột "Sẵn sàng", badge trong bảng "Xong, chờ đưa", nút "Đưa món đi", còn chip trên thẻ thì
+ * KHÔNG nói gì — chỉ đổi màu. Người trực bếp phải tự dịch giữa chúng.
+ *
+ * <p>Bộ từ này lấy theo lời của người đứng bếp, không phải lời của quầy hay của khách. "Ra món" chứ
+ * không "phục vụ": người ở bếp không phục vụ ai cả, họ đẩy món qua cửa ra. Và giữ như vậy thì chữ
+ * của bếp không đụng chữ của khách ("Đã mang ra bàn") — hai việc khác nhau, hai người khác nhau.
+ *
+ * <p>Quy tắc: NÚT là động từ, TRẠNG THÁI là chỗ món đang đứng. Bấm "Nấu xong" thì món sang "Chờ ra
+ * món"; bấm "Ra món" thì món sang "Đã ra món". Động từ trên nút luôn dẫn thẳng tới danh từ kế tiếp,
+ * nên đọc nút là biết bấm xong sẽ thấy gì.
+ */
+const NHAN_MON_BEP: Record<string, string> = {
+  Pending: "Chờ nấu",
+  Preparing: "Đang nấu",
+  Ready: "Chờ ra món",
+  Served: "Đã ra món",
+  Cancelled: "Đã huỷ",
+};
+
+/** Trạng thái ĐƠN, cũng bằng từ của bếp. `Placed` và `Confirmed` với bếp là một: chưa động vào. */
+const NHAN_DON_BEP: Record<string, string> = {
+  Draft: "Nháp",
+  Placed: "Đơn mới",
+  Confirmed: "Đơn mới",
+  Preparing: "Đang nấu",
+  Ready: "Chờ ra món",
+  Served: "Đã ra món",
+  Completed: "Xong, đã tính tiền",
+  Cancelled: "Đã huỷ",
+};
+
+/** Khoá là trạng thái SẼ TỚI, để nút và bước đi không thể lệch nhau. */
+const NHAN_NUT_MON: Partial<Record<OrderItemStatus, string>> = {
+  Preparing: "Bắt đầu nấu",
+  Ready: "Nấu xong",
+  Served: "Ra món",
+};
+
+const NHAN_COT_BEP: Record<KitchenBoardColumn, string> = {
+  confirmed: "Đơn mới",
+  preparing: "Đang nấu",
+  ready: "Chờ ra món",
+  served: "Đã ra món",
+};
+
+/**
+ * Chữ trên nút hành động của MỘT món.
  *
  * <p>Phải đi kèm {@link getItemTapAdvanceStatus}: mở rộng vòng đời mà quên hàm này thì nút hiện
- * RỖNG. Đã xảy ra thật khi thêm bước `Ready -> Served` — món đã xong hiện một nút không có chữ,
- * và người trực bếp không biết bấm vào thì chuyện gì xảy ra.
+ * RỖNG. Đã xảy ra thật khi thêm bước `Ready -> Served` — món đã xong hiện một nút không có chữ, và
+ * người trực bếp không biết bấm vào thì chuyện gì xảy ra.
  *
  * <p>Trả chuỗi rỗng CHỈ khi món đã tới điểm cuối; nơi gọi không vẽ nút trong ca đó.
  */
 export function itemActionLabel(current: OrderItemStatus): string {
   const next = getItemTapAdvanceStatus(current);
-  if (next === "Preparing") return "Bắt đầu nấu";
-  if (next === "Ready") return "Xong món";
-  if (next === "Served") return "Đưa món đi";
-  return "";
+  return next ? (NHAN_NUT_MON[next] ?? "") : "";
+}
+
+/** Trạng thái MÓN bằng từ của bếp. Xem {@link NHAN_MON_BEP}. */
+export function labelKitchenItemStatus(status: string): string {
+  return NHAN_MON_BEP[status] ?? status;
 }
 
 /**
- * Nhãn trạng thái món cho NGƯỜI TRỰC BẾP — ngắn, nói về việc của bếp.
+ * Trạng thái ĐƠN bằng từ của bếp.
  *
- * <p>Khác hẳn nhãn cho khách (`labelGuestItemStatus`): khách cần "Đang làm món của bạn", bếp cần
- * "Đang nấu". Cùng một trạng thái, hai người, hai việc khác nhau — và một bảng bếp dùng câu viết
- * cho khách sẽ dài gấp ba lần chỗ nó có.
- *
- * <p>Trước bản này bảng chi tiết in thẳng giá trị enum: `Ready`, `Served` bằng tiếng Anh giữa một
- * màn hình tiếng Việt.
+ * <p>Bảng chi tiết trước đây in thẳng giá trị enum — `Placed`, `Ready` bằng tiếng Anh giữa một màn
+ * hình tiếng Việt. Không dùng `labelOrderStatus` của web được: bộ đó viết cho quầy và cho khách
+ * ("Sẵn sàng", "Đã phục vụ"), đúng cột từ mà bản này đang gỡ khỏi màn bếp.
  */
-export function labelKitchenItemStatus(status: string): string {
-  if (status === "Pending") return "Chờ nấu";
-  if (status === "Preparing") return "Đang nấu";
-  if (status === "Ready") return "Xong, chờ đưa";
-  if (status === "Served") return "Đã đưa đi";
-  if (status === "Cancelled") return "Đã huỷ";
-  return status;
+export function labelKitchenOrderStatus(status: string): string {
+  return NHAN_DON_BEP[status] ?? status;
+}
+
+/** Tiêu đề cột. Cùng nguồn với nhãn món, để cột và món trong cột không gọi khác tên nhau. */
+export function labelKitchenColumn(column: KitchenBoardColumn): string {
+  return NHAN_COT_BEP[column];
+}
+
+/**
+ * Câu đọc được cho MỘT chip món trên thẻ.
+ *
+ * <p>Chip chỉ vẽ "2× Phở" và để MÀU nói trạng thái; chữ trạng thái nằm trong `title`, mà `title`
+ * chỉ hiện khi rê chuột — màn bếp là màn chạm, không có chuột. Nên với trình đọc màn hình trạng
+ * thái của chip trước đây không tồn tại.
+ *
+ * <p>Đây mới chỉ vá phần đọc được. Với người nhìn, chip vẫn phân biệt bằng màu là chính (Served có
+ * thêm gạch ngang, các trạng thái khác thì không) — chưa đạt yêu cầu "đừng dùng riêng màu để truyền
+ * tin", và cần một dấu hiệu về HÌNH ở lần sau.
+ */
+export function moTaChipMon(
+  soLuong: number,
+  ten: string,
+  status: OrderItemStatus,
+): string {
+  const nut = itemActionLabel(status);
+  const goc = `${soLuong}× ${ten} — ${labelKitchenItemStatus(status)}`;
+  return nut ? `${goc}. Chạm để ${nut.toLowerCase()}` : goc;
 }

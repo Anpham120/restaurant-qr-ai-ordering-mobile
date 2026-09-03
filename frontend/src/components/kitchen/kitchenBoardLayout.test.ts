@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { labelKitchenColumn } from "./kitchenOrderPipeline";
 
 const frontendRoot = new URL("../../../", import.meta.url);
 
@@ -12,9 +13,13 @@ describe("V59 Kitchen board layout", () => {
   it("renders the four operational stages", () => {
     const board = read("src/components/kitchen/KitchenBoard.tsx");
 
-    for (const title of ["Đơn mới", "Đang nấu", "Sẵn sàng", "Đã phục vụ"]) {
-      expect(board).toContain(`title="${title}"`);
+    // Bốn cột phải lấy chữ từ MỘT nguồn (`labelKitchenColumn`) chứ không viết tay tại chỗ. Ca này
+    // trước đây ghim thẳng bốn chuỗi vào đây — thành ra nó ghim luôn bộ từ CŨ của quầy ("Sẵn sàng",
+    // "Đã phục vụ") vào một màn hình của bếp, và đỏ lên đúng lúc màn hình được sửa cho đúng.
+    for (const column of ["confirmed", "preparing", "ready", "served"] as const) {
+      expect(board).toContain(`title={labelKitchenColumn("${column}")}`);
     }
+    expect(labelKitchenColumn("ready")).toBe("Chờ ra món");
 
     expect(board).toMatch(
       /SmartKitchenActionButton[\s\S]*?getKitchenPrimaryAction/,
