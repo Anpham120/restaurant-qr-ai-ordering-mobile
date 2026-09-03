@@ -32,6 +32,20 @@ public class MenuItemEntity {
 	@Column(name = "image_url")
 	private String imageUrl;
 
+	/**
+	 * Phút từ lúc bếp nhận món tới lúc món sẵn sàng. {@code null} = chưa khai.
+	 *
+	 * <p>V11 tạo cột này và điền giá trị khởi tạo suy từ nhãn {@code method:}, kèm lời hứa "bếp sửa
+	 * lại qua PATCH khi thấy sai". Lời hứa đó chưa bao giờ thành: entity KHÔNG ánh xạ cột, DTO không
+	 * có trường, giao diện không có ô. Suốt từ V11 tới nay chỉ migration ghi được con số mà mọi ước
+	 * lượng thời gian lên món đều dựa vào.
+	 *
+	 * <p>ĐÂY LÀ THỜI GIAN LÊN MÓN, KHÔNG PHẢI THỜI GIAN NẤU. Phở ninh nước dùng cả đêm nhưng múc ra
+	 * bát chỉ vài phút.
+	 */
+	@Column(name = "prep_minutes")
+	private Integer prepMinutes;
+
 	@Column(name = "is_available", nullable = false)
 	private boolean available;
 
@@ -121,6 +135,14 @@ public class MenuItemEntity {
 
 	public void setTags(List<String> tags) {
 		this.tags = tags;
+	}
+
+	public Integer getPrepMinutes() {
+		return prepMinutes;
+	}
+
+	public void setPrepMinutes(Integer prepMinutes) {
+		this.prepMinutes = prepMinutes;
 	}
 
 	public OffsetDateTime getCreatedAt() {

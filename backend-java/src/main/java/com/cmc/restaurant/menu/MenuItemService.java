@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class MenuItemService {
 
+	/** Ngưỡng chặn lỗi gõ cho thời gian lên món (phút). */
+	private static final int MAX_PREP_MINUTES = 240;
+
 	private final MenuItemRepository menuItemRepository;
 	private final CategoryRepository categoryRepository;
 
@@ -32,6 +35,7 @@ public class MenuItemService {
 				request.isAvailable() == null || request.isAvailable(),
 				normalizeTags(request.tags()),
 				OffsetDateTime.now());
+		item.setPrepMinutes(request.prepMinutes());
 
 		return menuItemRepository.save(item);
 	}
@@ -48,7 +52,13 @@ public class MenuItemService {
 		item.setPrice(request.price());
 		item.setImageUrl(normalizeOptional(request.imageUrl()));
 		item.setAvailable(request.isAvailable() == null || request.isAvailable());
-		item.setTags(normalizeTags(request.tags()));
+		item.setTags(normalizeTags(request.tags()));
+		// null = GIỮ NGUYÊN, không phải xoá. Xem ghi chú ở MenuItemRequest: PUT thay toàn bộ bản ghi,
+		// nên coi null là xoá thì một lần sửa TÊN món bằng client cũ sẽ thổi bay con số bếp đã khai và
+		// mọi ước lượng của món đó, không một tiếng động.
+		if (request.prepMinutes() != null) {
+			item.setPrepMinutes(request.prepMinutes());
+		}
 		item.setUpdatedAt(OffsetDateTime.now());
 
 		return menuItemRepository.save(item);
@@ -92,8 +102,18 @@ public class MenuItemService {
 			throw ApiException.badRequest("MENU_ITEM_NAME_REQUIRED", "Menu item name is required.");
 		}
 
-		if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
-			throw ApiException.badRequest("MENU_ITEM_PRICE_INVALID", "Menu item price must be greater than zero.");
+		if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
+			throw ApiException.badRequest("MENU_ITEM_PRICE_INVALID", "Menu item price must be greater than zero.");
+		}
+
+		// Chặn LỖI GÕ, không phải chặn nghiệp vụ. Món lâu nhất trong thực đơn hiện tại là 35 phút
+		// (quay nguyên con); ngưỡng để rộng gấp nhiều lần để không cãi nhau với bếp. Nhưng 0 hay số âm
+		// thì không có nghĩa nào cả, và một con số ba chữ số gõ nhầm sẽ đẩy ước lượng của cả bếp đi xa.
+		Integer prepMinutes = request.prepMinutes();
+		if (prepMinutes != null && (prepMinutes < 1 || prepMinutes > MAX_PREP_MINUTES)) {
+			throw ApiException.badRequest(
+					"MENU_ITEM_PREP_MINUTES_INVALID",
+					"Prep minutes must be between 1 and " + MAX_PREP_MINUTES + ".");
 		}
 	}
 

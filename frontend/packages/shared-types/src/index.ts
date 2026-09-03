@@ -24,7 +24,11 @@ export type TableSession = { sessionId: string; orderType: OrderType; status: "O
 export type TableSessionResumeState = "New" | "CartPending" | "OrderInProgress" | "ReadyForPayment" | "PaymentPending" | "Paid";
 export type OpenTableSessionResponse = TableSession & { tableSessionToken: string; resumeState: TableSessionResumeState };
 export type MenuCategory = { categoryId: string; name: string };
-export type MenuItem = { id: string; name: string; description: string; price: number; categoryId: string; categoryName: string; imageUrl: string | null; isAvailable: boolean; tags: string[] };
+// `prepMinutes`: phút từ lúc bếp nhận món tới lúc món sẵn sàng, do BẾP khai. `null` = chưa khai
+// và món đó không có ước lượng — im lặng đúng, hơn là một con số bịa. Cột `menu_items.prep_minutes`
+// có từ V11 nhưng tới nay chỉ migration ghi được: entity không ánh xạ, DTO không có trường, giao
+// diện không có ô. Đây là kiểu cho đường ghi vừa mở.
+export type MenuItem = { id: string; name: string; description: string; price: number; categoryId: string; categoryName: string; imageUrl: string | null; isAvailable: boolean; tags: string[]; prepMinutes: number | null };
 export type MenuResponse = { categories: MenuCategory[]; items: MenuItem[] };
 export type CreateOrderRequest = { orderType: OrderType; tableCode?: string | null; qrToken?: string | null; tableSessionId?: string | null; items: Array<{ menuItemId: string; quantity: number }>; promotionCode?: string | null; customerPhoneNumber?: string | null };
 // `estimatedReadyMinutes*` và `kitchenBusy`: máy chủ ĐÃ gửi ba trường này từ lâu (xem

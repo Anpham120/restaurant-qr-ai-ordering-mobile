@@ -22,6 +22,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: goiCuonUrl,
     isAvailable: true,
     tags: ["fresh", "light", "signature"],
+    prepMinutes: null,
   },
   {
     id: "mi-002",
@@ -32,6 +33,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: goiXoaiUrl,
     isAvailable: true,
     tags: ["fresh", "seafood"],
+    prepMinutes: null,
   },
   {
     id: "mi-003",
@@ -42,6 +44,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: nemRanUrl,
     isAvailable: true,
     tags: ["crispy", "classic"],
+    prepMinutes: null,
   },
   {
     id: "mi-004",
@@ -52,6 +55,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: banhXeoUrl,
     isAvailable: false,
     tags: ["crispy", "popular"],
+    prepMinutes: null,
   },
   {
     id: "mi-005",
@@ -62,6 +66,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: phoBoUrl,
     isAvailable: true,
     tags: ["signature", "beef"],
+    prepMinutes: null,
   },
   {
     id: "mi-006",
@@ -72,6 +77,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: boLucLacUrl,
     isAvailable: true,
     tags: ["beef", "premium"],
+    prepMinutes: null,
   },
   {
     id: "mi-007",
@@ -82,6 +88,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: chaCaLaVongUrl,
     isAvailable: true,
     tags: ["signature", "fish"],
+    prepMinutes: null,
   },
   {
     id: "mi-008",
@@ -92,6 +99,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: tomRangMuoiUrl,
     isAvailable: true,
     tags: ["seafood", "share"],
+    prepMinutes: null,
   },
   {
     id: "mi-009",
@@ -102,6 +110,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: lauThaiUrl,
     isAvailable: true,
     tags: ["spicy", "seafood", "share"],
+    prepMinutes: null,
   },
   {
     id: "mi-010",
@@ -112,6 +121,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: cheKhucBachUrl,
     isAvailable: true,
     tags: ["sweet", "cool"],
+    prepMinutes: null,
   },
   {
     id: "mi-011",
@@ -122,6 +132,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: traDaoUrl,
     isAvailable: true,
     tags: ["drink", "fresh"],
+    prepMinutes: null,
   },
   {
     id: "mi-012",
@@ -132,6 +143,7 @@ export const menuItems: MenuItem[] = [
     imageUrl: caPheSuaDaUrl,
     isAvailable: false,
     tags: ["drink", "coffee"],
+    prepMinutes: null,
   },
 ];
 
