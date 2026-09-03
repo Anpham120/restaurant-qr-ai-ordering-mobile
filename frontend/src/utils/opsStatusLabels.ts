@@ -29,12 +29,28 @@ const PAYMENT_METHOD_VI: Record<string, string> = {
   VietQR: "VietQR",
 };
 
+/**
+ * Nhãn trạng thái MÓN cho KHÁCH.
+ *
+ * Viết theo VIỆC ĐÃ XẢY RA với món của khách, không theo tên trạng thái của hệ thống. "Sẵn sàng
+ * phục vụ" là ngôn ngữ của người vận hành; người đang ngồi ăn cần biết món đang trên đường ra.
+ *
+ * PHẢI KHỚP TỪNG CHỮ với `nhanTrangThaiMon` bên app (`mobile-rn/src/core/orders/order.ts`). Hai
+ * kho không dùng chung mã được, nên mỗi bên có một phép kiểm ghim đúng chuỗi này — đổi một bên mà
+ * quên bên kia thì phép kiểm bên đó đỏ.
+ *
+ * Trước đây hai bên nói hai kiểu cho cùng một trạng thái: app "Nấu xong", web "Sẵn sàng phục vụ".
+ * Nhóm khách một người mở app một người quét web sẽ thấy hai câu khác nhau cho cùng một món.
+ *
+ * `Pending` là "Đã gửi bếp" chứ không "Chờ xác nhận" — không có gì để khách xác nhận cả, đơn đã
+ * gửi rồi. Câu cũ làm khách tưởng còn phải bấm thêm gì đó.
+ */
 const ITEM_STATUS_VI: Record<string, string> = {
-  Pending: "Chờ xác nhận",
-  Preparing: "Đang chuẩn bị",
-  Ready: "Sẵn sàng phục vụ",
-  Served: "Đã phục vụ",
-  Cancelled: "Đã hủy",
+  Pending: "Đã gửi bếp, chờ tới lượt",
+  Preparing: "Đang làm món của bạn",
+  Ready: "Món xong, đang mang ra bàn",
+  Served: "Đã mang ra bàn",
+  Cancelled: "Đã huỷ",
 };
 
 export function labelOrderStatus(status: OrderStatus | string): string {
@@ -54,14 +70,19 @@ export function labelPaymentChip(method: PaymentMethod | string, status: Payment
 }
 
 /** Guest item chip: after order is staff-confirmed, Pending means waiting for kitchen — not staff confirm. */
-export function labelGuestItemStatus(itemStatus: string, orderStatus: string): string {
-  if (
-    itemStatus === "Pending" &&
-    orderStatus !== "Placed" &&
-    orderStatus !== "Draft" &&
-    orderStatus !== "Cancelled"
-  ) {
-    return "Chờ chế biến";
-  }
+/**
+ * Nhãn món cho khách.
+ *
+ * <p>Không còn rẽ nhánh theo trạng thái ĐƠN. Bản trước phải rẽ vì `Pending` mang nhãn "Chờ xác
+ * nhận" — sai khi bếp đã nhận đơn — nên nó vá bằng cách đổi sang "Chờ chế biến" trong đúng những
+ * ca đó. Sửa thẳng câu gốc thì cái vá thành thừa.
+ *
+ * <p>Ca `Cancelled` cũng không cần rẽ: huỷ đơn tự huỷ mọi món còn sống (`Order.java:86-88`), nên
+ * món của một đơn đã huỷ luôn đọc ra "Đã huỷ" mà không cần ai kể cho nó biết đơn đang thế nào.
+ *
+ * <p>Giữ tham số `orderStatus` để nơi gọi không phải sửa, và để nếu sau này có ca thật sự cần rẽ
+ * thì chỗ rẽ đã sẵn.
+ */
+export function labelGuestItemStatus(itemStatus: string, _orderStatus: string): string {
   return ITEM_STATUS_VI[itemStatus] ?? itemStatus;
 }
