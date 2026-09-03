@@ -11,6 +11,7 @@ import type {
   CreateUserRequest,
   LoginRequest,
   LoginResponse,
+  LoyaltyCounterRedeem,
   LoyaltyLookupResponse,
   LoyaltyMember,
   LoyaltyMemberRequest,
@@ -249,6 +250,23 @@ export function createApiClient(options: ApiClientOptions = {}) {
        */
       linkPhoneAtCounter: (payload: { code: string; phone: string }) =>
         request<unknown>("/loyalty/link", { method: "POST", body: JSON.stringify(payload) }),
+      /**
+       * Quầy đổi thưởng HỘ khách chỉ dùng web.
+       *
+       * Khách quét QR không đăng nhập nên không tự đổi được, nhưng điểm vẫn tích theo số điện
+       * thoại. Không có đường này thì cả nhóm khách đó kiếm điểm mà vĩnh viễn không tiêu được.
+       *
+       * `Idempotency-Key` là BẮT BUỘC: bấm hai lần lúc mạng chập chờn ở đây tiêu điểm THẬT của
+       * khách, và người bấm không phải người mất điểm.
+       */
+      counterRedeem: (
+        payload: { phone: string; rewardId: string; orderCode?: string | null },
+        idempotencyKey: string,
+      ) => request<LoyaltyCounterRedeem>("/loyalty/counter/redeem", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(payload),
+      }),
       listMembers: () => request<LoyaltyMember[]>("/admin/loyalty/members"),
       createMember: (payload: LoyaltyMemberRequest) => request<LoyaltyMember>("/admin/loyalty/members", { method: "POST", body: JSON.stringify(payload) }),
       updateMember: (id: string, payload: LoyaltyMemberRequest) => request<LoyaltyMember>(`/admin/loyalty/members/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(payload) }),

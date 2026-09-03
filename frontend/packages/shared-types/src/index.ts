@@ -131,6 +131,24 @@ export type LoyaltyLookupResponse = {
   pendingVouchers: LoyaltyVoucher[];
 };
 
+/**
+ * Kết quả một lần quầy đổi thưởng HỘ khách.
+ *
+ * Ba kết cục, và chúng khác nhau ở việc nhân viên phải LÀM GÌ tiếp:
+ *   - `code` có     → giảm tiền: đọc mã cho khách, khách tự nhập ở màn thanh toán
+ *   - `orderCode` có → tặng món đã vào đơn: bếp đang làm, không phải đọc gì
+ *   - cả hai null    → tặng món chưa gắn đơn: phiếu nằm chờ, quầy phát bằng tay
+ */
+export type LoyaltyCounterRedeem = {
+  redemptionId: string;
+  rewardName: string;
+  pointsSpent: number;
+  code: string | null;
+  orderCode: string | null;
+  /** Điểm còn lại, để quầy đọc lại cho khách ngay. */
+  soDuMoi: number;
+};
+
 export type TopMenuItemReport = { menuItemId: string; name: string; quantitySold: number; revenue: number };
 export type DailyRevenueReport = { date: string; orderCount: number; revenue: number };
 export type ReportSummaryResponse = { from: string; to: string; totalOrders: number; paidOrders: number; grossRevenue: number; totalDiscount: number; netRevenue: number; topItems: TopMenuItemReport[]; dailyRevenue: DailyRevenueReport[] };

@@ -1,9 +1,16 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "@cmc/api-client";
 import { Gift, Link2, Search } from "lucide-react";
-import type { LoyaltyVoucher } from "@cmc/shared-types";
+import type { LoyaltyReward, LoyaltyVoucher } from "@cmc/shared-types";
 import { api } from "../../services/apiClient";
 import "../../components/operations/operations.css";
+import {
+  canHoiMaDon,
+  canhBaoTruocKhiDoi,
+  huongDanSauKhiDoi,
+  khoaChongTrung,
+  type HuongDan,
+} from "./counterRedeemGuidance";
 import "./counter-hub.css";
 
 type KetQua = {
@@ -11,6 +18,8 @@ type KetQua = {
   points: number;
   tierName: string;
   vouchers: LoyaltyVoucher[];
+  /** Ưu đãi số này đổi được NGAY — máy chủ đã lọc theo cả điểm lẫn hạng. */
+  uuDaiDoiDuoc: LoyaltyReward[];
 };
 
 /**
@@ -48,6 +57,9 @@ export function CounterVoucherPanel() {
   const [dangThu, setDangThu] = useState<string | null>(null);
   const [loi, setLoi] = useState("");
   const [tin, setTin] = useState("");
+  const [maDon, setMaDon] = useState("");
+  const [dangDoi, setDangDoi] = useState<string | null>(null);
+  const [huongDan, setHuongDan] = useState<HuongDan | null>(null);
 
   const tra = useCallback(async () => {
     const so = phone.trim();
@@ -65,7 +77,9 @@ export function CounterVoucherPanel() {
         points: r.points,
         tierName: r.tierName,
         vouchers: r.pendingVouchers ?? [],
+        uuDaiDoiDuoc: r.availableRewards ?? [],
       });
+      setHuongDan(null);
     } catch (e) {
       setKetQua(null);
       setLoi(e instanceof ApiError ? e.message : "Không tra được. Thử lại.");
@@ -99,6 +113,44 @@ export function CounterVoucherPanel() {
       setDangNoi(false);
     }
   }, [maNoi, phone]);
+
+  /**
+   * Đổi thưởng HỘ khách chỉ dùng web.
+   *
+   * Điểm bị trừ là điểm THẬT của khách, và người bấm không phải người mất điểm. Nên: hỏi lại
+   * trước khi bấm, khoá chống trùng cho mỗi lần bấm, và sau khi xong phải nói RÕ nhân viên làm
+   * gì tiếp — ba kết cục khác nhau, một câu "thành công" chung chung là vô dụng ở quầy.
+   */
+  const doiHo = useCallback(
+    async (reward: LoyaltyReward) => {
+      if (dangDoi !== null || ketQua === null) return;
+      if (!window.confirm(canhBaoTruocKhiDoi(ketQua.points, reward))) return;
+
+      setDangDoi(reward.rewardId);
+      setLoi("");
+      setTin("");
+      try {
+        const kq = await api.loyalty.counterRedeem(
+          {
+            phone: ketQua.phoneNumber,
+            rewardId: reward.rewardId,
+            orderCode: canHoiMaDon(reward) && maDon.trim() !== "" ? maDon.trim() : null,
+          },
+          khoaChongTrung(),
+        );
+        setHuongDan(huongDanSauKhiDoi(kq));
+        setMaDon("");
+        // Số dư và danh sách phiếu đều đổi sau một lần đổi. Tra lại để nhân viên đọc đúng con số
+        // cho khách, thay vì tự trừ trong đầu.
+        await tra();
+      } catch (e) {
+        setLoi(e instanceof ApiError ? e.message : "Không đổi được. Thử lại.");
+      } finally {
+        setDangDoi(null);
+      }
+    },
+    [dangDoi, ketQua, maDon, tra],
+  );
 
   const thu = useCallback(
     async (v: LoyaltyVoucher) => {
@@ -199,6 +251,61 @@ export function CounterVoucherPanel() {
           <p className="ops-muted">
             {ketQua.phoneNumber} · hạng {ketQua.tierName} · {ketQua.points} điểm
           </p>
+
+          {/*
+            Hướng dẫn sau khi đổi. Ba kết cục khác nhau ở việc nhân viên phải LÀM GÌ tiếp, nên
+            không có câu "đổi thành công" chung chung ở đây — câu đó không nói được gì ở quầy.
+
+            Ca đáng lo nhất là tặng món CHƯA gắn đơn: không có mã để đọc, cũng không có món nào
+            vào bếp. Im lặng ở đó thì nhân viên tưởng hỏng và bấm lại — lần bấm thứ hai sinh khoá
+            chống trùng mới nên máy chủ không cứu được, và khách mất điểm thật lần nữa.
+          */}
+          {huongDan ? (
+            <div className="counter-redeem-ketqua" role="status" aria-live="polite">
+              <p>{huongDan.cauChinh}</p>
+              {huongDan.maDocChoKhach ? (
+                <strong className="counter-redeem-ma">{huongDan.maDocChoKhach}</strong>
+              ) : null}
+              {huongDan.vieccConLai ? <p className="ops-muted">{huongDan.vieccConLai}</p> : null}
+            </div>
+          ) : null}
+
+          {ketQua.uuDaiDoiDuoc.length === 0 ? (
+            <p className="ops-muted">Số này chưa đủ điểm cho ưu đãi nào.</p>
+          ) : (
+            <>
+              <h3 className="counter-redeem-tieude">Đổi hộ khách</h3>
+              {ketQua.uuDaiDoiDuoc.some(canHoiMaDon) ? (
+                <label className="ops-field">
+                  <span>Mã đơn đang mở (chỉ cần cho ưu đãi tặng món)</span>
+                  <input
+                    autoComplete="off"
+                    onChange={(e) => setMaDon(e.target.value)}
+                    placeholder="ORD-1042 — bỏ trống thì phiếu nằm chờ, phát bằng tay"
+                    value={maDon}
+                  />
+                </label>
+              ) : null}
+              <ul className="counter-voucher-list">
+                {ketQua.uuDaiDoiDuoc.map((r) => (
+                  <li className="counter-voucher-item" key={r.rewardId}>
+                    <div>
+                      <strong>{r.name}</strong>
+                      <span className="ops-muted"> · {r.pointsRequired} điểm</span>
+                    </div>
+                    <button
+                      className="ops-btn ops-btn--primary ops-btn--sm"
+                      disabled={dangDoi !== null}
+                      onClick={() => void doiHo(r)}
+                      type="button"
+                    >
+                      {dangDoi === r.rewardId ? "Đang đổi…" : "Đổi hộ"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {ketQua.vouchers.length === 0 ? (
             <p className="ops-muted">Số này không có phiếu nào chưa dùng.</p>

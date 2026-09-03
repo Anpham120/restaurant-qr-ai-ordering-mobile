@@ -380,3 +380,38 @@
   margin-inline-start: auto;
   min-height: 44px;
 }
+
+/*
+  Kết quả một lần đổi hộ. Nhân viên đang đứng trước khách, nên câu này phải đọc được từ xa và
+  không lẫn vào phần còn lại của màn hình.
+*/
+.counter-redeem-ketqua {
+  background: var(--color-primary-50, #f0f7ff);
+  border: 1px solid var(--color-primary-200, #bfddfe);
+  border-left: 4px solid var(--color-primary, #005bac);
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 12px 14px;
+}
+
+.counter-redeem-ketqua p { margin: 0; }
+.counter-redeem-ketqua p + p { margin-top: 6px; }
+
+/*
+  Mã đọc cho khách. To, giãn chữ, dùng phông đều nét — nhân viên đọc to từng ký tự qua tiếng ồn
+  quán, và `0` với `O` lẫn nhau ở đây là khách nhập sai rồi quay lại quầy.
+*/
+.counter-redeem-ma {
+  color: var(--color-primary, #005bac);
+  display: block;
+  font: 700 28px/1.2 ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  letter-spacing: .18em;
+  margin-top: 8px;
+  user-select: all;
+}
+
+.counter-redeem-tieude {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
