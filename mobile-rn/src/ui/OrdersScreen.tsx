@@ -12,10 +12,19 @@ import {
   nhanTrangThaiMon,
 } from '../core/orders/order';
 import { type OrderApi } from '../core/orders/orderApi';
+import { conGiDeCho, monVuaSanSang } from '../core/orders/theoDoiDon';
 import { type OrderTokenStore } from '../core/orders/orderTokenStore';
 import { type TableSession } from '../core/tables/tableSession';
 import { tienVnd } from '../core/tien';
 import { MauQuan, kieuChung } from './theme';
+
+/**
+ * Bao lâu hỏi lại máy chủ một lần khi màn đơn đang mở.
+ *
+ * 10 giây: đủ nhanh để khách thấy món xong gần như ngay, đủ chậm để không thành một vòng lặp
+ * mạng chạy suốt bữa ăn. Vòng này TỰ DỪNG khi mọi món đã tới bàn.
+ */
+const CHU_KY_HOI_LAI_MS = 10_000;
 
 export interface OrdersScreenProps {
   api: OrderApi;
@@ -53,6 +62,8 @@ export function OrdersScreen({
   hoiXacNhan = hoiBangAlert,
 }: OrdersScreenProps) {
   const [duLieu, setDuLieu] = useState<DuLieu | null>(null);
+  /** Món vừa xong giữa hai lần hỏi — hiện một dải rồi tự tắt. */
+  const [monVuaXong, setMonVuaXong] = useState<string[]>([]);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangHuy, setDangHuy] = useState<string | null>(null);
   const [loiNang, setLoiNang] = useState<unknown>(null);
@@ -101,6 +112,32 @@ export function OrdersScreen({
       huy = true;
     };
   }, [apDung, nap]);
+
+  /**
+   * Hỏi lại máy chủ trong lúc màn hình đang mở.
+   *
+   * LỖI CÓ THẬT: bản trước tải đúng MỘT lần lúc mở màn — không hỏi lại, không realtime, không
+   * kéo-để-tải-lại. Bếp gạch xong món thì màn hình khách vẫn ghi "Chờ chế biến" cho tới khi khách
+   * thoát ra vào lại. Toàn bộ phần trạng thái theo từng món không tới được người cần nó nhất.
+   *
+   * NGỪNG khi mọi món đã tới bàn (`conGiDeCho`). Hỏi mãi một đơn đã xong là đốt pin và dữ liệu
+   * di động của khách suốt bữa ăn — và đó mới là phần khó, chứ gọi `setInterval` thì không.
+   *
+   * Món vừa chuyển sang "xong" được báo theo TÊN MÓN. "Đơn có cập nhật" không nói được khách nên
+   * làm gì; "Phở bò đang được mang ra" thì có.
+   */
+  useEffect(() => {
+    if (duLieu !== null && !conGiDeCho(duLieu.don)) return;
+    const dinhGio = setInterval(() => {
+      void nap().then((kq) => {
+        if (!kq.ok) return;
+        const vuaXong = monVuaSanSang(duLieu?.don ?? [], kq.duLieu.don);
+        setDuLieu(kq.duLieu);
+        if (vuaXong.length > 0) setMonVuaXong(vuaXong);
+      });
+    }, CHU_KY_HOI_LAI_MS);
+    return () => clearInterval(dinhGio);
+  }, [duLieu, nap]);
 
   const huy = useCallback(
     async (don: CustomerOrder, mon: OrderItem) => {
@@ -166,6 +203,31 @@ export function OrdersScreen({
   return (
     <ScrollView style={kieuChung.man} contentContainerStyle={{ padding: 16, gap: 16 }}>
       <Text style={kieuChung.tieuDe}>Đơn bàn {phienBan.tableCode}</Text>
+
+      {/*
+        Báo theo TÊN MÓN, không báo "đơn có cập nhật". Khách đang chờ một món cụ thể, và câu thứ
+        hai không nói được họ nên làm gì.
+
+        Tự tắt khi khách chạm: món đã ra bàn rồi thì dải này chỉ còn che mất danh sách.
+      */}
+      {monVuaXong.length > 0 ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => setMonVuaXong([])}
+          style={[kieuChung.the, { backgroundColor: '#dcfce7', gap: 4 }]}
+        >
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>
+            {monVuaXong.length === 1
+              ? `${monVuaXong[0]} đang được mang ra`
+              : `${monVuaXong.length} món đang được mang ra`}
+          </Text>
+          {monVuaXong.length > 1 ? (
+            <Text style={{ color: '#166534' }}>{monVuaXong.join(' · ')}</Text>
+          ) : null}
+          <Text style={[kieuChung.chuPhu, { color: '#166534' }]}>Chạm để bỏ</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {duLieu.don.length === 0 ? (
         <Text style={[kieuChung.chuPhu, { padding: 32, textAlign: 'center' }]}>
           Bàn chưa có đơn nào.

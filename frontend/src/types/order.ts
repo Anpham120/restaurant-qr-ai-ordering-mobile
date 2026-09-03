@@ -97,7 +97,7 @@ export type OrderTrackingItem = {
    */
   estimatedReadyMinutesLow?: number | null;
   estimatedReadyMinutesHigh?: number | null;
-  kitchenClosed?: boolean;
+  kitchenBusy?: boolean;
 };
 
 export type OrderTrackingOrder = {

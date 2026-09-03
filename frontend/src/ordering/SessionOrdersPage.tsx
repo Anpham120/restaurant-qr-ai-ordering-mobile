@@ -290,9 +290,9 @@ export function SessionOrdersPage() {
                     <small className="uoc-luong">
                       {moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh)}
                       {moTaBepDong(
-                        item.kitchenClosed,
+                        item.kitchenBusy,
                         moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh),
-                      ) ? <> · {moTaBepDong(item.kitchenClosed, "x")}</> : null}
+                      ) ? <> · {moTaBepDong(item.kitchenBusy, "x")}</> : null}
                     </small>
                   ) : null}
                   <em>{t(labelGuestItemStatus(item.status, order.status))}</em>

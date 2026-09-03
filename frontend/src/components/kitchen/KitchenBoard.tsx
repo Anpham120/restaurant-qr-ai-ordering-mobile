@@ -177,25 +177,38 @@ function OrderCard({
         {order.items.map((item) => {
           if (item.status === "Cancelled") return null;
           const next = getItemTapAdvanceStatus(item.status);
-          const isDone = item.status === "Ready" || item.status === "Served";
+          // TÁCH Ready khỏi Served. Gộp hai cái làm một là lý do món xong rồi vẫn trông y hệt món
+          // đã đưa đi, và người trực bếp không biết còn phải bưng cái nào.
+          const daXong = item.status === "Ready";
+          const daDuaDi = item.status === "Served";
           const isItemPending = pendingItemId === item.orderItemId;
           return (
             <button
               key={item.orderItemId}
               type="button"
               className={
-                isDone
+                daDuaDi
                   ? "ops-card-item-chip ops-card-item-chip--done kitchen-item-chip"
-                  : item.status === "Preparing"
-                    ? "ops-card-item-chip ops-card-item-chip--active kitchen-item-chip"
-                    : "ops-card-item-chip kitchen-item-chip"
+                  : daXong
+                    ? "ops-card-item-chip ops-card-item-chip--ready kitchen-item-chip"
+                    : item.status === "Preparing"
+                      ? "ops-card-item-chip ops-card-item-chip--active kitchen-item-chip"
+                      : "ops-card-item-chip kitchen-item-chip"
               }
               disabled={!next || isPending || isItemPending}
               onClick={(event) => {
                 event.stopPropagation();
                 if (next) onItemTap(order, item.orderItemId, next);
               }}
-              title={next ? (next === "Preparing" ? "Chạm để bắt đầu nấu" : "Chạm để xong món") : undefined}
+              title={
+                next === "Preparing"
+                  ? "Chạm để bắt đầu nấu"
+                  : next === "Ready"
+                    ? "Chạm khi món xong"
+                    : next === "Served"
+                      ? "Chạm khi đưa món đi"
+                      : undefined
+              }
             >
               {isItemPending ? "..." : `${item.quantity}× ${item.name}`}
             </button>

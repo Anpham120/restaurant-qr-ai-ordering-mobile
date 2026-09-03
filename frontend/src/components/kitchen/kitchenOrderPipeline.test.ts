@@ -120,3 +120,27 @@ describe("kitchen order pipeline", () => {
     expect(getKitchenPrimaryAction(order).label).toContain("Nấu 1 món");
   });
 });
+
+describe("chạm từng món đi hết vòng đời", () => {
+  it("Ready còn đi tiếp được sang Served", () => {
+    // NGHIỆP VỤ: một đơn nhiều món KHÔNG bao giờ lên cùng lúc. Bếp làm xong món nào đưa món đó,
+    // và phải gạch được đúng món đó.
+    //
+    // Bản trước dừng ở `Ready` rồi trả `null`, nên bước "đã mang ra bàn" CHỈ có ở cấp đơn — muốn
+    // đánh dấu một món đã lên thì phải đánh dấu cả 4-5 món cùng lúc. Backend không hề chặn:
+    // `OrderItem.canTransitionTo` cho `Ready -> Served` từ đầu. Đây thuần là đường cụt ở giao diện.
+    expect(getItemTapAdvanceStatus("Ready")).toBe("Served");
+  });
+
+  it("đi đúng thứ tự, không nhảy cóc ở giao diện", () => {
+    expect(getItemTapAdvanceStatus("Pending")).toBe("Preparing");
+    expect(getItemTapAdvanceStatus("Preparing")).toBe("Ready");
+  });
+
+  it("Served và Cancelled là điểm cuối — chạm nữa không làm gì", () => {
+    // Đối chứng. Thiếu ca này thì một hàm luôn trả bước kế tiếp vẫn xanh, và người trực bếp chạm
+    // nhầm vào món đã xong sẽ đẩy nó tới một trạng thái không tồn tại.
+    expect(getItemTapAdvanceStatus("Served")).toBeNull();
+    expect(getItemTapAdvanceStatus("Cancelled")).toBeNull();
+  });
+});

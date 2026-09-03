@@ -27,10 +27,10 @@ export type MenuCategory = { categoryId: string; name: string };
 export type MenuItem = { id: string; name: string; description: string; price: number; categoryId: string; categoryName: string; imageUrl: string | null; isAvailable: boolean; tags: string[] };
 export type MenuResponse = { categories: MenuCategory[]; items: MenuItem[] };
 export type CreateOrderRequest = { orderType: OrderType; tableCode?: string | null; qrToken?: string | null; tableSessionId?: string | null; items: Array<{ menuItemId: string; quantity: number }>; promotionCode?: string | null; customerPhoneNumber?: string | null };
-// `estimatedReadyMinutes*` và `kitchenClosed`: máy chủ ĐÃ gửi ba trường này từ lâu (xem
+// `estimatedReadyMinutes*` và `kitchenBusy`: máy chủ ĐÃ gửi ba trường này từ lâu (xem
 // `OrderDtos.OrderItemResponse` bên Java) nhưng kiểu của web không khai, nên web vứt đi và khách
 // trên web không thấy ước lượng nào — trong khi app di động có. `null` khi món không còn chờ nữa.
-export type OrderItem = { orderItemId: string; menuItemId: string; name: string; unitPrice: number; quantity: number; status: OrderItemStatus; lineTotal: number; updatedAt: string; estimatedReadyMinutesLow?: number | null; estimatedReadyMinutesHigh?: number | null; kitchenClosed?: boolean };
+export type OrderItem = { orderItemId: string; menuItemId: string; name: string; unitPrice: number; quantity: number; status: OrderItemStatus; lineTotal: number; updatedAt: string; estimatedReadyMinutesLow?: number | null; estimatedReadyMinutesHigh?: number | null; kitchenBusy?: boolean };
 export type OrderStatusEvent = { status: OrderStatus | PaymentStatus; source?: OrderEventSource; changedByRole?: string | null; note?: string | null; createdAt: string };
 export type Order = { orderId: string; orderCode: string; orderType: OrderType; tableCode: string | null; tableSessionId?: string | null; status: OrderStatus; paymentStatus: PaymentStatus; paymentMethod: PaymentMethod; subtotalAmount: number; discountAmount: number; totalAmount: number; promotionCode?: string | null; createdAt: string; updatedAt: string; items: OrderItem[]; events: OrderStatusEvent[] };
 export type CreateOrderResponse = Order & { customerAccessToken: string };

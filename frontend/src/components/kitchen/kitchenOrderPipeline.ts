@@ -67,9 +67,25 @@ export function sortKitchenOrdersByPriority(orders: Order[], now = Date.now()): 
   });
 }
 
+/**
+ * Bước kế tiếp khi người trực bếp chạm vào MỘT món.
+ *
+ * <p>Một đơn nhiều món không bao giờ lên cùng lúc: bếp làm xong món nào đưa món đó, và phải gạch
+ * được đúng món đó. Bản trước dừng ở {@code Ready}, nên bước "đã mang ra bàn" chỉ có ở cấp ĐƠN —
+ * muốn đánh dấu một món đã lên thì phải đánh dấu cả 4-5 món cùng lúc.
+ *
+ * <p>Backend không hề chặn: {@code OrderItem.canTransitionTo} cho {@code Ready -> Served} từ đầu,
+ * và còn cho nhảy cóc ({@code Pending -> Ready}) cho lúc bếp làm xong mà không kịp bấm "đang nấu".
+ * Giao diện thì đi từng bước một, để mỗi lần chạm là một việc có thật ngoài đời.
+ *
+ * <p>{@code Served} nghĩa là "đã đưa món đi", và người bấm là BẾP — chạy bàn không cầm máy, họ
+ * nhận lệnh qua bộ đàm. Lệch vài phút so với lúc món chạm mặt bàn, đổi lại người bấm đúng là
+ * người đang cầm món.
+ */
 export function getItemTapAdvanceStatus(status: OrderItemStatus): OrderItemStatus | null {
   if (status === "Pending") return "Preparing";
   if (status === "Preparing") return "Ready";
+  if (status === "Ready") return "Served";
   return null;
 }
 

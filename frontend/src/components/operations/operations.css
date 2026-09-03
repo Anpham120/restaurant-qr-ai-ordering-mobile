@@ -311,6 +311,16 @@
   white-space: nowrap;
 }
 
+/*
+  Món XONG nhưng CHƯA đưa đi — trạng thái người trực bếp cần thấy rõ nhất: đây là thứ đang chờ
+  được bưng. Trước đây nó dùng chung kiểu với món đã đưa đi, nên hai việc khác hẳn nhau trông y hệt.
+*/
+.ops-card-item-chip--ready {
+  background: var(--color-warning-bg);
+  color: #92400e;
+  font-weight: 700;
+}
+
 .ops-card-item-chip--done {
   background: #dcfce7;
   color: #166534;
