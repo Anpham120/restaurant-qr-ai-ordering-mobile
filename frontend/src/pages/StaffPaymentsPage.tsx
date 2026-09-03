@@ -91,15 +91,6 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
   const [daThu, setDaThu] = useState<ThongBaoDaThu[]>([]);
 
   /**
-   * Đang xem việc phải làm, hay xem lại việc đã xong.
-   *
-   * Trước đây hai danh sách xếp CHỒNG nhau trên cùng một trang, dưới bốn dải thông báo và sáu ô
-   * số. Người đứng quầy phải cuộn qua thứ đã xong mới thấy thứ chưa làm. Quầy thu tiền chỉ có một
-   * việc tại một thời điểm; phần còn lại là tra cứu, và tra cứu thì để sau một cú bấm.
-   */
-  const [tab, setTab] = useState<"cho" | "xong">("cho");
-
-  /**
    * Phiên mà CHÍNH trang này vừa xác nhận bằng tay.
    *
    * Máy chủ phát cùng một sự kiện cho cả hai đường chốt hoá đơn, và sự kiện không mang thông tin
@@ -125,10 +116,6 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
       return pending.filter((invoice) => matchesTableFilter(invoice.tableCode, tableFilter));
     },
     [invoices, tableFilter],
-  );
-  const collected = useMemo(
-    () => invoices.filter((invoice) => invoice.status === "Confirmed" || invoice.status === "Paid"),
-    [invoices],
   );
   /**
    * Tổng tiền còn phải thu.
@@ -268,9 +255,6 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
   }
 
 
-  const dangCho = tab === "cho";
-  const danhSach = dangCho ? awaiting : collected;
-
   return (
     <div className="pos">
       {/*
@@ -292,32 +276,19 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
       </header>
 
       {/*
-        Hai danh sách nằm sau TAB thay vì xếp chồng. Trước đây phải cuộn qua bảng "đã thu" mới hết
-        trang, và việc đã xong chiếm chỗ ngang với việc chưa làm.
+        MỘT danh sách: những bàn còn phải thu. Không có tab "đã thu" ở đây.
 
-        Số đếm nằm ngay trên tab: đó là thứ duy nhất cần biết về danh sách mình không đang xem.
+        Hub quầy đã có tab anh em "Lịch sử hóa đơn", và bảng đó đã lọc sẵn Tất cả / Chờ thanh toán
+        / Đã thanh toán / Đã hủy. Thêm một tab "đã thu" vào đây là tab LỒNG trong tab, và là bản
+        sao của một thứ đã tồn tại cách đó một cú bấm — bản dựng lại đầu tiên của màn này đã mắc
+        đúng lỗi đó.
       */}
-      <div className="pos-tabs" role="tablist" aria-label="Danh sách hóa đơn">
-        <button
-          aria-selected={dangCho}
-          className={`pos-tab${dangCho ? " pos-tab--on" : ""}`}
-          onClick={() => setTab("cho")}
-          role="tab"
-          type="button"
-        >
+      <div className="pos-tabs">
+        <h2 className="pos-tab pos-tab--on">
           Chờ thu <span className="pos-tab-count">{awaiting.length}</span>
-        </button>
-        <button
-          aria-selected={!dangCho}
-          className={`pos-tab${!dangCho ? " pos-tab--on" : ""}`}
-          onClick={() => setTab("xong")}
-          role="tab"
-          type="button"
-        >
-          Đã thu <span className="pos-tab-count">{collected.length}</span>
-        </button>
+        </h2>
 
-        {dangCho && codAwaiting.length > 0 ? (
+        {codAwaiting.length > 0 ? (
           <button
             className="ops-btn ops-btn--success ops-btn--sm pos-bulk"
             onClick={() => void bulkConfirmCod()}
@@ -340,13 +311,9 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
         </p>
       ) : null}
 
-      {danhSach.length === 0 ? (
-        <div className="ops-empty" style={{ padding: 32 }}>
-          {dangCho ? "Không có bàn nào chờ thu" : "Chưa thu hóa đơn nào"}
-        </div>
-      ) : null}
-
-      {dangCho ? (
+      {awaiting.length === 0 ? (
+        <div className="ops-empty" style={{ padding: 32 }}>Không có bàn nào chờ thu</div>
+      ) : (
         <div className="pos-grid">
           {awaiting.map((invoice, index) => {
             const laTienMat = invoice.method === "COD";
@@ -447,23 +414,7 @@ export function StaffPaymentsPage({ embedded = false }: { embedded?: boolean }) 
             );
           })}
         </div>
-      ) : null}
-
-      {!dangCho && collected.length > 0 ? (
-        <table className="ops-table">
-          <thead><tr><th>Bàn</th><th>Lượt gọi</th><th>Phương thức</th><th>Tổng tiền</th></tr></thead>
-          <tbody>
-            {collected.map((invoice) => (
-              <tr key={invoice.tableSessionId}>
-                <td><strong>{invoice.tableCode}</strong></td>
-                <td>{invoice.orderRounds.length}</td>
-                <td>{invoice.method === "COD" ? "Tiền mặt" : "VietQR"}</td>
-                <td data-money>{formatVnd(invoice.totalAmount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+      )}
 
       {/*
         Thông báo tiền vào NỔI, không chen vào dòng chảy trang.
