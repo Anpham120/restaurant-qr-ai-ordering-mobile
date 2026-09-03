@@ -53,6 +53,35 @@ const ITEM_STATUS_VI: Record<string, string> = {
   Cancelled: "Đã huỷ",
 };
 
+/**
+ * Nhãn trạng thái ĐƠN cho KHÁCH.
+ *
+ * <p>Khác `labelOrderStatus` — bộ đó viết cho QUẦY ("Sẵn sàng", "Đã phục vụ"), là ngôn ngữ của
+ * người vận hành. Khách không cần biết đơn "sẵn sàng"; họ cần biết món có đang trên đường ra bàn
+ * hay không.
+ *
+ * <p>PHẢI KHỚP TỪNG CHỮ với `nhanTrangThaiDon` bên app (`mobile-rn/src/core/orders/order.ts`).
+ * Cùng một lý do như nhãn món: hai kho không dùng chung mã được, nên mỗi bên ghim chuỗi và lệch
+ * nhau thì bên đó đỏ.
+ *
+ * <p>`Placed` và `Confirmed` KHÁC nhau ở đây, không như bên bếp: với khách, "đã gửi bếp" và "bếp
+ * đã nhận" là hai tin khác nhau — tin thứ hai nói có người thật đã thấy đơn.
+ */
+const GUEST_ORDER_STATUS_VI: Record<string, string> = {
+  Draft: "Nháp",
+  Placed: "Đã gửi bếp",
+  Confirmed: "Bếp đã nhận",
+  Preparing: "Đang nấu",
+  Ready: "Nấu xong, chờ mang ra",
+  Served: "Đã mang ra bàn",
+  Completed: "Đã thanh toán",
+  Cancelled: "Đã huỷ",
+};
+
+export function labelGuestOrderStatus(status: string): string {
+  return GUEST_ORDER_STATUS_VI[status] ?? status;
+}
+
 export function labelOrderStatus(status: OrderStatus | string): string {
   return ORDER_STATUS_VI[status] ?? status;
 }

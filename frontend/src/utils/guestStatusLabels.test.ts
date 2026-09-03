@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelGuestItemStatus } from "./opsStatusLabels";
+import { labelGuestItemStatus, labelGuestOrderStatus, labelOrderStatus } from "./opsStatusLabels";
 
 /**
  * Nhãn trạng thái món mà KHÁCH đọc.
@@ -44,5 +44,45 @@ describe("nhãn món cho khách", () => {
     // Máy chủ thêm một trạng thái mới thì màn hình khách không được trắng. Hiện nguyên chuỗi là
     // xấu nhưng đọc được, và nó tự tố cáo chỗ còn thiếu.
     expect(labelGuestItemStatus("TrangThaiMoi", "Preparing")).toBe("TrangThaiMoi");
+  });
+});
+
+/**
+ * Nhãn trạng thái ĐƠN mà KHÁCH đọc. Cùng luật với nhãn món: khớp từng chữ với `nhanTrangThaiDon`
+ * bên app, và bên đó có phép kiểm y hệt.
+ */
+describe("nhãn đơn cho khách", () => {
+  it("khớp từng chữ với bản bên app", () => {
+    expect(labelGuestOrderStatus("Placed")).toBe("Đã gửi bếp");
+    expect(labelGuestOrderStatus("Confirmed")).toBe("Bếp đã nhận");
+    expect(labelGuestOrderStatus("Preparing")).toBe("Đang nấu");
+    expect(labelGuestOrderStatus("Ready")).toBe("Nấu xong, chờ mang ra");
+    expect(labelGuestOrderStatus("Served")).toBe("Đã mang ra bàn");
+    expect(labelGuestOrderStatus("Completed")).toBe("Đã thanh toán");
+    expect(labelGuestOrderStatus("Cancelled")).toBe("Đã huỷ");
+  });
+
+  it("KHÔNG mượn chữ của quầy", () => {
+    // "Sẵn sàng" và "Đã phục vụ" là ngôn ngữ của người vận hành. Màn theo dõi đơn của khách từng
+    // dùng đúng hai chữ đó ở ba chỗ khác nhau trên cùng một trang.
+    for (const s of ["Placed", "Confirmed", "Preparing", "Ready", "Served", "Completed"]) {
+      expect(labelGuestOrderStatus(s)).not.toBe(labelOrderStatus(s));
+    }
+  });
+
+  it("Ready nói rõ là CHỜ MANG RA, không phải xong bữa", () => {
+    // Dịch thành "Hoàn tất" sẽ khiến khách tưởng có thể đứng dậy đi về.
+    expect(labelGuestOrderStatus("Ready")).not.toContain("Hoàn tất");
+    expect(labelGuestOrderStatus("Completed")).toBe("Đã thanh toán");
+  });
+
+  it("không nhãn nào rơi về chuỗi tiếng Anh", () => {
+    for (const s of ["Draft", "Placed", "Confirmed", "Preparing", "Ready", "Served", "Completed", "Cancelled"]) {
+      expect(labelGuestOrderStatus(s)).not.toBe(s);
+    }
+  });
+
+  it("trạng thái lạ trả nguyên văn", () => {
+    expect(labelGuestOrderStatus("TrangThaiMoi")).toBe("TrangThaiMoi");
   });
 });

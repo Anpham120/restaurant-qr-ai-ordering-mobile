@@ -1,6 +1,6 @@
 import { EN_COPY, translate } from "@cmc/i18n";
 import { describe, expect, it } from "vitest";
-import { labelGuestItemStatus } from "../utils/opsStatusLabels";
+import { labelGuestItemStatus, labelGuestOrderStatus } from "../utils/opsStatusLabels";
 
 /*
   LỖI CÓ THẬT, tự gây ra. Lượt đồng bộ nhãn trạng thái món đổi bộ chữ tiếng Việt ("Sẵn sàng phục
@@ -36,5 +36,42 @@ describe("nhãn trạng thái món của khách phải có bản tiếng Anh", (
       .toBe("2/4 dishes at your table");
     expect(translate("en", "{ten} đang được mang ra bàn bạn", { ten: "Pho" }))
       .toBe("Pho is on the way to your table");
+  });
+});
+
+describe("nhãn trạng thái ĐƠN của khách cũng phải có bản tiếng Anh", () => {
+  // Cùng lớp lọt: `t(labelGuestOrderStatus(order.status))` là gọi qua biến, cửa phủ ngôn ngữ
+  // không thấy. Màn theo dõi đơn dùng bộ này ở ba chỗ — ô đầu trang, badge, và tiêu đề từng bước.
+  const TRANG_THAI = ["Draft", "Placed", "Confirmed", "Preparing", "Ready", "Served", "Completed", "Cancelled"] as const;
+
+  it("mọi nhãn đều có trong EN_COPY", () => {
+    for (const status of TRANG_THAI) {
+      const nhan = labelGuestOrderStatus(status);
+      expect(EN_COPY[nhan], `thiếu bản tiếng Anh cho "${nhan}"`).toBeTruthy();
+    }
+  });
+
+  it("bản tiếng Anh KHÁC bản tiếng Việt", () => {
+    for (const status of TRANG_THAI) {
+      const nhan = labelGuestOrderStatus(status);
+      expect(translate("en", nhan)).not.toBe(nhan);
+    }
+  });
+});
+
+describe("câu mô tả từng bước tiến trình cũng phải có bản tiếng Anh", () => {
+  // Bốn câu này tới `t` qua `getTimelineCopy(status)` — cũng qua biến.
+  const CAU = [
+    "Đơn đã tới bếp.",
+    "Bếp đang làm các món.",
+    "Món đã xong, đang được mang ra.",
+    "Bếp đã đưa hết món ra bàn.",
+  ];
+
+  it("đủ bốn câu, và bản tiếng Anh khác bản tiếng Việt", () => {
+    for (const cau of CAU) {
+      expect(EN_COPY[cau], `thiếu bản tiếng Anh cho "${cau}"`).toBeTruthy();
+      expect(translate("en", cau)).not.toBe(cau);
+    }
   });
 });

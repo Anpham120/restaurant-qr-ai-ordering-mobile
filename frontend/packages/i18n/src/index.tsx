@@ -381,6 +381,16 @@ export const EN_COPY: Record<string, string> = {
   // phép kiểm phủ ngôn ngữ — vốn chỉ quét `t("...")` viết thẳng — KHÔNG thấy chúng. Đổi bộ chữ
   // tiếng Việt mà quên chỗ này thì khách nói tiếng Anh nhận lại nguyên câu tiếng Việt, và không
   // có gì đỏ lên. Đã xảy ra thật: `orderItemStatusEnCopy.test.ts` là cửa chặn cho lần sau.
+  // Nhãn trạng thái ĐƠN cho khách, và câu mô tả từng bước tiến trình. Cũng tới `t` qua biến như
+  // nhãn món, nên cũng nằm ngoài tầm cửa phủ ngôn ngữ — `orderItemStatusEnCopy.test.ts` canh cả hai.
+  "Đã gửi bếp": "Sent to the kitchen",
+  "Bếp đã nhận": "The kitchen has it",
+  "Đang nấu": "Cooking",
+  "Nấu xong, chờ mang ra": "Cooked, waiting to be brought out",
+  "Đơn đã tới bếp.": "The order reached the kitchen.",
+  "Bếp đang làm các món.": "The kitchen is cooking your dishes.",
+  "Món đã xong, đang được mang ra.": "The dishes are done and on their way out.",
+  "Bếp đã đưa hết món ra bàn.": "The kitchen has sent every dish to your table.",
   "Đã gửi bếp, chờ tới lượt": "Sent to the kitchen, waiting its turn",
   "Đang làm món của bạn": "Your dish is being cooked",
   "Món xong, đang mang ra bàn": "Ready and on its way to your table",
