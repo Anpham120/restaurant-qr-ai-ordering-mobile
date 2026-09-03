@@ -3,6 +3,8 @@ import type { Order } from "@cmc/shared-types";
 import {
   canDropKitchenOrder,
   getItemTapAdvanceStatus,
+  itemActionLabel,
+  labelKitchenItemStatus,
   getKitchenBoardAdvancePlan,
   getKitchenBoardColumn,
   getKitchenPrimaryAction,
@@ -135,6 +137,45 @@ describe("chạm từng món đi hết vòng đời", () => {
   it("đi đúng thứ tự, không nhảy cóc ở giao diện", () => {
     expect(getItemTapAdvanceStatus("Pending")).toBe("Preparing");
     expect(getItemTapAdvanceStatus("Preparing")).toBe("Ready");
+  });
+
+  it("mỗi bước chạm đều có CHỮ trên nút", () => {
+    // LỖI CÓ THẬT, tự gây ra: mở rộng `getItemTapAdvanceStatus` thêm bước `Ready -> Served` mà
+    // quên `itemActionLabel`, nên món đã xong hiện một nút RỖNG ở bảng chi tiết. Người trực bếp
+    // thấy một nút không chữ và không biết bấm vào thì chuyện gì xảy ra.
+    //
+    // Hai hàm này phải đi cùng nhau, nên ca kiểm buộc chúng đi cùng: thêm bước mới mà quên nhãn
+    // thì ca này đỏ.
+    for (const s of ["Pending", "Preparing", "Ready"] as const) {
+      expect(itemActionLabel(s)).not.toBe("");
+    }
+    expect(itemActionLabel("Pending")).toBe("Bắt đầu nấu");
+    expect(itemActionLabel("Preparing")).toBe("Xong món");
+    expect(itemActionLabel("Ready")).toBe("Đưa món đi");
+  });
+
+  it("món đã tới điểm cuối thì KHÔNG có nút", () => {
+    // Chuỗi rỗng là tín hiệu cho nơi gọi đừng vẽ nút, không phải một nhãn bị quên.
+    expect(itemActionLabel("Served")).toBe("");
+    expect(itemActionLabel("Cancelled")).toBe("");
+  });
+
+  it("nhãn của BẾP ngắn và khác hẳn nhãn của khách", () => {
+    // Khách cần "Đang làm món của bạn", bếp cần "Đang nấu" — cùng trạng thái, hai người, hai việc.
+    // Bảng bếp dùng câu viết cho khách sẽ dài gấp ba lần chỗ nó có.
+    //
+    // Trước bản này bảng chi tiết in thẳng giá trị enum: `Ready`, `Served` giữa màn hình tiếng Việt.
+    expect(labelKitchenItemStatus("Pending")).toBe("Chờ nấu");
+    expect(labelKitchenItemStatus("Preparing")).toBe("Đang nấu");
+    expect(labelKitchenItemStatus("Ready")).toBe("Xong, chờ đưa");
+    expect(labelKitchenItemStatus("Served")).toBe("Đã đưa đi");
+    expect(labelKitchenItemStatus("Cancelled")).toBe("Đã huỷ");
+  });
+
+  it("không nhãn bếp nào rơi về chuỗi tiếng Anh", () => {
+    for (const s of ["Pending", "Preparing", "Ready", "Served", "Cancelled"]) {
+      expect(labelKitchenItemStatus(s)).not.toBe(s);
+    }
   });
 
   it("Served và Cancelled là điểm cuối — chạm nữa không làm gì", () => {

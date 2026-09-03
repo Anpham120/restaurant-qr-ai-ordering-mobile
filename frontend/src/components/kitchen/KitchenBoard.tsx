@@ -13,6 +13,8 @@ import { updateOrderItemStatus, updateOrderStatus } from "../../services/orderSe
 import {
   canDropKitchenOrder,
   getItemTapAdvanceStatus,
+  itemActionLabel,
+  labelKitchenItemStatus,
   getKitchenBoardAdvancePlan,
   getKitchenBoardColumn,
   getKitchenPrimaryAction,
@@ -37,13 +39,6 @@ function formatVnd(v: number) {
 
 function statusBadgeClass(status: string): string {
   return `ops-badge ops-badge--${status.toLowerCase()}`;
-}
-
-function itemActionLabel(current: OrderItemStatus): string {
-  const next = getItemTapAdvanceStatus(current);
-  if (next === "Preparing") return "Bắt đầu nấu";
-  if (next === "Ready") return "Xong món";
-  return "";
 }
 
 /* ---------- types ---------- */
@@ -271,7 +266,7 @@ function OrderDetailModal({
                   <div className="ops-item-info">
                     <div className="ops-item-name">
                       <span>{item.quantity}× {item.name}</span>
-                      <span className={statusBadgeClass(item.status)}>{item.status}</span>
+                      <span className={statusBadgeClass(item.status)}>{labelKitchenItemStatus(item.status)}</span>
                     </div>
                     <span className="ops-item-qty">{formatVnd(item.lineTotal)}</span>
                   </div>

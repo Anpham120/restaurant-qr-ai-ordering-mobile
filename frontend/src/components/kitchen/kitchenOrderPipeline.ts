@@ -194,3 +194,39 @@ export function canDropKitchenOrder(
 ): boolean {
   return getNextKitchenBoardColumn(status) === targetColumn;
 }
+
+/**
+ * Chữ trên nút hành động của MỘT món, ở bảng chi tiết đơn.
+ *
+ * <p>Phải đi kèm {@link getItemTapAdvanceStatus}: mở rộng vòng đời mà quên hàm này thì nút hiện
+ * RỖNG. Đã xảy ra thật khi thêm bước `Ready -> Served` — món đã xong hiện một nút không có chữ,
+ * và người trực bếp không biết bấm vào thì chuyện gì xảy ra.
+ *
+ * <p>Trả chuỗi rỗng CHỈ khi món đã tới điểm cuối; nơi gọi không vẽ nút trong ca đó.
+ */
+export function itemActionLabel(current: OrderItemStatus): string {
+  const next = getItemTapAdvanceStatus(current);
+  if (next === "Preparing") return "Bắt đầu nấu";
+  if (next === "Ready") return "Xong món";
+  if (next === "Served") return "Đưa món đi";
+  return "";
+}
+
+/**
+ * Nhãn trạng thái món cho NGƯỜI TRỰC BẾP — ngắn, nói về việc của bếp.
+ *
+ * <p>Khác hẳn nhãn cho khách (`labelGuestItemStatus`): khách cần "Đang làm món của bạn", bếp cần
+ * "Đang nấu". Cùng một trạng thái, hai người, hai việc khác nhau — và một bảng bếp dùng câu viết
+ * cho khách sẽ dài gấp ba lần chỗ nó có.
+ *
+ * <p>Trước bản này bảng chi tiết in thẳng giá trị enum: `Ready`, `Served` bằng tiếng Anh giữa một
+ * màn hình tiếng Việt.
+ */
+export function labelKitchenItemStatus(status: string): string {
+  if (status === "Pending") return "Chờ nấu";
+  if (status === "Preparing") return "Đang nấu";
+  if (status === "Ready") return "Xong, chờ đưa";
+  if (status === "Served") return "Đã đưa đi";
+  if (status === "Cancelled") return "Đã huỷ";
+  return status;
+}
