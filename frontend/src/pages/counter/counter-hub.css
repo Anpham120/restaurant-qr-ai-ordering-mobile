@@ -325,3 +325,58 @@
   border-radius: 10px;
   background: var(--ops-surface, #fff);
 }
+
+/* ==========================================================================
+   Dải điều phối nhân viên
+
+   Nằm ngoài mọi tab của hub quầy. Không tự tắt — chỉ mất khi có người bấm
+   "Đã điều phối", tức khi đã thật sự bấm bộ đàm cử người tới bàn.
+   ========================================================================== */
+
+.counter-dispatch {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-warning);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--color-warning-bg);
+}
+
+.counter-dispatch h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.counter-dispatch ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.counter-dispatch li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.counter-dispatch li strong {
+  font-size: 1.05rem;
+}
+
+/* Số phút chờ quyết định bàn nào đi trước, nên nó phải đọc được ngay cạnh mã bàn. */
+.counter-dispatch-wait {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.counter-dispatch li > button {
+  margin-inline-start: auto;
+  min-height: 44px;
+}
