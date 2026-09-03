@@ -51,6 +51,15 @@ public class LoyaltyRedemptionEntity {
 	private String orderCode;
 
 	/**
+	 * Nhân viên đã đổi HỘ khách tại quầy; {@code null} khi khách tự đổi trong app.
+	 *
+	 * <p>Khác hẳn {@code honouredBy} — cột đó ghi ai PHÁT món, cột này ghi ai TIÊU ĐIỂM. Khi khách
+	 * khiếu nại "sao điểm của tôi mất", câu hỏi là ai tiêu chứ không phải ai phát.
+	 */
+	@Column(name = "redeemed_by")
+	private String redeemedBy;
+
+	/**
 	 * Mã khách đọc ra hoặc gõ vào; chỉ ưu đãi GIẢM TIỀN mới có.
 	 *
 	 * <p>Ưu đãi tặng món để trống: nó thành một dòng 0đ trong đơn ngay lúc đổi, không có gì để
@@ -108,6 +117,15 @@ public class LoyaltyRedemptionEntity {
 
 	public String getOrderCode() {
 		return orderCode;
+	}
+
+	public String getRedeemedBy() {
+		return redeemedBy;
+	}
+
+	/** Ghi lại nhân viên đã đổi hộ. Chỉ gọi ở đường của quầy. */
+	void ghiNguoiDoiHo(String nhanVienId) {
+		this.redeemedBy = nhanVienId;
 	}
 
 	public String getCode() {

@@ -84,6 +84,27 @@ public final class LoyaltyDtos {
 	}
 
 	/**
+	 * Quầy đổi thưởng hộ khách chỉ dùng web.
+	 *
+	 * @param phone     số điện thoại khách đọc ở quầy — đây là DANH TÍNH duy nhất của họ, vì họ
+	 *                  quét QR dùng web mà không đăng nhập
+	 * @param orderCode mã đơn đang mở, chỉ cần với ưu đãi TẶNG MÓN để bếp làm ngay
+	 */
+	public record CounterRedeemRequest(String phone, String rewardId, String orderCode) {
+	}
+
+	/**
+	 * @param code       mã để nhân viên ĐỌC CHO KHÁCH nhập ở màn thanh toán; {@code null} với ưu
+	 *                   đãi tặng món, vì món đã vào đơn rồi
+	 * @param orderCode  đơn đã được thêm món tặng, {@code null} khi không gắn vào đơn nào
+	 * @param soDuMoi    điểm còn lại, để quầy đọc lại cho khách ngay
+	 */
+	public record CounterRedeemResponse(
+			String redemptionId, String rewardName, int pointsSpent, String code, String orderCode,
+			int soDuMoi) {
+	}
+
+	/**
 	 * Kết quả một lần đổi điểm.
 	 *
 	 * <p>Trả kèm {@code soDuMoi} chứ không bắt app gọi thêm một lượt: sau khi tiêu điểm, con số

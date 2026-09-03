@@ -213,6 +213,76 @@ public class MyLoyaltyService {
 				.orElseThrow(() -> ApiException.badRequest("LOYALTY_NO_POINTS",
 						"This account has no loyalty points yet."));
 
+		LoyaltyRedemptionEntity ghi =
+				doiChoHoiVien(member, rewardId, orderCode, idempotencyKey, null);
+		return new LoyaltyDtos.RedeemResponse(
+				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
+				ghi.getCreatedAt(), ghi.getCode(), me(userId));
+	}
+
+	/**
+	 * Quầy đổi thưởng HỘ khách chỉ dùng web.
+	 *
+	 * <p><b>Vì sao cần.</b> Khách quét QR dùng web không đăng nhập — hệ thống không biết họ là ai,
+	 * nên họ không tự đổi thưởng được. Nhưng điểm của họ vẫn tích: màn thanh toán bắt điền số điện
+	 * thoại, và {@code LoyaltyService.accrue} tự mở hồ sơ cho số nào chưa có. Trước bản này, cả
+	 * backend KHÔNG có đường nào cho quầy tạo một lần đổi — nghĩa là nhóm khách đó kiếm được điểm
+	 * mà vĩnh viễn không tiêu được, trừ khi cài app.
+	 *
+	 * <p>Đây là cùng một luật với đường của app, chỉ khác chỗ tra hội viên: theo SỐ ĐIỆN THOẠI thay
+	 * vì theo tài khoản. Phần lõi dùng chung {@link #doiChoHoiVien} chứ không chép — chép là cách
+	 * hai bản trôi khỏi nhau, và bản ít được chạy hơn sẽ âm thầm bỏ sót một luật mà bản kia có.
+	 *
+	 * <p><b>Thứ tự nghiệp vụ.</b> Đổi phải xảy ra TRƯỚC khi khách bấm yêu cầu thanh toán. Ưu đãi
+	 * giảm tiền sinh ra một MÃ, và khách gõ mã đó vào ô có sẵn ở màn thanh toán — nhờ vậy hoá đơn
+	 * tính đúng ngay lần đầu và mã QR chỉ sinh một lần với đúng số tiền. Áp thẳng vào một hoá đơn
+	 * đang chờ sẽ đổi số tiền sau khi mã QR đã sinh, và khách quét mã cũ là chuyển sai số.
+	 *
+	 * <p>KHÔNG chặn cứng khi hoá đơn đã ở trạng thái chờ: chuyện đó vẫn cứu được bằng nút huỷ yêu
+	 * cầu thanh toán mà quầy đang có sẵn, và chặn ở đây sẽ buộc gói tích điểm phải biết về gói hoá
+	 * đơn bàn — một chiều phụ thuộc mà toàn bộ phần còn lại đi ngược lại.
+	 *
+	 * @param nhanVienId ai bấm; ghi lại vì đây là nhân viên tiêu điểm THẬT của khách
+	 */
+	@Transactional
+	public LoyaltyDtos.CounterRedeemResponse doiHoTaiQuay(
+			String phoneNumber, String rewardId, String orderCode, String nhanVienId,
+			String idempotencyKey) {
+		String phone = PhoneNumber.normalize(phoneNumber);
+		if (phone == null) {
+			throw ApiException.badRequest("LOYALTY_PHONE_REQUIRED", "Nhập số điện thoại của khách.");
+		}
+
+		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
+		if (daCo != null) {
+			return moTaChoQuay(daCo, phone);
+		}
+
+		LoyaltyMemberEntity member = members.findByPhoneNumber(phone)
+				.orElseThrow(() -> ApiException.badRequest("LOYALTY_MEMBER_NOT_FOUND",
+						"Số này chưa có điểm nào."));
+
+		LoyaltyRedemptionEntity ghi =
+				doiChoHoiVien(member, rewardId, orderCode, idempotencyKey, nhanVienId);
+		return moTaChoQuay(ghi, phone);
+	}
+
+	private LoyaltyDtos.CounterRedeemResponse moTaChoQuay(LoyaltyRedemptionEntity ghi, String phone) {
+		LoyaltyMemberEntity member = members.findByPhoneNumber(phone).orElseThrow();
+		return new LoyaltyDtos.CounterRedeemResponse(
+				ghi.getId(), ghi.getRewardName(), ghi.getPointsSpent(), ghi.getCode(),
+				ghi.getOrderCode(), member.getPoints());
+	}
+
+	/**
+	 * Phần lõi: trừ điểm và tạo phiếu cho MỘT hội viên đã xác định.
+	 *
+	 * <p>Dùng chung cho cả app lẫn quầy. Mọi luật đều nằm ở đây — đủ điểm, tối thiểu hạng, món còn
+	 * hàng, và hai nhánh tặng món / giảm tiền.
+	 */
+	private LoyaltyRedemptionEntity doiChoHoiVien(
+			LoyaltyMemberEntity member, String rewardId, String orderCode, String idempotencyKey,
+			String nhanVienDoiHo) {
 		LoyaltyRewardEntity reward = rewards.findById(rewardId)
 				.orElseThrow(() -> ApiException.notFound("LOYALTY_REWARD_NOT_FOUND",
 						"Reward was not found."));
@@ -289,11 +359,14 @@ public class MyLoyaltyService {
 			// đúng — nó vẫn là thứ khách đang cầm và dùng được.
 			ghi.capMa(MaUuDai.sinh(), reward.getDiscountAmount());
 		}
+		// Ghi TRƯỚC khi lưu. Đặt sau `save` thì giá trị không xuống cơ sở dữ liệu — đã đo thật:
+		// cột `redeemed_by` ra null. Một cột kiểm toán rỗng còn tệ hơn không có cột nào, vì nó tạo
+		// cảm giác đã lần ra được người bấm.
+		if (nhanVienDoiHo != null) {
+			ghi.ghiNguoiDoiHo(nhanVienDoiHo);
+		}
 		redemptions.save(ghi);
-
-		return new LoyaltyDtos.RedeemResponse(
-				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
-				ghi.getCreatedAt(), ghi.getCode(), me(userId));
+		return ghi;
 	}
 
 	/**

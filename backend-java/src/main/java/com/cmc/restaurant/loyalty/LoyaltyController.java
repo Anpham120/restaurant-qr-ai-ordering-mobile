@@ -94,6 +94,39 @@ public class LoyaltyController {
 		return loyaltyService.thuPhieu(redemptionId, principal.userId(), OffsetDateTime.now());
 	}
 
+	/**
+	 * Quầy đổi thưởng HỘ khách chỉ dùng web.
+	 *
+	 * <p>Khách quét QR dùng web không đăng nhập, nên hệ thống không biết họ là ai và họ không tự
+	 * đổi được. Nhưng điểm của họ vẫn tích — màn thanh toán bắt điền số điện thoại. Trước bản này
+	 * KHÔNG có đường nào cho quầy tạo một lần đổi, nghĩa là cả nhóm khách đó kiếm được điểm mà
+	 * không bao giờ tiêu được.
+	 *
+	 * <p>BẮT BUỘC {@code Idempotency-Key}, cùng lý do với đường của app: bấm hai lần lúc mạng chập
+	 * chờn ở đây tiêu điểm THẬT của khách. Ở quầy còn nặng hơn — người bấm không phải người mất
+	 * điểm.
+	 */
+	@PostMapping("/api/loyalty/counter/redeem")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
+	public LoyaltyDtos.CounterRedeemResponse doiHoTaiQuay(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@RequestBody(required = false) LoyaltyDtos.CounterRedeemRequest request,
+			HttpServletRequest httpRequest) {
+		String key = RequestIdempotency.readValid(httpRequest);
+		if (key == null) {
+			boolean coHeader = httpRequest.getHeader(RequestIdempotency.HEADER_NAME) != null;
+			throw ApiException.badRequest(
+					coHeader ? "IDEMPOTENCY_KEY_INVALID" : "IDEMPOTENCY_KEY_REQUIRED",
+					"A valid Idempotency-Key header is required.");
+		}
+		if (request == null || request.rewardId() == null || request.rewardId().isBlank()) {
+			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
+		}
+		return myLoyaltyService.doiHoTaiQuay(
+				request.phone(), request.rewardId().trim(), request.orderCode(),
+				principal.userId(), key);
+	}
+
 	/** Khách xin mã để đọc ở quầy. */
 	@PostMapping("/api/loyalty/me/link-code")
 	@PreAuthorize("hasRole('Customer')")
