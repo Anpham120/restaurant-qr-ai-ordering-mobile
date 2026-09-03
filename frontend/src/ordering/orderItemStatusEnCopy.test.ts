@@ -1,6 +1,7 @@
 import { EN_COPY, translate } from "@cmc/i18n";
 import { describe, expect, it } from "vitest";
 import { labelGuestItemStatus, labelGuestOrderStatus } from "../utils/opsStatusLabels";
+import { moTaBepDong } from "./uocLuongLenMon";
 
 /*
   LỖI CÓ THẬT, tự gây ra. Lượt đồng bộ nhãn trạng thái món đổi bộ chữ tiếng Việt ("Sẵn sàng phục
@@ -73,5 +74,21 @@ describe("câu mô tả từng bước tiến trình cũng phải có bản ti�
       expect(EN_COPY[cau], `thiếu bản tiếng Anh cho "${cau}"`).toBeTruthy();
       expect(translate("en", cau)).not.toBe(cau);
     }
+  });
+});
+describe("câu ước lượng và câu bếp đông cũng phải có bản tiếng Anh", () => {
+  // `moTaBepDong` sinh câu rồi màn danh sách đưa thẳng vào `t()` qua biến. Cửa phủ ngôn ngữ không
+  // thấy, nên câu đó nói tiếng Việt với khách chọn English suốt từ khi có tính năng — chỉ lộ ra khi
+  // màn chi tiết viết cùng câu ấy bằng chuỗi nguyên văn và cửa mới đỏ.
+  it("câu bếp đông dịch được", () => {
+    const cau = moTaBepDong(true, "15–25 phút");
+    expect(cau).not.toBeNull();
+    expect(EN_COPY[cau as string], `thiếu bản tiếng Anh cho "${cau}"`).toBeTruthy();
+    expect(translate("en", cau as string)).not.toBe(cau);
+  });
+
+  it("câu dự kiến dịch được cả tham số", () => {
+    expect(translate("en", "Dự kiến {khoang}", { khoang: "15–25 phút" }))
+      .toBe("Expected in 15–25 phút");
   });
 });

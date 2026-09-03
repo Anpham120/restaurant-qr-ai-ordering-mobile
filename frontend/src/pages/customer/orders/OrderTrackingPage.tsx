@@ -29,7 +29,8 @@ import type {
   RequestedPaymentMethod,
   VietQrPaymentResponse,
 } from "../../../types";
-import { orderingPath } from "../../../ordering/orderingRoutes";
+import { orderingPath } from "../../../ordering/orderingRoutes";
+import { moTaBepDong, moTaUocLuong } from "../../../ordering/uocLuongLenMon";
 import { demTienDoMon } from "../../../ordering/tienDoMonKhach";
 import { labelGuestItemStatus, labelGuestOrderStatus } from "../../../utils/opsStatusLabels";
 import { ArrowLeft, Banknote, CreditCard, QrCode } from "lucide-react";
@@ -497,7 +498,31 @@ function OrderTrackingPanel({
           <article className="cmc-ot-item" key={item.orderItemId}>
             <div>
               <strong>{localizeMenuItemName(item.menuItemId, item.name, locale)}</strong>
-              <p>x{item.quantity}</p>
+              <p>x{item.quantity}</p>
+              {/*
+                Ước lượng từng món CHỈ có ở màn danh sách. Khách bấm vào một đơn để xem KỸ HƠN thì
+                lại mất thông tin — màn chi tiết im lặng về thứ họ vào đây để hỏi: bao giờ có món.
+
+                Máy chủ gửi ba trường này từ lâu và kiểu `OrderTrackingItem` đã khai đủ; chỉ chỗ vẽ
+                là chưa có. Dùng chung `uocLuongLenMon` với màn danh sách để hai màn không tự nghĩ
+                ra hai cách nói về cùng một con số.
+              */}
+              {moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh) ? (
+                <p className="cmc-ot-uoc-luong">
+                  {t("Dự kiến {khoang}", {
+                    khoang: moTaUocLuong(
+                      item.estimatedReadyMinutesLow,
+                      item.estimatedReadyMinutesHigh,
+                    ) as string,
+                  })}
+                  {moTaBepDong(
+                    item.kitchenBusy,
+                    moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh),
+                  ) ? (
+                    <> · {t("Bếp đang đông nên món lâu hơn thường ngày.")}</>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
             <span
               className={`cmc-ot-item-pill cmc-ot-item-${item.status.toLowerCase()}`}

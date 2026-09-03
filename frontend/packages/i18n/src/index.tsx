@@ -383,6 +383,8 @@ export const EN_COPY: Record<string, string> = {
   // có gì đỏ lên. Đã xảy ra thật: `orderItemStatusEnCopy.test.ts` là cửa chặn cho lần sau.
   // Nhãn trạng thái ĐƠN cho khách, và câu mô tả từng bước tiến trình. Cũng tới `t` qua biến như
   // nhãn món, nên cũng nằm ngoài tầm cửa phủ ngôn ngữ — `orderItemStatusEnCopy.test.ts` canh cả hai.
+  "Bếp đang đông nên món lâu hơn thường ngày.": "The kitchen is busy, so dishes take longer than usual.",
+  "Dự kiến {khoang}": "Expected in {khoang}",
   "Đã gửi bếp": "Sent to the kitchen",
   "Bếp đã nhận": "The kitchen has it",
   "Đang nấu": "Cooking",

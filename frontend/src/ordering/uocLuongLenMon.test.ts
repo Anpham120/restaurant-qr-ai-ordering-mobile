@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { moTaBepDong, moTaUocLuong } from "./uocLuongLenMon";
 
@@ -28,5 +30,35 @@ describe("ước lượng thời gian lên món", () => {
     expect(moTaBepDong(true, null)).toBeNull();
     expect(moTaBepDong(false, "24–41 phút")).toBeNull();
     expect(moTaBepDong(undefined, "24–41 phút")).toBeNull();
+  });
+});
+
+/*
+  Hai màn của khách phải nói cùng một câu về cùng một con số.
+
+  Ước lượng từng món CHỈ có ở màn danh sách. Khách bấm vào một đơn để xem KỸ HƠN thì lại mất thông
+  tin — màn chi tiết im lặng về đúng thứ họ vào đó để hỏi.
+*/
+describe("cả hai màn khách đều dùng chung một cách nói về ước lượng", () => {
+  const doc = (duongDan: string) =>
+    readFileSync(fileURLToPath(new URL(duongDan, import.meta.url)), "utf8");
+
+  it("màn chi tiết cũng vẽ ước lượng, và lấy từ đúng nguồn dùng chung", () => {
+    const chiTiet = doc("../pages/customer/orders/OrderTrackingPage.tsx");
+    expect(chiTiet).toContain('from "../../../ordering/uocLuongLenMon"');
+    expect(chiTiet).toContain("item.estimatedReadyMinutesLow");
+    expect(chiTiet).toContain("moTaBepDong(");
+  });
+
+  it("không màn nào tự ghép chuỗi phút riêng", () => {
+    // Đối chứng. Một màn tự viết `${low}-${high} phút` sẽ trông giống nhau hôm nay rồi trôi khỏi
+    // nhau ở ca suy biến (low >= high), nơi hàm chung nói "khoảng N phút" còn chuỗi tự ghép nói
+    // "24-24 phút" — đọc như một lỗi hiển thị.
+    for (const duongDan of [
+      "./SessionOrdersPage.tsx",
+      "../pages/customer/orders/OrderTrackingPage.tsx",
+    ]) {
+      expect(doc(duongDan)).not.toMatch(/\$\{[^}]*[Ll]ow[^}]*\}[–-]\$\{/);
+    }
   });
 });
