@@ -960,6 +960,19 @@
   margin: 0 0 4px;
 }
 
+/*
+  Panel nhúng dùng h2 chứ không phải h1 — chỉ một h1 cho mỗi trang. Trước đây chỉ h1 có kiểu, nên
+  tiêu đề của mọi panel nhúng rơi về cỡ mặc định trình duyệt và lệch hẳn khỏi phần còn lại.
+*/
+.ops-page-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
 .ops-page-header p {
   font-size: 14px;
   color: var(--color-muted);
@@ -1402,7 +1415,12 @@
 .ops-confirm-message {
   margin: 0 0 1rem;
   line-height: 1.55;
-  color: var(--ops-text-muted, #4a5568);
+  /*
+    `--ops-text-muted` KHÔNG tồn tại trong dự án — bảng biến thật là `--color-*`
+    (packages/shared-ui/src/tokens.css). Tên sai thì rơi về giá trị dự phòng, và hộp xác nhận
+    dùng một màu xám lệch khỏi phần còn lại. Hộp này nằm trong luồng thu tiền mặt hàng loạt.
+  */
+  color: var(--color-muted);
 }
 
 
@@ -1448,7 +1466,7 @@
 
 .pos-sum span {
   font-size: 0.8rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
 }
 
 .pos-sum strong {
@@ -1461,7 +1479,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  border-bottom: 1px solid var(--ops-border, #e2e8f0);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .pos-tab {
@@ -1474,7 +1492,7 @@
   min-height: 44px;
   font: inherit;
   font-weight: 600;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
   cursor: pointer;
   transition: color 160ms ease, border-color 160ms ease;
 }
@@ -1485,7 +1503,7 @@
 
 .pos-tab--on {
   color: inherit;
-  border-bottom-color: var(--ops-accent, #2563eb);
+  border-bottom-color: var(--color-primary);
 }
 
 .pos-tab-count {
@@ -1493,13 +1511,13 @@
   margin-inline-start: 6px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--ops-surface-alt, #eef2f7);
+  background: var(--color-bg-subtle);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 
 .pos-tab--on .pos-tab-count {
-  background: var(--ops-accent, #2563eb);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -1521,13 +1539,13 @@
   margin: 0;
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--ops-surface-alt, #eef2f7);
+  background: var(--color-bg-subtle);
   font-size: 0.9rem;
 }
 
 .pos-msg--err {
-  background: #fef2f2;
-  color: #b42318;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .pos-grid {
@@ -1540,14 +1558,14 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--ops-border, #e2e8f0);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: var(--ops-surface, #fff);
+  background: var(--color-card);
 }
 
 .pos-card--hl {
-  border-color: var(--ops-accent, #2563eb);
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(0 91 172 / 0.14);
 }
 
 /* Hai thứ duy nhất đọc được từ xa. Mọi thứ khác nhỏ hơn hẳn, có chủ đích. */
@@ -1577,13 +1595,13 @@
   gap: 6px;
   flex-wrap: wrap;
   font-size: 0.85rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
 }
 
 .pos-items > summary {
   cursor: pointer;
   font-size: 0.85rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
   min-height: 32px;
   display: flex;
   align-items: center;
@@ -1600,7 +1618,7 @@
 
 .pos-items > ul span {
   font-variant-numeric: tabular-nums;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
 }
 
 .pos-cash {
@@ -1610,19 +1628,19 @@
   flex-wrap: wrap;
   padding: 10px;
   border-radius: 8px;
-  background: var(--ops-surface-alt, #eef2f7);
+  background: var(--color-bg-subtle);
 }
 
 .pos-cash label {
   font-size: 0.85rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
 }
 
 .pos-cash input {
   width: 7.5rem;
   min-height: 44px;
   padding: 6px 10px;
-  border: 1px solid var(--ops-border, #cbd5e1);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   background: #fff;
   font: inherit;
@@ -1640,12 +1658,12 @@
 /* Nói THẲNG là thiếu, không hiện số âm — "-5.000đ" là thứ người đang vội đọc lướt thành 5.000. */
 .ops-cash-short {
   font-variant-numeric: tabular-nums;
-  color: #b42318;
+  color: var(--color-danger);
 }
 
 .ops-cash-hint {
   font-size: 0.85rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
 }
 
 .pos-act {
@@ -1672,14 +1690,14 @@
   min-height: 44px;
   font: inherit;
   font-size: 0.85rem;
-  color: var(--ops-text-muted, #4a5568);
+  color: var(--color-muted);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .pos-cancel:hover:not(:disabled) {
-  color: #b42318;
+  color: var(--color-danger);
 }
 
 .pos-cancel:disabled {
@@ -1720,6 +1738,64 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pos-tab {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Hai lớp bị DÙNG mà chưa từng được định nghĩa
+
+   `.ops-field` và `.ops-muted` xuất hiện năm lần trong `CounterVoucherPanel`
+   nhưng không có một dòng CSS nào trong cả 17 tệp stylesheet của dự án. Hậu
+   quả im lặng: `<label>` là hộp inline nên nhãn nằm CẠNH ô nhập thay vì ở
+   trên, ô nhập giữ kiểu mặc định trình duyệt và thấp hơn hẳn nút bấm bên
+   cạnh, còn chữ phụ thì đậm ngang chữ chính.
+
+   Không lỗi, không cảnh báo, không test nào đỏ — chỉ là nhìn vào thấy sai.
+   ========================================================================== */
+
+.ops-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.ops-field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+/* Khớp `.ops-form-input`, và cao 44px vì đây là màn hình cảm ứng ở quầy. */
+.ops-field > input,
+.ops-field > select {
+  min-height: 44px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 15px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  transition: border-color 0.15s;
+}
+
+.ops-field > input:focus,
+.ops-field > select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.ops-muted {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-field > input,
+  .ops-field > select {
     transition: none;
   }
 }
