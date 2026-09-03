@@ -22,7 +22,6 @@ import {
   requestOrderPayment,
 } from "../../../services/orderService";
 import type {
-  OrderItemStatus,
   OrderRealtimeEvent,
   OrderStatusEvent,
   OrderTrackingItem,
@@ -31,27 +30,23 @@ import type {
   VietQrPaymentResponse,
 } from "../../../types";
 import { orderingPath } from "../../../ordering/orderingRoutes";
+import { demTienDoMon } from "../../../ordering/tienDoMonKhach";
+import { labelGuestItemStatus } from "../../../utils/opsStatusLabels";
 import { ArrowLeft, Banknote, CreditCard, QrCode } from "lucide-react";
 
 /* ========================================================================
    Labels & Helpers
    ======================================================================== */
 
-const itemStatusLabels: Record<OrderItemStatus, string> = {
-  Pending: "Chờ xử lý",
-  Preparing: "Đang chế biến",
-  Ready: "Sẵn sàng",
-  Served: "Đã phục vụ",
-  Cancelled: "Đã hủy",
-};
+/*
+  Màn này TỪNG giữ hai bộ chữ riêng cho trạng thái món (`itemStatusLabels` và
+  `itemStatusDescriptions`) thay vì dùng `labelGuestItemStatus`. Cùng một món `Ready`, khách đọc
+  "Món xong, đang mang ra bàn" ở danh sách rồi bấm vào chi tiết thì thành "Sẵn sàng" — chữ đổi
+  dưới tay khách, giữa hai màn của cùng một người, cách nhau một cú chạm.
 
-const itemStatusDescriptions: Record<OrderItemStatus, string> = {
-  Pending: "Bếp đã nhận món và đang xếp hàng xử lý.",
-  Preparing: "Đầu bếp đang chế biến món này.",
-  Ready: "Món đã sẵn sàng để phục vụ.",
-  Served: "Món đã được phục vụ.",
-  Cancelled: "Món đã hủy.",
-};
+  Đó là lần thứ NĂM một bộ chữ bị nhân bản trong dự án này. Bộ chữ dùng chung nằm ở
+  `utils/opsStatusLabels.ts`, và bản sinh đôi bên app ở `mobile-rn/src/core/orders/order.ts`.
+*/
 
 const timelineLabels: Record<string, string> = {
   Placed: "Đã ghi nhận",
@@ -426,7 +421,9 @@ function OrderTrackingPanel({
   vietQrAvailable: boolean;
 }) {
   const { formatDateTime, locale, t } = useI18n();
-  const readyCount = order.items.filter((item) => item.status === "Ready").length;
+  // Con số này TỪNG là `readyCount/tổng số món` với nhãn "món sẵn sàng" — gộp hai việc khác hẳn
+  // nhau với người đang ngồi ăn, và đếm cả món đã huỷ vào mẫu số.
+  const tienDo = demTienDoMon(order.items);
   const canRequestPayment =
     order.status !== "Cancelled" &&
     (order.paymentStatus === "NotRequested" ||
@@ -449,8 +446,13 @@ function OrderTrackingPanel({
           </span>
         </div>
         <strong>
-          {readyCount}/{order.items.length}
-          <small>{t("món sẵn sàng")}</small>
+          {tienDo.daLen}/{tienDo.tong}
+          <small>{t("món đã lên bàn")}</small>
+          {tienDo.dangMangRa > 0 ? (
+            <small className="cmc-ot-dang-ra">
+              {t("{n} món đang mang ra", { n: tienDo.dangMangRa })}
+            </small>
+          ) : null}
         </strong>
       </div>
 
@@ -491,14 +493,12 @@ function OrderTrackingPanel({
           <article className="cmc-ot-item" key={item.orderItemId}>
             <div>
               <strong>{localizeMenuItemName(item.menuItemId, item.name, locale)}</strong>
-              <p>
-                x{item.quantity} - {t(itemStatusDescriptions[item.status])}
-              </p>
+              <p>x{item.quantity}</p>
             </div>
             <span
               className={`cmc-ot-item-pill cmc-ot-item-${item.status.toLowerCase()}`}
             >
-              {t(itemStatusLabels[item.status] ?? item.status)}
+              {t(labelGuestItemStatus(item.status, order.status))}
             </span>
           </article>
         ))}

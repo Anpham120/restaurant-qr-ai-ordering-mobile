@@ -377,6 +377,22 @@ export const EN_COPY: Record<string, string> = {
   "Phiên bàn này đã hết hạn. Vui lòng quét lại QR tại bàn.": "This table session has expired. Scan the table QR code again.",
   "Không thể kết nối phiên bàn. Vui lòng thử lại hoặc nhờ nhân viên hỗ trợ.": "The table session could not be connected. Try again or ask a staff member for help.",
   "Mã QR không hợp lệ hoặc không còn hoạt động.": "This QR code is invalid or no longer active.",
+  // Nhãn trạng thái MÓN cho khách. Năm câu này tới `t()` qua biến (`labelGuestItemStatus`), nên
+  // phép kiểm phủ ngôn ngữ — vốn chỉ quét `t("...")` viết thẳng — KHÔNG thấy chúng. Đổi bộ chữ
+  // tiếng Việt mà quên chỗ này thì khách nói tiếng Anh nhận lại nguyên câu tiếng Việt, và không
+  // có gì đỏ lên. Đã xảy ra thật: `orderItemStatusEnCopy.test.ts` là cửa chặn cho lần sau.
+  "Đã gửi bếp, chờ tới lượt": "Sent to the kitchen, waiting its turn",
+  "Đang làm món của bạn": "Your dish is being cooked",
+  "Món xong, đang mang ra bàn": "Ready and on its way to your table",
+  "Đã mang ra bàn": "Brought to your table",
+  "Đã huỷ": "Cancelled",
+  "Đã lên {daLen}/{tong} món": "{daLen}/{tong} dishes at your table",
+  "Đã lên {daLen}/{tong} món · {dangRa} món đang mang ra": "{daLen}/{tong} dishes at your table · {dangRa} on the way",
+  "{ten} đang được mang ra bàn bạn": "{ten} is on the way to your table",
+  "món đã lên bàn": "dishes at your table",
+  "{n} món đang mang ra": "{n} on the way",
+  "Đã rõ": "Got it",
+  "Đóng thông báo": "Dismiss notice",
   "Chờ xác nhận": "Awaiting confirmation",
   "Chờ chế biến": "Waiting for kitchen",
   "Đang chuẩn bị": "Preparing",

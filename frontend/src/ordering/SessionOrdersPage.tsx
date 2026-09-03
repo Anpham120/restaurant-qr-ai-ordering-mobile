@@ -30,6 +30,7 @@ import { TableInvoicePaymentModal } from "./TableInvoicePaymentModal";
 import { TableElectronicReceiptModal } from "./TableElectronicReceiptModal";
 import { layLinkTaiApp } from "../utils/linkTaiApp";
 import { labelGuestItemStatus, labelOrderStatus } from "../utils/opsStatusLabels";
+import { demTienDoMon, monVuaSanSang } from "./tienDoMonKhach";
 
 const journeySteps = ["Gọi món", "Chế biến", "Phục vụ", "Thanh toán"] as const;
 
@@ -69,6 +70,32 @@ export function SessionOrdersPage() {
       if (showLoading) setLoading(false);
     }
   }, [context.sessionId, context.sessionToken]);
+
+  /*
+    Món vừa xong phải TỰ BÁO. Trước bản này dòng `<em>` của một món lặng lẽ đổi chữ — một dòng
+    trong bốn, trên màn hình của người đang ngồi nói chuyện. Khách không có cách nào biết món đã
+    lên trừ khi nhìn chằm chằm vào điện thoại.
+
+    App đã có dải báo này từ trước (`monVuaSanSang`); web thì chưa. Luật so sánh nằm ở
+    `tienDoMonKhach.ts` để phép kiểm với tới được, còn ở đây chỉ là chỗ nhớ ảnh chụp lần trước.
+  */
+  const monTruocRef = useRef<{ orderItemId: string; name: string; status: string }[] | null>(null);
+  const [monVuaXong, setMonVuaXong] = useState<string[]>([]);
+
+  useEffect(() => {
+    const hienTai = orders.flatMap((order) =>
+      order.items.map((item) => ({
+        orderItemId: item.orderItemId,
+        name: item.name,
+        status: item.status,
+      })),
+    );
+    const truoc = monTruocRef.current;
+    monTruocRef.current = hienTai;
+    if (truoc === null) return;
+    const vuaXong = monVuaSanSang(truoc, hienTai);
+    if (vuaXong.length > 0) setMonVuaXong(vuaXong);
+  }, [orders]);
 
   useEffect(() => {
     void loadOrders();
@@ -130,19 +157,20 @@ export function SessionOrdersPage() {
     orders.map((order) => order.status),
     invoice?.status ?? null,
   );
-  const itemProgress = useMemo(() => {
-    const items = orders.flatMap(order => order.items).filter(item => item.status !== "Cancelled");
-    return items.reduce((progress, item) => {
-      progress.total += item.quantity;
-      if (item.status === "Ready" || item.status === "Served") progress.ready += item.quantity;
-      return progress;
-    }, { total: 0, ready: 0 });
-  }, [orders]);
+  /*
+    Trước bản này chỗ này gộp `Ready` và `Served` thành một con số "món đã sẵn sàng". Ăn hết ba
+    món, món thứ tư đang được bưng ra, khách đọc "4/4 món đã sẵn sàng" trong khi trên bàn mới có
+    ba. Với người đang ngồi ăn, "đã ở trước mặt" và "chưa ra" là hai việc khác hẳn nhau.
+  */
+  const itemProgress = useMemo(
+    () => demTienDoMon(orders.flatMap((order) => order.items)),
+    [orders],
+  );
 
   const currentJourneyStep = hubState === "New"
     ? 0
     : hubState === "OrderInProgress"
-      ? (itemProgress.total > 0 && itemProgress.ready === itemProgress.total ? 2 : 1)
+      ? (itemProgress.tong > 0 && itemProgress.daLen + itemProgress.dangMangRa === itemProgress.tong ? 2 : 1)
       : hubState === "Paid"
         ? journeySteps.length
         : 3;
@@ -153,8 +181,16 @@ export function SessionOrdersPage() {
     PaymentPending: "Đang chờ xác nhận thanh toán",
     Paid: "Hóa đơn đã thanh toán",
   }[hubState];
-  const stateDescription = hubState === "OrderInProgress" && itemProgress.total > 0
-    ? t("{ready}/{total} món đã sẵn sàng", { ready: itemProgress.ready, total: itemProgress.total })
+  /*
+    Câu phải là chuỗi NGUYÊN VĂN tại chỗ gọi `t`, không phải chuỗi do hàm khác ghép. Phép kiểm phủ
+    ngôn ngữ chỉ quét được `t(<chuỗi viết thẳng>)`; một câu ghép ở nơi khác lọt qua cửa và khách nói
+    tiếng Anh nhận lại nguyên câu tiếng Việt.
+  */
+  const stateDescription = hubState === "OrderInProgress" && itemProgress.tong > 0
+    ? (itemProgress.dangMangRa > 0
+      ? t("Đã lên {daLen}/{tong} món · {dangRa} món đang mang ra",
+        { daLen: itemProgress.daLen, tong: itemProgress.tong, dangRa: itemProgress.dangMangRa })
+      : t("Đã lên {daLen}/{tong} món", { daLen: itemProgress.daLen, tong: itemProgress.tong }))
     : t({
       New: "Quét QR thành công. Bạn có thể bắt đầu gọi món.",
       OrderInProgress: "Bếp đã nhận món và đang cập nhật tiến độ.",
@@ -219,6 +255,15 @@ export function SessionOrdersPage() {
           {t(connectionStatus === "connected" ? "Đang cập nhật trực tiếp" : "Đang đồng bộ lại")}
         </small>
       </header>
+
+      {monVuaXong.length > 0 ? (
+        <div className="ordering-mon-vua-xong" role="status" aria-live="polite">
+          <p>{t("{ten} đang được mang ra bàn bạn", { ten: monVuaXong.join(", ") })}</p>
+          <button type="button" onClick={() => setMonVuaXong([])} aria-label={t("Đóng thông báo")}>
+            {t("Đã rõ")}
+          </button>
+        </div>
+      ) : null}
 
       {error ? <div className="ordering-inline-error" role="alert"><p>{t(error)}</p><button type="button" onClick={() => void loadOrders()}>{t("Thử lại")}</button></div> : null}
 

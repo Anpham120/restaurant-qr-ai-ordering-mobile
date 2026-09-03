@@ -325,3 +325,55 @@
 .table-invoice-promotion-chips button:focus-visible {
   border-color: var(--ordering-accent, #6f3d2c);
 }
+
+/*
+  Dải báo "món vừa xong". Đây là thứ DUY NHẤT trên màn khách tự lên tiếng — mọi thứ khác chỉ đổi
+  chữ tại chỗ và người đang ngồi nói chuyện sẽ không thấy.
+
+  Dùng brass (vàng đồng) của bộ nhận diện chứ không phải xanh lá "thành công": đây không phải báo
+  một việc đã hoàn thành, mà là gọi khách nhìn lên vì món đang được bưng tới.
+
+  `aria-live="polite"` nằm ở phần tử, còn ở đây chỉ lo phần nhìn.
+*/
+.ordering-mon-vua-xong {
+  align-items: center;
+  background: var(--brand-paper);
+  border: 1px solid var(--brand-brass);
+  border-left: 4px solid var(--brand-brass);
+  border-radius: var(--brand-radius-card, .8rem);
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+}
+
+.ordering-mon-vua-xong p {
+  color: var(--brand-ink);
+  font: 700 .95rem/1.4 var(--brand-font-utility);
+  margin: 0;
+}
+
+/* Nút phụ: khách đã đọc rồi thì dẹp đi, không phải một hành động quan trọng. */
+.ordering-mon-vua-xong button {
+  background: transparent;
+  border: 1px solid var(--brand-clay-line);
+  color: var(--brand-muted);
+  flex: 0 0 auto;
+  font: 700 .8rem/1 var(--brand-font-utility);
+}
+
+/* Vế "đang mang ra" ở con số đầu màn chi tiết — phụ hơn con số chính. */
+.cmc-ot-dang-ra {
+  color: var(--brand-muted, #6b7280);
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ordering-mon-vua-xong { animation: ordering-mon-vua-xong-vao .24s ease-out; }
+}
+
+@keyframes ordering-mon-vua-xong-vao {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
