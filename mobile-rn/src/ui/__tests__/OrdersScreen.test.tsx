@@ -72,10 +72,14 @@ describe('hiện đơn của bàn', () => {
     );
 
     await screen.findByText('DH1');
-    // Đơn đang Preparing → "Đang nấu"; món đang Pending → "Chờ nấu". Hai nhãn khác nhau cho
-    // hai cấp khác nhau, và đó chính là chỗ dễ nói sai với khách nhất.
+    // Đơn đang Preparing → "Đang nấu"; món đang Pending → "Đã gửi bếp, chờ tới lượt". Hai nhãn
+    // khác nhau cho hai cấp khác nhau, và đó chính là chỗ dễ nói sai với khách nhất.
+    //
+    // Nhãn MÓN đổi ở lượt đồng bộ chữ giữa app và web: "Chờ nấu" là lời của BẾP, không phải lời
+    // nói với người đang ngồi đợi. Ca này đỏ từ lượt đó mà không ai thấy — lần chạy hôm ấy chỉ
+    // gọi `src/core/orders`, không chạm tới `src/ui`.
     expect(screen.getByText('Đang nấu')).toBeTruthy();
-    expect(screen.getByText('Chờ nấu')).toBeTruthy();
+    expect(screen.getByText('Đã gửi bếp, chờ tới lượt')).toBeTruthy();
     expect(screen.getByText('2 x Phở bò tái')).toBeTruthy();
     expect(screen.getByText('Tổng 120.000đ')).toBeTruthy();
   });

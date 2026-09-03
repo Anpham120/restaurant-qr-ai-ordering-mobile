@@ -5,6 +5,8 @@ import { type MyLoyalty, type Reward } from '../../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../../core/loyalty/loyaltyApi';
 import { LoyaltyScreen, moTaViecSeXayRa } from '../LoyaltyScreen';
 
+/** Bản giả: mã nào cũng ra token. Luật OTP được canh riêng ở `phoneOtp`. */
+const GUI_MA_OTP_GIA = async () => ({ xacNhan: async () => 'token-otp' });
 const CHUA_NOI: MyLoyalty = {
   linked: false,
   coHoSo: false,
@@ -47,7 +49,6 @@ function apiVoi(dau: MyLoyalty, ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
   return {
     cuaToi: async () => dau,
     noiSo: async () => DA_NOI,
-    xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     doiDiem: async () => ({
       redemptionId: 'rd',
       rewardName: 'Trà đào miễn phí',
@@ -65,94 +66,87 @@ const tuChoi = () => Promise.resolve(false);
 describe('chưa liên kết số điện thoại', () => {
   it('hiện lời MỜI liên kết, không hiện thông báo hỏng', async () => {
     // `linked: false` là trạng thái bình thường của mọi tài khoản mới.
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CHUA_NOI)} />);
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CHUA_NOI)} />,
+    );
 
     await screen.findByText('Liên kết số điện thoại');
     expect(screen.queryByText(/lỗi/i)).toBeNull();
   });
 
-  it('nói TRƯỚC giới hạn, không để khách gõ số rồi mới nhận lỗi khó hiểu', async () => {
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CHUA_NOI)} />);
+  it('nói TRƯỚC điều sẽ xảy ra, và KHÔNG chỉ khách ra quầy nữa', async () => {
+    // Câu cũ ở đây là "nếu số này đã từng tích điểm, nhờ nhân viên tại quầy nối hộ". Đường đó đã
+    // gỡ: khách tự nối bằng OTP. Một câu chỉ khách đi làm việc không còn tồn tại còn tệ hơn im.
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CHUA_NOI)} />,
+    );
 
     const s = await screen.findByText(/Điểm thưởng được tính theo số điện thoại/);
-    expect(s.props.children.join('')).toContain('nhân viên tại quầy');
+    expect(s.props.children.join('')).not.toContain('quầy');
+    expect(s.props.children.join('')).toContain('điểm sẽ về tài khoản ngay sau khi xác minh');
   });
 
-  it('nối số thành công thì chuyển sang màn hình có điểm', async () => {
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CHUA_NOI)} />);
+  it('đi đủ HAI bước: gửi mã rồi mới nối', async () => {
+    // Nối số giờ xác minh bằng OTP. Bước gửi mã KHÔNG được bỏ qua — nó là toàn bộ lý do máy chủ
+    // dám nhận một số đã có hồ sơ điểm.
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CHUA_NOI)} />,
+    );
 
     await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
+    await fireEvent.press(screen.getByLabelText('Gửi mã xác minh'));
+
+    await fireEvent.changeText(await screen.findByLabelText('Mã xác minh'), '123456');
+    await fireEvent.press(screen.getByLabelText('Xác minh và liên kết'));
 
     await screen.findByLabelText('320 điểm');
     expect(screen.getByText('Số đã liên kết: 0901234567')).toBeTruthy();
   });
 
-  it('số đã là thành viên: hiện câu chỉ ra việc cần làm', async () => {
-    const api = apiVoi(CHUA_NOI, {
-      noiSo: async () => {
-        throw new AuthException(
-          'LOYALTY_PHONE_ALREADY_MEMBER',
-          'Số này đã có tài khoản tích điểm. Nhờ nhân viên tại quầy nối vào tài khoản của bạn.',
-        );
-      },
-    });
-    await render(<LoyaltyScreen accessToken="jwt" api={api} />);
+  it('CHƯA gửi mã thì không có ô nhập mã — không bỏ qua được bước xác minh', async () => {
+    // Đối chứng cho ca trên. Thiếu nó thì một màn hình vẽ sẵn cả hai ô vẫn xanh, và khách có thể
+    // bấm liên kết mà chưa từng chứng minh mình sở hữu số.
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CHUA_NOI)} />,
+    );
 
-    await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
-
-    await screen.findByText(/Nhờ nhân viên tại quầy/);
+    await screen.findByLabelText('Số điện thoại');
+    expect(screen.queryByLabelText('Mã xác minh')).toBeNull();
+    expect(screen.queryByLabelText('Xác minh và liên kết')).toBeNull();
   });
 
-  it('số đã là thành viên: đưa LUÔN mã để đọc ở quầy', async () => {
-    // Câu "nhờ nhân viên nối hộ" mà không kèm mã thì khách phải tự đi tìm nơi lấy mã — và trong
-    // app không có nơi nào khác cấp mã cả. Mã phải hiện ngay tại chỗ khách vừa bị từ chối.
-    const api = apiVoi(CHUA_NOI, {
-      noiSo: async () => {
-        throw new AuthException(
-          'LOYALTY_PHONE_ALREADY_MEMBER',
-          'Số này đã có tài khoản tích điểm.',
-        );
+  it('mã sai thì cho gõ LẠI ngay, không bắt xin mã mới', async () => {
+    // Mã cũ còn sống. Bắt xin lại từ đầu là thêm một tin nhắn và một vòng chờ cho một lỗi gõ.
+    const guiMaHong = async () => ({
+      xacNhan: async () => {
+        throw new Error('XAC_MINH_THAT_BAI');
       },
-      xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     });
-    await render(<LoyaltyScreen accessToken="jwt" api={api} />);
+    await render(<LoyaltyScreen guiMaOtp={guiMaHong} accessToken="jwt" api={apiVoi(CHUA_NOI)} />);
 
     await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
+    await fireEvent.press(screen.getByLabelText('Gửi mã xác minh'));
+    await fireEvent.changeText(await screen.findByLabelText('Mã xác minh'), '000000');
+    await fireEvent.press(screen.getByLabelText('Xác minh và liên kết'));
 
-    await screen.findByText('261860');
-    // Đọc từng chữ số: mã đọc miệng cho nhân viên, "hai sáu một tám sáu không" mới là thứ khách
-    // cần nghe, chứ không phải "hai trăm sáu mươi mốt nghìn tám trăm sáu mươi".
-    expect(screen.getByLabelText('Mã nối tài khoản 2 6 1 8 6 0')).toBeTruthy();
+    await screen.findByText(/Mã không đúng hoặc đã hết hạn/);
+    // Vẫn đứng ở bước nhập mã, không bị đá về bước gõ số.
+    expect(screen.getByLabelText('Mã xác minh')).toBeTruthy();
   });
 
-  it('xin mã hỏng thì vẫn giữ câu hướng dẫn, không nuốt mất', async () => {
-    // Nếu để lỗi của bước xin mã ghi đè lên lời nhắn, khách mất luôn manh mối duy nhất.
-    const api = apiVoi(CHUA_NOI, {
-      noiSo: async () => {
-        throw new AuthException(
-          'LOYALTY_PHONE_ALREADY_MEMBER',
-          'Số này đã có tài khoản tích điểm. Nhờ nhân viên tại quầy nối vào tài khoản của bạn.',
-        );
-      },
-      xinMaNoiSo: async () => {
-        throw new Error('mạng rớt');
-      },
-    });
-    await render(<LoyaltyScreen accessToken="jwt" api={api} />);
+  it('KHÔNG có thư viện OTP thì nói rõ, không hiện nút bấm không ăn thua', async () => {
+    // Xảy ra trên Expo Go, nơi thư viện native của Firebase không có mặt.
+    await render(<LoyaltyScreen guiMaOtp={undefined} accessToken="jwt" api={apiVoi(CHUA_NOI)} />);
 
-    await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
-
-    await screen.findByText(/Nhờ nhân viên tại quầy/);
+    await screen.findByText(/Bản dựng này chưa gửi được mã xác minh/);
+    expect(screen.queryByLabelText('Gửi mã xác minh')).toBeNull();
   });
 });
-
 describe('đã liên kết', () => {
   it('hiện điểm và ưu đãi đổi được', async () => {
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI)} />);
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(DA_NOI)} />,
+    );
 
     await screen.findByLabelText('320 điểm');
     expect(screen.getByText('Trà đào miễn phí')).toBeTruthy();
@@ -162,6 +156,7 @@ describe('đã liên kết', () => {
   it('chưa đủ điểm cho ưu đãi nào thì nói rõ, không để trống', async () => {
     await render(
       <LoyaltyScreen
+        guiMaOtp={GUI_MA_OTP_GIA}
         accessToken="jwt"
         api={apiVoi({ ...DA_NOI, points: 10, availableRewards: [] })}
       />,
@@ -173,7 +168,13 @@ describe('đã liên kết', () => {
   it('KHÔNG đủ điểm thì nút đổi bị khoá, không để backend từ chối', async () => {
     // Bật nút rồi để backend trả LOYALTY_NOT_ENOUGH_POINTS là bắt khách chạm vào một lời từ chối
     // lẽ ra thấy trước được.
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi({ ...DA_NOI, points: 199 })} />);
+    await render(
+      <LoyaltyScreen
+        guiMaOtp={GUI_MA_OTP_GIA}
+        accessToken="jwt"
+        api={apiVoi({ ...DA_NOI, points: 199 })}
+      />,
+    );
 
     const nut = await screen.findByLabelText('Đổi Trà đào miễn phí');
     expect(nut.props.accessibilityState?.disabled).toBe(true);
@@ -184,7 +185,14 @@ describe('đổi điểm (#34)', () => {
   it('hộp thoại nói RÕ trừ bao nhiêu điểm và KHÔNG hoàn lại', async () => {
     // Đây là thao tác tiêu tài sản thật của khách, không phải một thao tác giao diện.
     const hoi = jest.fn().mockResolvedValue(false);
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI)} hoiXacNhan={hoi} />);
+    await render(
+      <LoyaltyScreen
+        guiMaOtp={GUI_MA_OTP_GIA}
+        accessToken="jwt"
+        api={apiVoi(DA_NOI)}
+        hoiXacNhan={hoi}
+      />,
+    );
 
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
 
@@ -198,7 +206,12 @@ describe('đổi điểm (#34)', () => {
   it('từ chối ở hộp thoại thì KHÔNG gọi API', async () => {
     const doiDiem = jest.fn();
     await render(
-      <LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI, { doiDiem })} hoiXacNhan={tuChoi} />,
+      <LoyaltyScreen
+        guiMaOtp={GUI_MA_OTP_GIA}
+        accessToken="jwt"
+        api={apiVoi(DA_NOI, { doiDiem })}
+        hoiXacNhan={tuChoi}
+      />,
     );
 
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
@@ -218,7 +231,13 @@ describe('đổi điểm (#34)', () => {
     });
     const baoTin = jest.fn();
     await render(
-      <LoyaltyScreen accessToken="jwt" api={api} hoiXacNhan={dongY} onBaoTin={baoTin} />,
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        guiMaOtp={GUI_MA_OTP_GIA}
+        hoiXacNhan={dongY}
+        onBaoTin={baoTin}
+      />,
     );
 
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
@@ -237,7 +256,9 @@ describe('đổi điểm (#34)', () => {
         throw new AuthException('NETWORK_ERROR', 'Không kết nối được máy chủ.');
       },
     });
-    await render(<LoyaltyScreen accessToken="jwt" api={api} hoiXacNhan={dongY} />);
+    await render(
+      <LoyaltyScreen accessToken="jwt" api={api} guiMaOtp={GUI_MA_OTP_GIA} hoiXacNhan={dongY} />,
+    );
 
     const nut = await screen.findByLabelText('Đổi Trà đào miễn phí');
     await fireEvent.press(nut);
@@ -258,7 +279,9 @@ describe('đổi điểm (#34)', () => {
         throw new AuthException('LOYALTY_NOT_ENOUGH_POINTS', 'Chưa đủ điểm cho ưu đãi này.');
       },
     });
-    await render(<LoyaltyScreen accessToken="jwt" api={api} hoiXacNhan={dongY} />);
+    await render(
+      <LoyaltyScreen accessToken="jwt" api={api} guiMaOtp={GUI_MA_OTP_GIA} hoiXacNhan={dongY} />,
+    );
 
     await fireEvent.press(await screen.findByLabelText('Đổi Trà đào miễn phí'));
 
@@ -302,7 +325,14 @@ describe('ưu đãi giảm tiền sinh ra mã', () => {
       },
     });
 
-    await render(<LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => null} />);
+    await render(
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        guiMaOtp={GUI_MA_OTP_GIA}
+        timDonDangMo={async () => null}
+      />,
+    );
     await screen.findByLabelText('Đổi Giảm 50.000đ');
     await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
 
@@ -327,7 +357,12 @@ describe('ưu đãi giảm tiền sinh ra mã', () => {
     });
 
     await render(
-      <LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => 'ORD-1042'} />,
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        guiMaOtp={GUI_MA_OTP_GIA}
+        timDonDangMo={async () => 'ORD-1042'}
+      />,
     );
     await screen.findByLabelText('Đổi Giảm 50.000đ');
     await fireEvent.press(screen.getByLabelText('Đổi Giảm 50.000đ'));
@@ -351,7 +386,12 @@ describe('ưu đãi giảm tiền sinh ra mã', () => {
     });
 
     await render(
-      <LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => 'ORD-1042'} />,
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        guiMaOtp={GUI_MA_OTP_GIA}
+        timDonDangMo={async () => 'ORD-1042'}
+      />,
     );
     await screen.findByLabelText('Đổi Trà đào miễn phí');
     await fireEvent.press(screen.getByLabelText('Đổi Trà đào miễn phí'));
@@ -378,7 +418,14 @@ describe('ưu đãi giảm tiền sinh ra mã', () => {
       },
     });
 
-    await render(<LoyaltyScreen accessToken="jwt" api={api} timDonDangMo={async () => null} />);
+    await render(
+      <LoyaltyScreen
+        accessToken="jwt"
+        api={api}
+        guiMaOtp={GUI_MA_OTP_GIA}
+        timDonDangMo={async () => null}
+      />,
+    );
     await screen.findByLabelText('Đổi Trà đào miễn phí');
     await fireEvent.press(screen.getByLabelText('Đổi Trà đào miễn phí'));
 
@@ -402,7 +449,9 @@ describe('phiếu chưa dùng', () => {
   };
 
   it('hiện phiếu khách đã đổi', async () => {
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CO_PHIEU)} />);
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CO_PHIEU)} />,
+    );
 
     expect(await screen.findByText('Phiếu chưa dùng')).toBeTruthy();
     expect(screen.getByText('Chè bưởi')).toBeTruthy();
@@ -411,7 +460,9 @@ describe('phiếu chưa dùng', () => {
   it('không có phiếu nào thì KHÔNG hiện mục đó', async () => {
     // Một tiêu đề "Phiếu chưa dùng" đứng trên khoảng trống nói rằng có chỗ để nhìn, trong khi
     // thật ra chưa có gì. DA_NOI không có phiếu nào.
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(DA_NOI)} />);
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(DA_NOI)} />,
+    );
 
     await screen.findByText('Ưu đãi đổi được ngay');
     expect(screen.queryByText('Phiếu chưa dùng')).toBeNull();
@@ -424,7 +475,9 @@ describe('phiếu chưa dùng', () => {
     const d = new Date('2026-08-25T13:40:00.000Z');
     const mongDoi = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(CO_PHIEU)} />);
+    await render(
+      <LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(CO_PHIEU)} />,
+    );
 
     expect(await screen.findByText(new RegExp('Đã đổi ' + mongDoi))).toBeTruthy();
   });
@@ -434,7 +487,7 @@ describe('phiếu chưa dùng', () => {
       ...CO_PHIEU,
       phieuChuaDung: [{ ...CO_PHIEU.phieuChuaDung[0]!, redeemedAt: '' }],
     };
-    await render(<LoyaltyScreen accessToken="jwt" api={apiVoi(hong)} />);
+    await render(<LoyaltyScreen guiMaOtp={GUI_MA_OTP_GIA} accessToken="jwt" api={apiVoi(hong)} />);
 
     await screen.findByText('Chè bưởi');
     expect(screen.queryByText(/Invalid Date/)).toBeNull();

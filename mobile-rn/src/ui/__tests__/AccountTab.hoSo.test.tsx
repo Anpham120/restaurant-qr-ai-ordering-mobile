@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { AuthException } from '../../core/auth/authApi';
 import { type AuthSession } from '../../core/auth/authSession';
 import { type MyLoyalty } from '../../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../../core/loyalty/loyaltyApi';
@@ -43,7 +42,6 @@ function apiVoi(ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
   return {
     cuaToi: async () => DA_NOI,
     noiSo: async () => DA_NOI,
-    xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     doiDiem: async () => {
       throw new Error('không dùng tới');
     },
@@ -53,6 +51,9 @@ function apiVoi(ghiDe: Partial<LoyaltyApi> = {}): LoyaltyApi {
 
 function props(ghiDe: Partial<AccountTabProps> = {}): AccountTabProps {
   return {
+    // Bản giả: trả một lượt chờ nhập mã, mã nào cũng ra token. Phần luật của OTP được canh
+    // riêng ở `phoneOtp` và `DangKySoDienThoai`; ở đây chỉ cần màn hình dựng được.
+    guiMaOtp: async () => ({ xacNhan: async () => 'token-otp' }),
     phienBan: PHIEN_BAN,
     dangNhap: DANG_NHAP,
     cauHinh: { apiBaseUrl: 'http://x', imageBaseUrl: 'http://x' },
@@ -96,7 +97,7 @@ describe('hồ sơ tài khoản', () => {
     await moHoSo();
 
     expect(await screen.findByLabelText('Số điện thoại')).toBeTruthy();
-    expect(screen.getByLabelText('Liên kết')).toBeTruthy();
+    expect(screen.getByLabelText('Gửi mã xác minh')).toBeTruthy();
   });
 
   it('mở hồ sơ khi ĐÃ liên kết thì KHÔNG hiện form nữa', async () => {
@@ -105,7 +106,7 @@ describe('hồ sơ tài khoản', () => {
 
     await moHoSo();
 
-    expect(screen.queryByLabelText('Liên kết')).toBeNull();
+    expect(screen.queryByLabelText('Gửi mã xác minh')).toBeNull();
   });
 
   it('nối số xong thì BÁO LÊN trên, không giữ riêng trong màn hồ sơ', async () => {
@@ -116,27 +117,30 @@ describe('hồ sơ tài khoản', () => {
 
     await moHoSo();
     await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
+    await fireEvent.press(screen.getByLabelText('Gửi mã xác minh'));
+    await fireEvent.changeText(await screen.findByLabelText('Mã xác minh'), '123456');
+    await fireEvent.press(screen.getByLabelText('Xác minh và liên kết'));
 
     expect(baoLen).toHaveBeenCalledWith('0901234567');
   });
 
-  it('số đã là thành viên: hiện mã đọc ở quầy NGAY trong hồ sơ', async () => {
-    // Đường của khách quen cũ phải đi được trọn vẹn từ hồ sơ, giống hệt ở màn Điểm thưởng.
-    const api = apiVoi({
-      noiSo: async () => {
-        throw new AuthException(
-          'LOYALTY_PHONE_ALREADY_MEMBER',
-          'Số này đã có tài khoản tích điểm.',
-        );
-      },
-    });
-    await render(<AccountTab {...props({ soDienThoai: null, loyaltyApi: api })} />);
+  it('số ĐÃ CÓ hồ sơ điểm vẫn nối được ngay trong hồ sơ, không phải ra quầy', async () => {
+    // Đây là ca phổ biến nhất: khách ăn tại quán qua web, tích điểm theo số, rồi mới tải app.
+    //
+    // Bản trước từ chối đúng ca này (`LOYALTY_PHONE_ALREADY_MEMBER`) và đưa một mã sáu chữ số để
+    // khách đọc cho nhân viên quầy nối hộ. Nghiệp vụ đã đổi: khách tự nối, xác minh bằng OTP —
+    // chặt hơn hẳn mã cũ, thứ chỉ chứng minh khách sở hữu TÀI KHOẢN chứ không nói gì về SỐ.
+    const baoLen = jest.fn();
+    await render(<AccountTab {...props({ soDienThoai: null, onNoiSoXong: baoLen })} />);
 
     await moHoSo();
     await fireEvent.changeText(await screen.findByLabelText('Số điện thoại'), '0901234567');
-    await fireEvent.press(screen.getByLabelText('Liên kết'));
+    await fireEvent.press(screen.getByLabelText('Gửi mã xác minh'));
+    await fireEvent.changeText(await screen.findByLabelText('Mã xác minh'), '123456');
+    await fireEvent.press(screen.getByLabelText('Xác minh và liên kết'));
 
-    expect(await screen.findByText('261860')).toBeTruthy();
+    expect(baoLen).toHaveBeenCalledWith('0901234567');
+    // Không còn mã nào để đọc ở quầy, và không còn câu nào chỉ khách ra quầy.
+    expect(screen.queryByText(/quầy/)).toBeNull();
   });
 });

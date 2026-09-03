@@ -243,14 +243,6 @@ export function createApiClient(options: ApiClientOptions = {}) {
       honourVoucher: (redemptionId: string) =>
         request<LoyaltyVoucher>(`/loyalty/redemptions/${encodeURIComponent(redemptionId)}/honour`, { method: "POST" }),
       /**
-       * Quầy nối một số ĐÃ CÓ hồ sơ vào tài khoản app của khách.
-       *
-       * Đường vòng duy nhất cho khách quen cũ: hồ sơ sinh ra ở quầy trước khi họ cài app, nên tự
-       * nối trong app bị từ chối. Xác minh bằng mã sáu chữ số khách đọc tại chỗ.
-       */
-      linkPhoneAtCounter: (payload: { code: string; phone: string }) =>
-        request<unknown>("/loyalty/link", { method: "POST", body: JSON.stringify(payload) }),
-      /**
        * Quầy đổi thưởng HỘ khách chỉ dùng web.
        *
        * Khách quét QR không đăng nhập nên không tự đổi được, nhưng điểm vẫn tích theo số điện

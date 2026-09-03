@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { type GuiMaOtp } from '../core/auth/phoneOtp';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { type AuthSession, danhTinh } from '../core/auth/authSession';
@@ -19,6 +20,12 @@ import { PaymentScreen } from './PaymentScreen';
 import { MauQuan, kieuChung } from './theme';
 
 export interface AccountTabProps {
+  /**
+   * Gửi mã OTP, chuyển thẳng xuống chỗ liên kết số.
+   *
+   * `undefined` khi thư viện native vắng mặt (Expo Go).
+   */
+  guiMaOtp: GuiMaOtp | undefined;
   phienBan: TableSession;
   dangNhap: AuthSession | null;
   cauHinh: CauHinhMayChu;
@@ -109,6 +116,7 @@ export function AccountTab(p: AccountTabProps) {
         <HoSoTaiKhoan
           api={p.loyaltyApi}
           dangNhap={ses}
+          guiMaOtp={p.guiMaOtp}
           onBaoTin={p.onBaoTin}
           onNoiSoXong={(so) => p.onNoiSoXong?.(so)}
           onXong={() => setManCon(null)}
@@ -124,6 +132,7 @@ export function AccountTab(p: AccountTabProps) {
         <LoyaltyScreen
           accessToken={ses.accessToken}
           api={p.loyaltyApi}
+          guiMaOtp={p.guiMaOtp}
           onBaoTin={p.onBaoTin}
           timDonDangMo={timDonDangMo}
         />

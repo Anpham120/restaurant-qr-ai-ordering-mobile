@@ -1,6 +1,7 @@
 package com.cmc.restaurant.loyalty;
 
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
+import com.cmc.restaurant.auth.PhoneTokenVerifier;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.RequestIdempotency;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,8 +24,11 @@ public class LoyaltyController {
 
 	private final LoyaltyService loyaltyService;
 	private final MyLoyaltyService myLoyaltyService;
+	private final PhoneTokenVerifier phoneVerifier;
 
-	public LoyaltyController(LoyaltyService loyaltyService, MyLoyaltyService myLoyaltyService) {
+	public LoyaltyController(LoyaltyService loyaltyService, MyLoyaltyService myLoyaltyService,
+			PhoneTokenVerifier phoneVerifier) {
+		this.phoneVerifier = phoneVerifier;
 		this.loyaltyService = loyaltyService;
 		this.myLoyaltyService = myLoyaltyService;
 	}
@@ -43,13 +47,27 @@ public class LoyaltyController {
 		return myLoyaltyService.me(principal.userId());
 	}
 
-	/** Nối số điện thoại vào tài khoản — chỉ được khi số đó chưa có hồ sơ tích điểm. */
+	/**
+	 * Khách TỰ nối số của mình vào tài khoản, xác minh bằng OTP.
+	 *
+	 * <p>Xác minh ngay tại đây rồi mới đưa xuống dịch vụ, giống {@code /api/auth/register}: dịch vụ
+	 * chỉ làm việc với số ĐÃ chứng minh, và kiểm được mà không cần gọi ra Firebase.
+	 *
+	 * <p>Đường nối tại quầy đã bị gỡ. Nó tồn tại vì bản trước nhận số TRẦN nên phải từ chối số đã
+	 * có hồ sơ điểm, và nhân viên quầy là đường vòng duy nhất. Nhưng chính mã của nó thừa nhận "mã
+	 * chỉ chứng minh khách sở hữu TÀI KHOẢN, không nói gì về SỐ" — yếu hơn hẳn OTP, mà OTP thì hệ
+	 * thống đã có.
+	 */
 	@PostMapping("/api/loyalty/me/phone")
 	@PreAuthorize("hasRole('Customer')")
 	public LoyaltyDtos.MyLoyaltyResponse linkPhone(
 			@AuthenticationPrincipal AuthenticatedPrincipal principal,
 			@RequestBody(required = false) LoyaltyDtos.LinkPhoneRequest request) {
-		return myLoyaltyService.linkPhone(principal.userId(), request == null ? null : request.phone());
+		if (request == null || request.phoneIdToken() == null || request.phoneIdToken().isBlank()) {
+			throw ApiException.badRequest("PHONE_TOKEN_REQUIRED", "Thiếu token xác minh số điện thoại.");
+		}
+		String soDaXacMinh = phoneVerifier.xacMinh(request.phoneIdToken());
+		return myLoyaltyService.linkPhone(principal.userId(), soDaXacMinh);
 	}
 
 	/**
@@ -125,30 +143,6 @@ public class LoyaltyController {
 		return myLoyaltyService.doiHoTaiQuay(
 				request.phone(), request.rewardId().trim(), request.orderCode(),
 				principal.userId(), key);
-	}
-
-	/** Khách xin mã để đọc ở quầy. */
-	@PostMapping("/api/loyalty/me/link-code")
-	@PreAuthorize("hasRole('Customer')")
-	public LoyaltyDtos.LinkCodeResponse xinMaNoiSo(
-			@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-		return myLoyaltyService.xinMaNoiSo(principal.userId());
-	}
-
-	/**
-	 * Quầy nối số đã có hồ sơ vào tài khoản khách.
-	 *
-	 * <p>Cùng nhóm quyền với {@code /lookup} và {@code /honour}: ai đứng quầy thì làm được.
-	 */
-	@PostMapping("/api/loyalty/link")
-	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
-	public LoyaltyDtos.MyLoyaltyResponse noiSoTaiQuay(
-			@AuthenticationPrincipal AuthenticatedPrincipal principal,
-			@RequestBody(required = false) LoyaltyDtos.StaffLinkRequest request) {
-		if (request == null || request.code() == null || request.code().isBlank()) {
-			throw ApiException.badRequest("LOYALTY_LINK_CODE_REQUIRED", "Nhập mã khách đọc.");
-		}
-		return myLoyaltyService.noiSoTaiQuay(request.code(), request.phone(), principal.userId());
 	}
 
 	@GetMapping("/api/loyalty/lookup")

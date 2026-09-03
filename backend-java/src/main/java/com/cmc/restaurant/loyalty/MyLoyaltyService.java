@@ -1,6 +1,5 @@
 package com.cmc.restaurant.loyalty;
 
-import com.cmc.restaurant.loyalty.domain.MaNoiSo;
 import com.cmc.restaurant.loyalty.domain.MaUuDai;
 import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.auth.UserEntity;
@@ -36,16 +35,13 @@ public class MyLoyaltyService {
 	private final LoyaltyRedemptionRepository redemptions;
 	private final OrderLoyaltyPort donHang;
 	private final LoyaltyLedgerRepository soDiem;
-	private final LoyaltyLinkCodeRepository maNoiSo;
 
 	public MyLoyaltyService(
 			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService,
 			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions,
-			OrderLoyaltyPort donHang, LoyaltyLedgerRepository soDiem,
-			LoyaltyLinkCodeRepository maNoiSo) {
+			OrderLoyaltyPort donHang, LoyaltyLedgerRepository soDiem) {
 		this.donHang = donHang;
 		this.soDiem = soDiem;
-		this.maNoiSo = maNoiSo;
 		this.users = users;
 		this.members = members;
 		this.loyaltyService = loyaltyService;
@@ -74,70 +70,6 @@ public class MyLoyaltyService {
 	 *       thật, và chỉ OTP mới đóng được.
 	 * </ul>
 	 */
-	/**
-	 * Cấp cho khách một mã để đọc ở quầy.
-	 *
-	 * <p>Xoá mã cũ trước: hai mã cùng sống nghĩa là một mã khách tưởng đã bỏ đi vẫn nối được, và
-	 * khách không có cách nào biết điều đó.
-	 */
-	@Transactional
-	public LoyaltyDtos.LinkCodeResponse xinMaNoiSo(String userId) {
-		users.findById(userId)
-				.orElseThrow(() -> ApiException.notFound("USER_NOT_FOUND", "User was not found."));
-		maNoiSo.xoaMaCuCua(userId);
-		LoyaltyLinkCodeEntity ma = maNoiSo.save(new LoyaltyLinkCodeEntity(
-				MaNoiSo.sinh(), userId, OffsetDateTime.now(), MaNoiSo.PHUT_SONG));
-		return new LoyaltyDtos.LinkCodeResponse(ma.getCode(), ma.getExpiresAt());
-	}
-
-	/**
-	 * Nhân viên nối một số ĐÃ CÓ HỒ SƠ vào tài khoản app của khách.
-	 *
-	 * <p>Đây là đường vòng duy nhất cho khách quen cũ. Hồ sơ tích điểm sinh ra ở quầy trước khi
-	 * khách cài app, nên {@link #linkPhone} từ chối số đó — đúng, vì không có bước xác minh nào thì
-	 * gõ số người khác là cướp điểm. Ở đây bước xác minh là: khách đang đứng trước mặt nhân viên và
-	 * đọc được mã đang hiện trên app của chính mình.
-	 *
-	 * <p>Ghi lại nhân viên nào nối, để đối chiếu nếu về sau có tranh chấp.
-	 */
-	@Transactional
-	public LoyaltyDtos.MyLoyaltyResponse noiSoTaiQuay(String ma, String rawPhone, String nhanVienId) {
-		String code = MaNoiSo.chuanHoa(ma);
-		LoyaltyLinkCodeEntity ban = maNoiSo.findByCode(code)
-				.orElseThrow(() -> ApiException.badRequest("LOYALTY_LINK_CODE_INVALID",
-						"Mã không đúng. Nhờ khách mở lại màn hình để lấy mã mới."));
-
-		OffsetDateTime now = OffsetDateTime.now();
-		if (maNoiSo.dungMaNeuConHieuLuc(code, now, nhanVienId) == 0) {
-			// Không phân biệt "hết hạn" với "đã dùng": với quầy hai thứ nói cùng một điều — bảo
-			// khách lấy mã mới.
-			throw ApiException.conflict("LOYALTY_LINK_CODE_EXPIRED",
-					"Mã đã hết hạn hoặc đã dùng. Nhờ khách lấy mã mới.");
-		}
-
-		String phone = PhoneNumber.normalize(rawPhone);
-		if (phone == null || phone.length() < 9 || phone.length() > 15) {
-			throw ApiException.badRequest("LOYALTY_PHONE_INVALID", "Số điện thoại không hợp lệ.");
-		}
-
-		UserEntity user = users.findById(ban.getUserId())
-				.orElseThrow(() -> ApiException.notFound("USER_NOT_FOUND", "User was not found."));
-
-		// Số đang thuộc tài khoản KHÁC thì vẫn chặn. Mã chỉ chứng minh khách sở hữu TÀI KHOẢN, nó
-		// không chứng minh gì về số — nên luật "một số một tài khoản" phải giữ nguyên.
-		if (users.existsByPhoneNumberAndIdNot(phone, user.getId())) {
-			throw ApiException.conflict("LOYALTY_PHONE_TAKEN",
-					"Số này đang gắn với một tài khoản khác.");
-		}
-
-		user.setPhoneNumber(phone);
-		users.save(user);
-		// Hồ sơ điểm này CÓ SẴN từ trước — đó chính là lý do khách phải ra quầy — và cho tới giờ vẫn
-		// vô danh. Nay đã biết nó thuộc về ai thì điền tên luôn, đừng đợi hoá đơn kế tiếp.
-		loyaltyService.datTenNeuThieu(phone);
-		return read(user);
-	}
-
 	@Transactional
 	public LoyaltyDtos.MyLoyaltyResponse linkPhone(String userId, String rawPhone) {
 		String phone = PhoneNumber.normalize(rawPhone);
@@ -157,11 +89,14 @@ public class MyLoyaltyService {
 			return read(user);
 		}
 
-		if (members.findByPhoneNumber(phone).isPresent()) {
-			throw new ApiException(org.springframework.http.HttpStatus.CONFLICT,
-					"LOYALTY_PHONE_ALREADY_MEMBER",
-					"This phone number already has a loyalty profile. Ask staff at the counter to link it.");
-		}
+		// KHÔNG còn chặn số đã có hồ sơ điểm.
+		//
+		// Bản trước chặn vì nhận số TRẦN: cho gõ một số đã có điểm là cho người lạ chiếm hồ sơ của
+		// khách quen. Nhưng cái chặn đó rơi đúng vào ca phổ biến nhất — khách ăn ở quán qua web,
+		// tích điểm theo số, rồi mới tải app — và đẩy họ ra quầy nhờ nhân viên nối hộ.
+		//
+		// Số tới đây giờ đã qua OTP, tức là đã chứng minh đúng thứ cần chứng minh. Hồ sơ điểm khoá
+		// theo số, nên gán số vào tài khoản là hồ sơ về đúng chủ ngay, không cần bước nối nào nữa.
 		if (users.existsByPhoneNumberAndIdNot(phone, userId)) {
 			throw new ApiException(org.springframework.http.HttpStatus.CONFLICT,
 					"LOYALTY_PHONE_TAKEN", "This phone number is linked to another account.");

@@ -121,19 +121,16 @@ public final class LoyaltyDtos {
 	}
 
 	/**
-	 * Mã khách đọc cho nhân viên ở quầy.
+	 * Token Firebase chứng minh khách sở hữu SỐ, không phải số trần.
 	 *
-	 * @param expiresAt để app đếm ngược — một mã hết hạn im lặng trông hệt như một mã sai
+	 * <p>Bản trước nhận số trần và vì thế phải TỪ CHỐI mọi số đã có hồ sơ điểm — nhận một số chưa
+	 * chứng minh nghĩa là cho người lạ gõ số của khách quen rồi lấy điểm. Cái từ chối đó lại chặn
+	 * đúng ca phổ biến nhất: khách ăn ở quán qua web, tích điểm theo số, rồi mới tải app.
+	 *
+	 * <p>Có OTP thì hết phải chọn giữa hai cái dở: token chứng minh đúng thứ cần chứng minh, nên
+	 * số đã có hồ sơ nối được luôn và an toàn hơn cả nối tại quầy.
 	 */
-	public record LinkCodeResponse(String code, OffsetDateTime expiresAt) {
-	}
-
-	/** Nhân viên nối số cho khách: mã khách đọc + số cần nối. */
-	public record StaffLinkRequest(String code, String phone) {
-	}
-
-	/** Số điện thoại khách muốn nối vào tài khoản. */
-	public record LinkPhoneRequest(String phone) {
+	public record LinkPhoneRequest(String phoneIdToken) {
 	}
 
 	/**

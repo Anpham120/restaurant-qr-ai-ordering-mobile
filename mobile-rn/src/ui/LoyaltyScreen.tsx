@@ -6,6 +6,7 @@ import { type MyLoyalty, type Reward, doiDuoc } from '../core/loyalty/loyalty';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { KhoaDatDon } from '../core/orders/khoaDatDon';
 import { tienVnd } from '../core/tien';
+import { type GuiMaOtp } from '../core/auth/phoneOtp';
 import { LienKetSoDienThoai } from './LienKetSoDienThoai';
 import { TheHang } from './TheHang';
 import { MauQuan, kieuChung } from './theme';
@@ -13,6 +14,13 @@ import { MauQuan, kieuChung } from './theme';
 export interface LoyaltyScreenProps {
   api: LoyaltyApi;
   accessToken: string;
+  /**
+   * Gửi mã OTP. Cùng hàm màn đăng ký dùng — không có bản thứ hai.
+   *
+   * `undefined` khi thư viện native vắng mặt (Expo Go). KHÔNG để tuỳ chọn: mọi nơi gọi phải nói rõ
+   * có hay không, để không ai quên truyền rồi vô tình rơi vào nhánh không liên kết được.
+   */
+  guiMaOtp: GuiMaOtp | undefined;
   onBaoTin?: ((tin: string) => void) | undefined;
   /** Hỏi xác nhận trước khi tiêu điểm. Tiêm được để test đọc được cả nhánh từ chối. */
   hoiXacNhan?: ((tieuDe: string, noiDung: string) => Promise<boolean>) | undefined;
@@ -60,6 +68,7 @@ function ngayNgan(iso: string): string {
 export function LoyaltyScreen({
   api,
   accessToken,
+  guiMaOtp,
   onBaoTin,
   hoiXacNhan = async () => true,
   timDonDangMo,
@@ -281,6 +290,7 @@ export function LoyaltyScreen({
         <LienKetSoDienThoai
           accessToken={accessToken}
           api={api}
+          guiMaOtp={guiMaOtp}
           onLoiNang={setLoiNang}
           onNoiXong={setDiem}
         />

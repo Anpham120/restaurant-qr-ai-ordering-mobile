@@ -1,0 +1,18 @@
+-- Bỏ đường "nối số tại quầy".
+--
+-- Vì sao nó từng tồn tại: đường tự nối trong app nhận SỐ TRẦN, nên phải từ chối mọi số đã có hồ sơ
+-- tích điểm — nhận một số chưa chứng minh nghĩa là cho người lạ gõ số của khách quen rồi lấy điểm.
+-- Cái từ chối đó lại rơi đúng vào ca phổ biến nhất: khách ăn tại quán qua web, tích điểm theo số,
+-- rồi mới tải app. Họ bị đẩy ra quầy nhờ nhân viên nối hộ, xác minh bằng mã sáu chữ số.
+--
+-- Vì sao bỏ được: hệ thống đã có Firebase phone OTP. Token OTP chứng minh khách sở hữu SỐ — đúng
+-- thứ cần chứng minh — nên đường tự nối nhận token thay vì số trần là nối được cả số đã có hồ sơ,
+-- và không cần ai đứng quầy.
+--
+-- Và nó còn CHẶT hơn đường vừa bỏ. Chính mã của `noiSoTaiQuay` thừa nhận: "Mã chỉ chứng minh khách
+-- sở hữu TÀI KHOẢN, nó không chứng minh gì về số." Nghĩa là hàng rào duy nhất là nhân viên đứng
+-- quầy — ai đọc đúng mã sáu số của CHÍNH MÌNH rồi đọc số điện thoại của NGƯỜI KHÁC thì chiếm được
+-- hồ sơ điểm đó, miễn số chưa gắn tài khoản nào.
+--
+-- Bảng này chỉ chứa mã dùng một lần, sống 10 phút. Không có gì trong đây cần giữ lại.
+DROP TABLE IF EXISTS public.loyalty_link_codes;

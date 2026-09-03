@@ -78,32 +78,37 @@ describe('điểm của CHÍNH tôi', () => {
 });
 
 describe('nối số điện thoại', () => {
-  it('gửi POST đúng đường dẫn với số đã cắt khoảng trắng', async () => {
+  it('gửi TOKEN OTP, không gửi số trần', async () => {
+    // Đây là cả thay đổi nghiệp vụ nằm trong một dòng thân request. Gửi số trần thì máy chủ buộc
+    // phải từ chối mọi số ĐÃ có hồ sơ điểm — nhận một số chưa chứng minh là cho người lạ gõ số của
+    // khách quen rồi lấy điểm. Gửi token thì số được chứng minh, và nối được ngay.
     const ghiLai = jest.fn();
-    await api(200, DA_LIEN_KET, ghiLai).noiSo('jwt', '  0901234567 ');
+    await api(200, DA_LIEN_KET, ghiLai).noiSo('jwt', 'token-otp-cua-firebase');
 
     const g = daGui(ghiLai);
     expect(g.url).toBe('http://test/api/loyalty/me/phone');
     expect(g.method).toBe('POST');
-    expect(g.body).toEqual({ phone: '0901234567' });
+    expect(g.body).toEqual({ phoneIdToken: 'token-otp-cua-firebase' });
+    expect(g.body).not.toHaveProperty('phone');
   });
 
-  it('số đã là thành viên: nói RÕ VIỆC CẦN LÀM, không chỉ nói đã tồn tại', async () => {
-    // "Số đã tồn tại" khiến khách nghĩ mình gõ nhầm và gõ lại mãi; sự thật là họ đã là thành
-    // viên và phải nhờ quầy nối hộ.
-    const loi = await api(409, loiJson('LOYALTY_PHONE_ALREADY_MEMBER'))
-      .noiSo('jwt', '0901234567')
+  it('token hỏng: bảo xin mã mới, KHÔNG bảo ra quầy', async () => {
+    // Câu cũ ở đây là "nhờ nhân viên tại quầy nối vào tài khoản" — đường đó đã gỡ. Một câu chỉ
+    // khách đi làm một việc không còn tồn tại còn tệ hơn không nói gì.
+    const loi = await api(401, loiJson('PHONE_TOKEN_INVALID'))
+      .noiSo('jwt', 'token-hong')
       .then(
         () => null,
         (e: unknown) => e as Error,
       );
 
-    expect(loi?.message).toContain('nhân viên tại quầy');
+    expect(loi?.message).toContain('Xin mã mới');
+    expect(loi?.message).not.toContain('quầy');
   });
 
   it('số đang gắn tài khoản khác', async () => {
     await expect(
-      api(409, loiJson('LOYALTY_PHONE_TAKEN')).noiSo('jwt', '090'),
+      api(409, loiJson('LOYALTY_PHONE_TAKEN')).noiSo('jwt', 'token-otp'),
     ).rejects.toMatchObject({ code: 'LOYALTY_PHONE_TAKEN' });
   });
 

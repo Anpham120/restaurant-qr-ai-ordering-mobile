@@ -253,6 +253,7 @@ function NoiDungApp() {
           <HoSoTaiKhoan
             api={client.loyaltyApi}
             dangNhap={dangNhap}
+            guiMaOtp={GUI_MA_OTP}
             onBaoTin={setTin}
             onNoiSoXong={setSoDienThoai}
             onXong={() => setManNgoai(null)}
@@ -291,6 +292,7 @@ function NoiDungApp() {
       <StatusBar style="dark" />
       <KhungChinh
         cartApi={client.cartApi}
+        guiMaOtp={GUI_MA_OTP}
         cauHinh={cauHinh}
         chatApi={client.chatApi}
         createOrderApi={client.createOrderApi}

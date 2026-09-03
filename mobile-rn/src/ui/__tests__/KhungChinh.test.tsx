@@ -98,7 +98,6 @@ const API_TRONG = {
       conThieu: 5_000_000,
       phieuChuaDung: [],
     }),
-    xinMaNoiSo: async () => ({ ma: '261860', hetHan: '2026-01-01T00:05:00Z' }),
     noiSo: async () => ({
       linked: true,
       coHoSo: true,
@@ -128,6 +127,7 @@ async function dungKhung() {
   await render(
     <KhungChinh
       {...API_TRONG}
+      guiMaOtp={async () => ({ xacNhan: async () => 'token-otp' })}
       cauHinh={{ apiBaseUrl: 'http://test:8081', imageBaseUrl: 'http://test:8080' }}
       dangNhap={null}
       onDangNhap={jest.fn()}

@@ -1,4 +1,5 @@
 import { type ReactElement, useMemo, useState } from 'react';
+import { type GuiMaOtp } from '../core/auth/phoneOtp';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { type AuthSession } from '../core/auth/authSession';
@@ -24,6 +25,12 @@ import { PromotionsScreen } from './PromotionsScreen';
 import { MauQuan } from './theme';
 
 export interface KhungChinhProps {
+  /**
+   * Gửi mã OTP, chuyển thẳng xuống chỗ liên kết số ở tab Tài khoản.
+   *
+   * `undefined` khi thư viện native vắng mặt (Expo Go).
+   */
+  guiMaOtp: GuiMaOtp | undefined;
   cauHinh: CauHinhMayChu;
   phienBan: TableSession;
   dangNhap: AuthSession | null;
@@ -155,6 +162,7 @@ export function KhungChinh(p: KhungChinhProps) {
         nhan: 'Tài khoản',
         man: () => (
           <AccountTab
+            guiMaOtp={p.guiMaOtp}
             onNoiSoXong={p.onNoiSoXong}
             promotionApi={p.promotionApi}
             orderApi={p.orderApi}

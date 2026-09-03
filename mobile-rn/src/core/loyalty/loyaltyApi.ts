@@ -9,14 +9,14 @@ import {
 
 export interface LoyaltyApi {
   cuaToi(accessToken: string): Promise<MyLoyalty>;
-  noiSo(accessToken: string, phone: string): Promise<MyLoyalty>;
   /**
-   * Xin mã sáu chữ số để đọc cho nhân viên ở quầy.
+   * Nối số vào tài khoản bằng TOKEN OTP, không phải số trần.
    *
-   * Đường vòng duy nhất khi số đã có hồ sơ tích điểm từ trước — tự nối trong app bị từ chối, và
-   * đúng như vậy: không có bước xác minh nào thì gõ số người khác là cướp điểm của họ.
+   * Đường xin mã sáu chữ số để nhân viên quầy nối hộ đã gỡ. Nó tồn tại vì bản trước gửi số trần,
+   * nên máy chủ phải từ chối mọi số đã có hồ sơ điểm — và đúng như vậy: không có bước xác minh nào
+   * thì gõ số người khác là cướp điểm của họ. Token OTP xác minh được, nên hết cần đường vòng.
    */
-  xinMaNoiSo(accessToken: string): Promise<{ ma: string; hetHan: string }>;
+  noiSo(accessToken: string, phoneIdToken: string): Promise<MyLoyalty>;
   /**
    * Đổi điểm lấy ưu đãi (#34).
    *
@@ -51,23 +51,23 @@ export class HttpLoyaltyApi implements LoyaltyApi {
     );
   }
 
-  async xinMaNoiSo(accessToken: string): Promise<{ ma: string; hetHan: string }> {
-    const o = (await this.goi(`${this.baseUrl}/api/loyalty/me/link-code`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })) as Record<string, unknown>;
-    return {
-      ma: typeof o.code === 'string' ? o.code : '',
-      hetHan: typeof o.expiresAt === 'string' ? o.expiresAt : '',
-    };
-  }
-
-  async noiSo(accessToken: string, phone: string): Promise<MyLoyalty> {
+  /**
+   * Nối số vào tài khoản, xác minh bằng OTP.
+   *
+   * Gửi TOKEN chứ không gửi số. Bản trước gửi số trần, và vì thế máy chủ phải từ chối mọi số đã
+   * có hồ sơ điểm — nhận một số chưa chứng minh nghĩa là cho người lạ gõ số của khách quen rồi
+   * lấy điểm. Cái từ chối đó lại chặn đúng ca phổ biến nhất: khách ăn tại quán qua web, tích điểm
+   * theo số, rồi mới tải app.
+   *
+   * Đường vòng cũ là nhờ nhân viên quầy nối hộ bằng mã sáu chữ số. Đã gỡ: token OTP chứng minh
+   * đúng thứ cần chứng minh, còn mã sáu số chỉ chứng minh khách sở hữu TÀI KHOẢN.
+   */
+  async noiSo(accessToken: string, phoneIdToken: string): Promise<MyLoyalty> {
     return myLoyaltyTuJson(
       await this.goi(`${this.baseUrl}/api/loyalty/me/phone`, {
         method: 'POST',
         headers: { ...HEADER_JSON, Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phoneIdToken }),
       }),
     );
   }
@@ -117,12 +117,13 @@ export class HttpLoyaltyApi implements LoyaltyApi {
 function dichLoi(status: number, than: string): AuthException {
   const code = maLoi(than);
   switch (code) {
-    case 'LOYALTY_PHONE_ALREADY_MEMBER':
-      // Câu này phải nói RÕ việc cần làm tiếp. "Số đã tồn tại" khiến khách nghĩ mình gõ nhầm và
-      // gõ lại mãi; sự thật là họ đã là thành viên và phải nhờ quầy nối hộ.
+    case 'PHONE_TOKEN_REQUIRED':
+    case 'PHONE_TOKEN_INVALID':
+      // Máy chủ không nhận được token OTP dùng được. Với khách, cách thoát là xin mã mới — không
+      // phải gõ lại số, và chắc chắn không phải ra quầy.
       return new AuthException(
-        'LOYALTY_PHONE_ALREADY_MEMBER',
-        'Số này đã có tài khoản tích điểm. Nhờ nhân viên tại quầy nối vào tài khoản của bạn.',
+        'PHONE_TOKEN_INVALID',
+        'Mã xác minh không dùng được. Xin mã mới rồi thử lại.',
       );
     case 'LOYALTY_PHONE_TAKEN':
       return new AuthException('LOYALTY_PHONE_TAKEN', 'Số này đang gắn với một tài khoản khác.');
