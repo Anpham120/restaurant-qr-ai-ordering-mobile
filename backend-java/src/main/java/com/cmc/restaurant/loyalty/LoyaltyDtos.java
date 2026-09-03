@@ -1,5 +1,6 @@
 package com.cmc.restaurant.loyalty;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -59,7 +60,27 @@ public final class LoyaltyDtos {
 	 * @param orderCode mã đơn để trừ tiền vào — BẮT BUỘC với ưu đãi {@code DISCOUNT}, bỏ trống với
 	 *                  ưu đãi tặng món vì phiếu tặng món không gắn với hoá đơn nào
 	 */
-	public record RedeemRequest(String rewardId, String orderCode) {
+	/**
+	 * @param orderCode mã đơn đang mở, {@code null} khi khách đổi ở nhà để dành
+	 */
+	public record RedeemRequest(
+			String rewardId,
+			/*
+			 * `@JsonAlias("orderId")` là để CỨU những bản app đã cài trên máy khách.
+			 *
+			 * LỖI CÓ THẬT. App gửi tên `orderId` (`mobile-rn/src/core/loyalty/loyaltyApi.ts`) trong
+			 * khi hợp đồng đọc `orderCode`. Jackson bỏ qua trường lạ mà không báo gì, nên request
+			 * vẫn 200, điểm vẫn bị trừ, và chỉ có MỘT nhánh nghiệp vụ lặng lẽ không chạy:
+			 *
+			 *     coDon = false  ->  ganMonVaoDon = false  ->  món KHÔNG vào đơn  ->  BẾP KHÔNG BIẾT
+			 *
+			 * Trong khi ngay trước đó app đã hứa với khách: "Món sẽ được thêm vào đơn ORD-1001 và
+			 * bếp làm ngay." Khách mất điểm, ngồi chờ một món không ai nấu.
+			 *
+			 * App đã sửa để gửi `orderCode`. Nhưng bản cũ vẫn nằm trên điện thoại khách và không
+			 * tự cập nhật, nên bỏ alias này đi là làm hỏng lại đúng những người đang dùng.
+			 */
+			@JsonAlias("orderId") String orderCode) {
 	}
 
 	/**

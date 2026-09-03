@@ -136,6 +136,24 @@ describe('đổi điểm (#34)', () => {
     expect(g.body).toEqual({ rewardId: 'rw_1' });
   });
 
+  it('gửi mã đơn dưới ĐÚNG tên hợp đồng: orderCode', async () => {
+    // LỖI CÓ THẬT. Bản trước gửi tên `orderId`, trong khi `LoyaltyDtos.RedeemRequest` bên Java đọc
+    // `orderCode`. Jackson bỏ qua trường lạ mà KHÔNG báo gì:
+    //
+    //     request vẫn 200 · điểm vẫn bị trừ · orderCode = null
+    //     -> coDon = false -> món KHÔNG được gắn vào đơn -> BẾP KHÔNG BAO GIỜ BIẾT
+    //
+    // Trong khi ngay trước đó `moTaViecSeXayRa` đã hứa với khách: "Món sẽ được thêm vào đơn
+    // ORD-1001 và bếp làm ngay." Khách mất điểm và ngồi chờ một món không ai nấu.
+    //
+    // Mọi ca kiểm cũ vẫn xanh vì không ca nào soi TÊN TRƯỜNG trong thân gửi đi — chúng chỉ gọi
+    // `doiDiem` không kèm mã đơn. Ca này bịt đúng chỗ đó.
+    const ghiLai = jest.fn();
+    await api(200, KET_QUA, ghiLai).doiDiem('jwt', 'rw_1', 'k', 'ORD-1001');
+
+    expect(daGui(ghiLai).body).toEqual({ rewardId: 'rw_1', orderCode: 'ORD-1001' });
+  });
+
   it('đọc SỐ DƯ MỚI từ phản hồi, không phải số dư cũ', async () => {
     // Backend trả kèm số dư sau khi đổi để app không phải gọi thêm một lượt. Gọi lượt hai tạo ra
     // khoảng thời gian màn hình còn hiện số dư CŨ — đúng lúc khách đang nhìn xem điểm đã trừ chưa.

@@ -26,7 +26,7 @@ export interface LoyaltyApi {
     accessToken: string,
     rewardId: string,
     khoaIdempotency: string,
-    orderId?: string,
+    maDon?: string,
   ): Promise<KetQuaDoiDiem>;
 }
 
@@ -76,7 +76,7 @@ export class HttpLoyaltyApi implements LoyaltyApi {
     accessToken: string,
     rewardId: string,
     khoaIdempotency: string,
-    orderId?: string,
+    maDon?: string,
   ): Promise<KetQuaDoiDiem> {
     return ketQuaDoiDiemTuJson(
       await this.goi(`${this.baseUrl}/api/loyalty/me/redeem`, {
@@ -86,9 +86,14 @@ export class HttpLoyaltyApi implements LoyaltyApi {
           Authorization: `Bearer ${accessToken}`,
           'Idempotency-Key': khoaIdempotency,
         },
+        // Tên trường là `orderCode`, KHÔNG phải `orderId` — hợp đồng của backend đọc `orderCode`
+        // (`LoyaltyDtos.RedeemRequest`). Gửi sai tên thì Jackson bỏ qua mà không báo gì: request
+        // vẫn 200, điểm vẫn bị trừ, và món KHÔNG được gắn vào đơn nên bếp không bao giờ biết —
+        // trong khi màn hình vừa hứa với khách là bếp sẽ làm ngay.
+        //
         // Bỏ hẳn khoá khi không có đơn, thay vì gửi `undefined`. JSON.stringify bỏ qua
         // `undefined` nên hai cách ra cùng một chuỗi, nhưng viết rõ thì đọc không phải kiểm lại.
-        body: JSON.stringify(orderId === undefined ? { rewardId } : { rewardId, orderId }),
+        body: JSON.stringify(maDon === undefined ? { rewardId } : { rewardId, orderCode: maDon }),
       }),
     );
   }
