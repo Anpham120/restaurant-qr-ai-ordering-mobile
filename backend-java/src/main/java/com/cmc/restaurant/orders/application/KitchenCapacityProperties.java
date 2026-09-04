@@ -18,13 +18,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * hứa nhanh hơn thực tế; đặt quá thấp thì khách bỏ đi vì tưởng phải chờ lâu.
  */
 @ConfigurationProperties(prefix = "kitchen")
-public record KitchenCapacityProperties(Integer parallelDishes) {
+public record KitchenCapacityProperties(Integer parallelDishes, Integer parallelBarItems) {
 
 	public KitchenCapacityProperties {
 		// Không cho 0 hoặc âm: cả hai đều làm phép chia bên dưới vô nghĩa, và một cấu hình sai
 		// không được phép biến thành ước lượng vô hạn hiện lên màn hình khách.
 		if (parallelDishes == null || parallelDishes < 1) {
 			parallelDishes = 6;
+		}
+		// Quầy pha chế nhỏ hơn bếp nhiều: một người làm được vài ly cùng lúc, không phải sáu. Đặt
+		// bằng bếp thì mọi ly cà phê đọc ra nhanh gấp ba lần sự thật lúc quán đông.
+		if (parallelBarItems == null || parallelBarItems < 1) {
+			parallelBarItems = 2;
 		}
 	}
 }

@@ -19,27 +19,38 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 	/** Kitchen queue depth, for {@code OrderItemEstimationService}. */
 	long countByStatusIn(Collection<OrderItemStatus> statuses);
 
+
+	/** Một dòng hàng đợi: đủ thứ cần để biết món thuộc TRẠM nào và nặng bao nhiêu. */
+	interface DongHangDoi {
+		String getNhan();
+
+		String getMaDanhMuc();
+
+		long getTongPhut();
+	}
+
 	/**
-	 * TỔNG thời gian khai báo của mọi món bếp đang phải làm — tải thật của bếp lúc này.
+	 * Việc đang chờ, gộp theo món.
 	 *
-	 * <p>Khác hẳn {@link #countByStatusIn}: đếm ĐẦU MÓN coi mọi món như nhau, nên 10 đĩa gỏi cuốn
-	 * và 10 con gà quay ra cùng một con số. Cộng {@code prep_minutes} mới phản ánh việc bếp thật
-	 * sự phải làm bao lâu.
+	 * <p>Thay cho một truy vấn cũ trả MỘT con số cho cả quán — con số đó bắt ly bia xếp sau toàn
+	 * bộ việc bếp. Câu này trả đủ dữ kiện để chia theo trạm.
 	 *
-	 * <p>Món chưa khai {@code prep_minutes} tính bằng 0 — không đoán hộ. Hệ quả phải biết: nếu
-	 * phần lớn thực đơn chưa khai thì tải bếp bị báo thấp hơn thực tế, và đó là lý do
-	 * {@code prep_minutes} cần được bếp điền cho đủ.
+	 * <p>Trả {@code tags} dạng chuỗi nối bằng dấu phẩy chứ không dạng mảng: ánh xạ {@code text[]}
+	 * qua projection của Spring Data là chỗ dễ vỡ, còn luật chia trạm thì nằm ở Java
+	 * ({@code TramChuanBi}) — nơi kiểm được mà không cần cơ sở dữ liệu.
 	 *
-	 * <p>Native SQL vì cần nối sang bảng {@code menu_items} của module Menu — cùng đánh đổi đã ghi
-	 * ở {@code OrderRepository.findRecentForMember}: ràng buộc vào SCHEMA, không vào MÃ.
+	 * <p>Gộp theo món nên số dòng bị chặn bởi số MÓN KHÁC NHAU đang chờ, không phải số phần.
 	 */
 	@Query(value = """
-			select coalesce(sum(m.prep_minutes), 0)
+			select array_to_string(m.tags, ',') as nhan,
+			       m.category_id as maDanhMuc,
+			       coalesce(sum(m.prep_minutes), 0) as tongPhut
 			from order_items oi
 			join menu_items m on m.id = oi.menu_item_id
 			where oi.status in ('Pending', 'Preparing')
+			group by m.id, m.tags, m.category_id
 			""", nativeQuery = true)
-	long sumPrepMinutesInKitchenQueue();
+	List<DongHangDoi> hangDoiTheoMon();
 
 	/**
 	 * Thời gian lên món do bếp khai, hoặc rỗng khi chưa khai / món không tồn tại (#10).
@@ -50,11 +61,24 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 	 * entity JPA thật làm tham số kiểu, kể cả khi mọi truy vấn đều là SQL native.
 	 *
 	 * <p>Câu này đọc bảng {@code menu_items} của module Menu — cùng đánh đổi đã ghi ở
-	 * {@link #sumPrepMinutesInKitchenQueue}: ràng buộc vào SCHEMA, không vào MÃ.
+	 * {@link #hangDoiTheoMon}: ràng buộc vào SCHEMA, không vào MÃ.
 	 */
 	@Query(value = "select m.prep_minutes from menu_items m where m.id = :menuItemId",
 			nativeQuery = true)
 	Optional<Integer> findPrepMinutes(String menuItemId);
+
+	/** Nhãn và danh mục của một món, để biết nó thuộc trạm nào. */
+	interface NhanDanhMuc {
+		String getNhan();
+
+		String getMaDanhMuc();
+	}
+
+	@Query(value = """
+			select array_to_string(m.tags, ',') as nhan, m.category_id as maDanhMuc
+			from menu_items m where m.id = :menuItemId
+			""", nativeQuery = true)
+	Optional<NhanDanhMuc> timNhanDanhMuc(String menuItemId);
 
 	/**
 	 * Thời gian chuẩn bị (giây) của những phần đã xong gần nhất cho một món.
