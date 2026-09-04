@@ -36,9 +36,11 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 	 * bộ việc bếp. Câu này trả đủ dữ kiện để chia theo trạm.
 	 *
 	 * <p><b>NHÂN VỚI SỐ LƯỢNG.</b> Bản trước cộng {@code prep_minutes} một lần cho mỗi DÒNG món,
-	 * nên một bàn gọi 30 con gà quay trong một dòng đè lên bếp đúng bằng một con. Đo trên máy chủ
-	 * đang chạy: chất 30 phần gà quay (35 phút/phần, tức 1050 phút việc) làm ước lượng nhích từ
-	 * 45–75 lên 48–79 phút — cộng ba phút thay vì cộng ~175.
+	 * nên một bàn gọi 30 phần trong một dòng đè lên bếp đúng bằng một phần. Đo trên máy chủ đang
+	 * chạy: chất 30 phần cháo lòng (6 phút/phần, tức 180 phút việc) làm ước lượng nhích từ 45–75
+	 * lên 48–79 phút — cộng BA phút thay vì cộng ba mươi. Thấp hơn mười lần.
+	 *
+	 * <p>Đo lại sau khi sửa, cùng phép đo: 102–170 lên 126–210 phút.
 	 *
 	 * <p>Sai theo hướng NGUY nhất: hứa nhanh rồi giao chậm, và sai to nhất đúng lúc quán đông có
 	 * đoàn khách gọi nhiều phần cùng món. Lỗi có từ #141, sống sót vì mọi phép kiểm trước đây đều

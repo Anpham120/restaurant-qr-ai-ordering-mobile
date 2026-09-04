@@ -253,9 +253,11 @@ class UocLuongTheoTramTest {
 		// LỖI CÓ THẬT, tìm ra bằng cách gõ vào máy chủ đang chạy chứ không phải bằng đọc mã.
 		//
 		// Tải bếp cộng `prep_minutes` một lần cho mỗi DÒNG món, không nhân số lượng. Một bàn gọi 30
-		// con gà quay trong một dòng đè lên bếp đúng bằng một con. Đo trên staging: chất 30 phần gà
-		// quay (35 phút/phần, tức 1050 phút việc) làm ước lượng nhích từ 45–75 lên 48–79 — cộng ba
-		// phút thay vì cộng khoảng 175.
+		// phần trong một dòng đè lên bếp đúng bằng một phần. Đo trên staging: chất 30 phần cháo lòng
+		// (6 phút/phần, tức 180 phút việc) làm ước lượng nhích từ 45–75 lên 48–79 — cộng BA phút
+		// thay vì cộng ba mươi. Thấp hơn mười lần.
+		//
+		// Đo lại sau khi sửa, cùng phép đo: 102–170 lên 126–210 phút.
 		//
 		// Sai theo hướng NGUY nhất: hứa nhanh rồi giao chậm, và sai to nhất đúng lúc quán đông có
 		// đoàn khách gọi nhiều phần cùng món.
