@@ -2,8 +2,9 @@
 
 Triển khai qua GitHub Actions (`.github/workflows/cd.yml`), bấm tay, không tự chạy theo push.
 
-Máy chủ: **`221.121.2.60`**. Chạy CẢ HAI môi trường trên cùng máy này — repo thiết kế sẵn cho việc
-đó, tách nhau bằng tên project Docker, cổng, và tệp cấu hình nginx riêng.
+Máy chủ: **`180.93.111.207`** — Debian 13, 8 nhân, 15GB RAM, CPU có `avx2`. Chạy CẢ HAI môi
+trường trên cùng máy này: repo thiết kế sẵn cho việc đó, tách nhau bằng tên project Docker, cổng,
+và tệp cấu hình nginx riêng.
 
 | | production | staging |
 |---|---|---|
@@ -22,31 +23,36 @@ máy chủ, nên trùng một số là môi trường lên sau chết với `por
 
 ---
 
+> **Lịch sử chuyển máy.** `167.172.83.59` → `221.121.2.60` → `221.121.2.108` → `180.93.111.207`
+> (04/09/2026). Lần cuối chuyển vì máy cũ hết hạn thuê; dữ liệu là dữ liệu thử nên không mang
+> theo, hệ thống dựng lại từ migration. Máy mới có `avx2` nên **dựng được dịch vụ AI** — máy
+> `221.121.2.60` trước đây thì không (CPU `qemu64`, torch chết với SIGILL lúc dựng ảnh).
+
 ## 0. Đổi DNS sang máy mới
 
-Cả 12 bản ghi A hiện trỏ về máy cũ `167.172.83.59`. Đổi hết sang `221.121.2.60`:
+Cả 12 bản ghi A phải trỏ về máy chủ hiện tại `180.93.111.207`:
 
 ```
-cmcrestaurant.app                  A   221.121.2.60
-order.cmcrestaurant.app            A   221.121.2.60
-api.cmcrestaurant.app              A   221.121.2.60
-staff.cmcrestaurant.app            A   221.121.2.60
-kitchen.cmcrestaurant.app          A   221.121.2.60
-admin.cmcrestaurant.app            A   221.121.2.60
+cmcrestaurant.app                  A   180.93.111.207
+order.cmcrestaurant.app            A   180.93.111.207
+api.cmcrestaurant.app              A   180.93.111.207
+staff.cmcrestaurant.app            A   180.93.111.207
+kitchen.cmcrestaurant.app          A   180.93.111.207
+admin.cmcrestaurant.app            A   180.93.111.207
 
-staging.cmcrestaurant.app          A   221.121.2.60
-order-staging.cmcrestaurant.app    A   221.121.2.60
-api-staging.cmcrestaurant.app      A   221.121.2.60
-staff-staging.cmcrestaurant.app    A   221.121.2.60
-kitchen-staging.cmcrestaurant.app  A   221.121.2.60
-admin-staging.cmcrestaurant.app    A   221.121.2.60
+staging.cmcrestaurant.app          A   180.93.111.207
+order-staging.cmcrestaurant.app    A   180.93.111.207
+api-staging.cmcrestaurant.app      A   180.93.111.207
+staff-staging.cmcrestaurant.app    A   180.93.111.207
+kitchen-staging.cmcrestaurant.app  A   180.93.111.207
+admin-staging.cmcrestaurant.app    A   180.93.111.207
 ```
 
 TTL đang là 300 giây nên đổi xong chờ khoảng 5 phút. Kiểm tra:
 
 ```bash
 dig +short api.cmcrestaurant.app api-staging.cmcrestaurant.app
-# cả hai phải ra 221.121.2.60
+# cả hai phải ra 180.93.111.207
 ```
 
 Đổi DNS **trước** khi xin chứng chỉ: certbot xác minh quyền sở hữu bằng cách gọi vào chính tên miền
@@ -74,7 +80,7 @@ Tạo khoá SSH cho GitHub Actions dùng (chạy trên máy cá nhân):
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/cmc-deploy -N ""
-ssh-copy-id -i ~/.ssh/cmc-deploy.pub <user>@221.121.2.60
+ssh-copy-id -i ~/.ssh/cmc-deploy.pub <user>@180.93.111.207
 ```
 
 Nội dung `~/.ssh/cmc-deploy` (khoá riêng) sẽ đưa vào secret `SSH_KEY`.
@@ -95,7 +101,7 @@ dùng được luôn trên production.
 
 | Tên | Giá trị |
 |---|---|
-| `SSH_HOST` | `221.121.2.60` |
+| `SSH_HOST` | `180.93.111.207` |
 | `SSH_USER` | user ssh trên máy chủ |
 | `SSH_KEY` | nội dung `~/.ssh/cmc-deploy` |
 | `POSTGRES_PASSWORD` | `openssl rand -base64 48` |
@@ -173,7 +179,7 @@ môi trường lên sau không khởi động được.
 
 `BACKEND_JAVA_BIND = 127.0.0.1` quan trọng hơn vẻ ngoài: mặc định compose mở cổng 8081 cho **mọi
 giao diện** vì máy phát triển cần điện thoại thật gọi vào qua IP LAN. Trên máy chủ công khai, để
-nguyên nghĩa là gọi thẳng `http://221.121.2.60:8081` được — **đi vòng qua nginx, tức đi vòng qua
+nguyên nghĩa là gọi thẳng `http://180.93.111.207:8081` được — **đi vòng qua nginx, tức đi vòng qua
 TLS**, và khoá webhook SePay sẽ đi qua mạng ở dạng chữ thường.
 
 Thiếu bất kỳ biến nào thì `deploy-vps.sh` thoát ngay và in ra tên biến đó. `DeploymentConfigTest`
