@@ -35,6 +35,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 	 * <p>Thay cho một truy vấn cũ trả MỘT con số cho cả quán — con số đó bắt ly bia xếp sau toàn
 	 * bộ việc bếp. Câu này trả đủ dữ kiện để chia theo trạm.
 	 *
+	 * <p><b>NHÂN VỚI SỐ LƯỢNG.</b> Bản trước cộng {@code prep_minutes} một lần cho mỗi DÒNG món,
+	 * nên một bàn gọi 30 con gà quay trong một dòng đè lên bếp đúng bằng một con. Đo trên máy chủ
+	 * đang chạy: chất 30 phần gà quay (35 phút/phần, tức 1050 phút việc) làm ước lượng nhích từ
+	 * 45–75 lên 48–79 phút — cộng ba phút thay vì cộng ~175.
+	 *
+	 * <p>Sai theo hướng NGUY nhất: hứa nhanh rồi giao chậm, và sai to nhất đúng lúc quán đông có
+	 * đoàn khách gọi nhiều phần cùng món. Lỗi có từ #141, sống sót vì mọi phép kiểm trước đây đều
+	 * đặt số lượng 1.
+	 *
 	 * <p>Trả {@code tags} dạng chuỗi nối bằng dấu phẩy chứ không dạng mảng: ánh xạ {@code text[]}
 	 * qua projection của Spring Data là chỗ dễ vỡ, còn luật chia trạm thì nằm ở Java
 	 * ({@code TramChuanBi}) — nơi kiểm được mà không cần cơ sở dữ liệu.
@@ -44,7 +53,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 	@Query(value = """
 			select array_to_string(m.tags, ',') as nhan,
 			       m.category_id as maDanhMuc,
-			       coalesce(sum(m.prep_minutes), 0) as tongPhut
+			       coalesce(sum(m.prep_minutes * oi.quantity), 0) as tongPhut
 			from order_items oi
 			join menu_items m on m.id = oi.menu_item_id
 			where oi.status in ('Pending', 'Preparing')
