@@ -184,9 +184,16 @@ services:
   # Cổng LLM. Nằm TRONG stack thay vì cài trên máy chủ: cùng một lệnh triển khai, cùng một mạng,
   # và container khác gọi bằng tên `9router` chứ không cần biết địa chỉ máy chủ.
   #
-  # KHÔNG khai `ports:` — cổng 20128 chỉ hiện trong mạng nội bộ của compose. 9router giữ khoá API
-  # của mọi nhà cung cấp; publish ra máy chủ là mở thêm một mặt tấn công cho thứ không ai gọi từ
-  # ngoài. Muốn mở bảng điều khiển thì đi qua đường hầm SSH (xem docs/trien-khai-may-chu.md).
+  # Cổng NEO VÀO 127.0.0.1, không ra Internet. 9router giữ khoá API của mọi nhà cung cấp, nên nó
+  # không được phép tự phơi mình ra ngoài.
+  #
+  # Vì sao vẫn gắn cổng thay vì để hoàn toàn trong mạng compose: nginx chạy TRÊN MÁY CHỦ, không
+  # nằm trong mạng đó, nên muốn đưa bảng điều khiển ra sau một tên miền có TLS thì phải có một địa
+  # chỉ ổn định để trỏ tới. Trỏ thẳng vào IP container (172.x) thì hỏng ngay lần khởi động lại đầu
+  # tiên mà Docker cấp IP khác.
+  #
+  # Ai muốn vào phải qua nginx: TLS + mật khẩu riêng. Không có nginx thì chỉ chính máy chủ gọi
+  # được, tức vẫn phải đi đường hầm SSH như trước.
   9router:
     image: ${NINE_ROUTER_IMAGE:-cmc-restaurant-9router:${DEPLOY_ENV:-local}}
     build:
@@ -199,6 +206,8 @@ services:
     # Vì nó thoát bằng mã 0 nên `restart: unless-stopped` cũng không cứu được, và nhật ký trông
     # như mọi thứ bình thường.
     tty: true
+    ports:
+      - "127.0.0.1:${NINE_ROUTER_PORT:-20128}:20128"
     volumes:
       - 9router-data:/app/data
     healthcheck:
