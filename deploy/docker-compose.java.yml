@@ -213,7 +213,15 @@ services:
     ports:
       - "127.0.0.1:${NINE_ROUTER_PORT:-20128}:20128"
     volumes:
-      - 9router-data:/app/data
+      # ĐÚNG đường dẫn là `/root/.9router`, không phải `/app/data`.
+      #
+      # Gắn nhầm chỗ thì volume LUÔN RỖNG và mọi thứ 9router ghi — mật khẩu, nhà cung cấp, khoá
+      # API — nằm trong lớp ghi tạm của container, tức mất sạch ở lần dựng lại kế tiếp. Hỏng theo
+      # kiểu im lặng nhất: mọi thứ chạy đúng cho tới một lần triển khai bình thường.
+      #
+      # Đo trên máy chủ đang chạy: `/app/data` rỗng 0 byte trong khi `/root/.9router` có 30.6MB,
+      # gồm `db/data.sqlite`.
+      - 9router-data:/root/.9router
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:20128/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
@@ -262,7 +270,8 @@ services:
       start_period: 10s
 
 volumes:
-  # Cấu hình và khoá nhà cung cấp của 9router. Mất volume này là phải khai báo lại từ đầu.
+  # Cấu hình, mật khẩu và khoá nhà cung cấp của 9router. Mất volume này là phải khai báo lại từ
+  # đầu — xem ghi chú ở service về việc nó phải gắn vào `/root/.9router`.
   9router-data:
   # Volume riêng, không dùng chung với stack .NET: hai bản chạy song song phải có CSDL độc lập thì
   # so khớp hành vi ở issue #15 mới có nghĩa.
