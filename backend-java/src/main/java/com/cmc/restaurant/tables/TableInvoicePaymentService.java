@@ -1,7 +1,6 @@
 package com.cmc.restaurant.tables;
 
 import com.cmc.restaurant.auth.JwtProperties;
-import com.cmc.restaurant.chat.ChatSessionRepository;
 import com.cmc.restaurant.counter.CounterService;
 import com.cmc.restaurant.loyalty.LoyaltyService;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
@@ -50,7 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       trùng nhưng khác nội dung là 409.</li>
  *   <li><b>Khoá lạc quan.</b> Hai nhân viên cùng bấm xác nhận thì đúng một người thắng, người kia
  *       nhận {@code CONFLICT_STALE} chứ không phải cả hai cùng ghi đè.</li>
- *   <li><b>Ghi tiền trước, việc phụ trợ sau.</b> Cộng điểm, xoá phiên chat, ghi sổ quỹ và bắn
+ *   <li><b>Ghi tiền trước, việc phụ trợ sau.</b> Cộng điểm, ghi sổ quỹ và bắn
  *       realtime đều chạy SAU khi khoản thu đã ghi xong. Một trong số đó hỏng không được phép làm
  *       mất khoản thu.</li>
  * </ul>
@@ -73,7 +72,6 @@ public class TableInvoicePaymentService {
 	private final com.cmc.restaurant.loyalty.LoyaltyRedemptionRepository phieuDoiDiem;
 	private final LoyaltyService loyaltyService;
 	private final CounterService counterService;
-	private final ChatSessionRepository chatSessionRepository;
 	private final OrderLookup orderLookup;
 	private final OrderService orderService;
 	private final OrderRealtimeNotifier realtimeNotifier;
@@ -86,7 +84,7 @@ public class TableInvoicePaymentService {
 			JwtProperties jwtProperties, VietQrProvider vietQrProvider, PromotionService promotionService,
 			com.cmc.restaurant.loyalty.LoyaltyRedemptionRepository phieuDoiDiem,
 			LoyaltyService loyaltyService, CounterService counterService,
-			ChatSessionRepository chatSessionRepository, OrderLookup orderLookup, OrderService orderService,
+			OrderLookup orderLookup, OrderService orderService,
 			OrderRealtimeNotifier realtimeNotifier, TableInvoiceService invoiceReader) {
 		this.sessionRepository = sessionRepository;
 		this.invoiceRepository = invoiceRepository;
@@ -100,7 +98,6 @@ public class TableInvoicePaymentService {
 		this.phieuDoiDiem = phieuDoiDiem;
 		this.loyaltyService = loyaltyService;
 		this.counterService = counterService;
-		this.chatSessionRepository = chatSessionRepository;
 		this.orderLookup = orderLookup;
 		this.orderService = orderService;
 		this.realtimeNotifier = realtimeNotifier;
@@ -289,8 +286,6 @@ public class TableInvoicePaymentService {
 		}
 
 		loyaltyService.accrue(s.invoice().getCustomerPhoneNumber(), s.invoice().getTotalAmount(), now);
-		chatSessionRepository.deleteAll(
-				chatSessionRepository.findByTableSessionIdAndClosedFalse(sessionId));
 		if (PaymentMethod.COD.name().equals(s.invoice().getMethod())) {
 			counterService.recordTableInvoiceCash(
 					s.invoice().getTotalAmount(), sessionId, s.invoice().getInvoiceCode(), actor.userId());

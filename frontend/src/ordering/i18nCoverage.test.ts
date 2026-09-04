@@ -70,12 +70,10 @@ describe("V44 complete VI/EN localization", () => {
     const files = [
       ...sourceFiles("apps/customer-web/src"),
       ...sourceFiles("apps/ordering-web/src"),
-      ...sourceFiles("src/components/chatbot"),
       ...sourceFiles("src/components/customer"),
       ...sourceFiles("src/components/menu"),
       ...sourceFiles("src/ordering"),
       ...sourceFiles("src/pages/customer"),
-      ...sourceFiles("src/pages/chatbot"),
       ...sourceFiles("src/pages/CustomerHomePage.tsx"),
       ...sourceFiles("src/pages/RestaurantAlbumPage.tsx"),
       ...sourceFiles("packages/brand-ui/src"),

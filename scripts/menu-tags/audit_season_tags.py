@@ -41,15 +41,23 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MENU_PATH = REPO_ROOT / "data" / "menu-dataset.json"
 
-# Dùng đúng định nghĩa "món ăn" của hệ thống, không tự liệt kê lại — xem chú thích trong `main()`.
-sys.path.insert(0, str(REPO_ROOT / "ai" / "app"))
-from understand import FOOD_CATEGORIES  # noqa: E402
+# Danh mục được coi là MÓN ĂN (khác đồ uống).
+#
+# Trước đây nhập từ `ai/app/understand.py` để "dùng đúng định nghĩa của hệ thống". Mô-đun đó đã bị
+# gỡ cùng trợ lý AI, và thứ script này thật sự cần chỉ là tám mã danh mục — nên nội hoá thay vì giữ
+# một phụ thuộc vào 2 000 dòng mã hiểu ngôn ngữ để lấy một hằng số.
+#
+# Đối chiếu với `data/menu-dataset.json`: năm danh mục còn lại (cat_drink, cat_juice, cat_alcohol,
+# cat_dessert, cat_fruit) là đồ uống và tráng miệng, không xét nhãn mùa.
+FOOD_CATEGORIES = (
+    "cat_appetizer", "cat_noodle", "cat_main", "cat_seafood",
+    "cat_hotpot", "cat_chicken", "cat_regional", "cat_vegetarian",
+)
 
 # Bằng chứng cho `season:cooling` — "Giải nhiệt" theo từ điển nhãn.
 #

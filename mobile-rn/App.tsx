@@ -14,7 +14,6 @@ import { SecureTokenStore } from './src/core/auth/tokenStore';
 import { HttpCartApi } from './src/core/cart/cartApi';
 import { type CauHinhMayChu } from './src/core/cauHinh/cauHinh';
 import { CauHinhStore } from './src/core/cauHinh/cauHinhStore';
-import { HttpChatApi } from './src/core/chat/chatApi';
 import { dongBoTaiKhoan } from './src/core/loyalty/dongBoTaiKhoan';
 import { HttpLoyaltyApi } from './src/core/loyalty/loyaltyApi';
 import { HttpMenuApi } from './src/core/menu/menuApi';
@@ -65,7 +64,6 @@ function dungClient(cauHinh: CauHinhMayChu) {
     cartApi: new HttpCartApi(api),
     createOrderApi: new HttpCreateOrderApi(api),
     orderApi: new HttpOrderApi(api),
-    chatApi: new HttpChatApi(api),
     promotionApi: new HttpPromotionApi(api),
     invoiceApi: new HttpInvoiceApi(api),
     historyApi: new HttpOrderHistoryApi(api),
@@ -294,7 +292,6 @@ function NoiDungApp() {
         cartApi={client.cartApi}
         guiMaOtp={GUI_MA_OTP}
         cauHinh={cauHinh}
-        chatApi={client.chatApi}
         createOrderApi={client.createOrderApi}
         dangNhap={dangNhap}
         favouriteApi={client.favouriteApi}

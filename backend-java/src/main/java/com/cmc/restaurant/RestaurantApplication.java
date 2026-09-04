@@ -2,7 +2,6 @@ package com.cmc.restaurant;
 
 import com.cmc.restaurant.auth.AdminBootstrapProperties;
 import com.cmc.restaurant.auth.JwtProperties;
-import com.cmc.restaurant.chat.ChatProperties;
 import com.cmc.restaurant.payments.SePayProperties;
 import com.cmc.restaurant.payments.VietQrProperties;
 import com.cmc.restaurant.orders.application.KitchenCapacityProperties;
@@ -17,8 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, SePayProperties.class, ChatProperties.class,
-		CorsProperties.class, AdminBootstrapProperties.class,
+@EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, SePayProperties.class, 		CorsProperties.class, AdminBootstrapProperties.class,
 		KitchenCapacityProperties.class})
 public class RestaurantApplication {
 

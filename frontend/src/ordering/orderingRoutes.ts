@@ -1,8 +1,7 @@
-export type OrderingDestination = "menu" | "ai" | "cart" | "checkout" | "orders";
+export type OrderingDestination = "menu" | "cart" | "checkout" | "orders";
 
 export const orderingNavigation = [
   { label: "Thực đơn", path: "menu" },
-  { label: "AI tư vấn", path: "ai" },
   { label: "Giỏ hàng", path: "cart" },
   { label: "Món đã gọi", path: "orders" },
 ] as const;

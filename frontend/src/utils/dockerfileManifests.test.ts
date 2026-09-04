@@ -57,54 +57,7 @@ describe("AI Docker production dependencies", () => {
       .filter((line) => !line.trimStart().startsWith("#"))
       .join("\n");
 
-  it("pins torch to the CPU wheel index whenever torch is a dependency", () => {
-    // Bất biến ĐẮT NHẤT của tệp này: mất dòng index là +6,55GB, im lặng.
-    const requirements = instructionLines(readFileSync(aiRequirementsPath, "utf8"));
-    if (!requirements.includes("torch")) return; // không có torch thì không có gì để ghim
-
-    expect(
-      requirements,
-      "ai/requirements.txt có torch mà THIẾU `--extra-index-url https://download.pytorch.org/whl/cpu`"
-        + " — pip sẽ lấy bản CUDA và ảnh phình từ 2,74GB lên 9,29GB, im lặng",
-    ).toContain("--extra-index-url https://download.pytorch.org/whl/cpu");
-  });
-
-  it("bakes the embedding model into the image and blocks network at runtime", () => {
-    // Tải mô hình lúc CHẠY có hai hậu quả và cả hai chỉ hiện ở môi trường thật: khách ĐẦU TIÊN chờ
-    // tải ~500MB, và dịch vụ phụ thuộc mạng ra Hugging Face SAU KHI `/ready` đã báo sẵn sàng.
-    const dockerfile = instructionLines(readFileSync(aiDockerfilePath, "utf8"));
-    const requirements = instructionLines(readFileSync(aiRequirementsPath, "utf8"));
-    if (!requirements.includes("sentence-transformers")) return;
-
-    expect(dockerfile, "ai/Dockerfile phải TẢI SẴN mô hình lúc build").toContain(
-      "SentenceTransformer(",
-    );
-    expect(dockerfile, "thiếu HF_HUB_OFFLINE=1 — container sẽ gọi mạng lúc chạy").toContain(
-      "HF_HUB_OFFLINE=1",
-    );
-    // Vector của kho phải được tính SẴN: đo được là mã hóa 370 đoạn mất 61,7s, tức 64% thời gian
-    // khởi động, và nó tính đi tính lại cùng một kết quả mỗi lần container lên.
-    expect(dockerfile, "thiếu bước tính sẵn vector — khởi động mất thêm ~62 giây mỗi lần").toContain(
-      "rag.precompute",
-    );
-  });
-
-  it("gives the AI healthcheck a start period long enough for model load", () => {
-    // 97,3 giây khởi động với `start-period=15s`, `interval=30s`, `retries=3` làm lần kiểm thứ ba
-    // rơi vào ~105s — dịch vụ SUÝT bị đánh `unhealthy`. Và `api` chờ `service_healthy`, nên hậu quả
-    // không phải một cảnh báo mà là CẢ STACK KHÔNG LÊN trên máy chậm hơn 8%.
-    const dockerfile = instructionLines(readFileSync(aiDockerfilePath, "utf8"));
-    const requirements = instructionLines(readFileSync(aiRequirementsPath, "utf8"));
-    if (!requirements.includes("sentence-transformers")) return;
-
-    const match = dockerfile.match(/--start-period=(\d+)s/);
-    expect(match, "ai/Dockerfile không có --start-period").not.toBeNull();
-    expect(
-      Number(match![1]),
-      "start-period quá ngắn cho việc nạp mô hình — đo được 97,3s trước khi có đệm vector",
-    ).toBeGreaterThanOrEqual(60);
-  });
-});
+;
 
 describe("production health check retries", () => {
   it("retries transient TLS errors while nginx certificates reload", () => {

@@ -65,8 +65,7 @@ class DeploymentConfigTest {
 			"PAYMENTS_VIETQR_ACCOUNTNAME",
 			"FIREBASE_API_KEY",
 			"FIREBASE_PROJECT_ID",
-			"GOOGLE_CLIENT_ID",
-			"AI_INTERNAL_TOKEN");
+			"GOOGLE_CLIENT_ID");
 
 	@Test
 	@DisplayName("Compose KHÔNG đặt biến nào máy chủ không đọc — bắt lỗi gõ sai tên")

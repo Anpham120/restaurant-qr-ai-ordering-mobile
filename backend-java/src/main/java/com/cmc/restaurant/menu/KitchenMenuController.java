@@ -1,6 +1,5 @@
 package com.cmc.restaurant.menu;
 
-import com.cmc.restaurant.chat.AiCacheClient;
 import com.cmc.restaurant.menu.MenuDtos.MenuItemResponse;
 import com.cmc.restaurant.menu.MenuDtos.ToggleAvailabilityRequest;
 import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
@@ -39,17 +38,14 @@ public class KitchenMenuController {
 	private final CategoryRepository categoryRepository;
 	private final MenuItemService menuItemService;
 	private final OrderRealtimeNotifier realtimeNotifier;
-	private final AiCacheClient aiCacheClient;
 
 	public KitchenMenuController(
 			MenuItemRepository menuItemRepository, CategoryRepository categoryRepository,
-			MenuItemService menuItemService, OrderRealtimeNotifier realtimeNotifier,
-			AiCacheClient aiCacheClient) {
+			MenuItemService menuItemService, OrderRealtimeNotifier realtimeNotifier) {
 		this.menuItemRepository = menuItemRepository;
 		this.categoryRepository = categoryRepository;
 		this.menuItemService = menuItemService;
 		this.realtimeNotifier = realtimeNotifier;
-		this.aiCacheClient = aiCacheClient;
 	}
 
 	/**
@@ -85,7 +81,6 @@ public class KitchenMenuController {
 				item.getId(), item.getName(), item.isAvailable(), item.getUpdatedAt()));
 
 		// Sau khi đã ghi và đã bắn realtime: nếu dịch vụ AI chết thì bếp vẫn tắt được món.
-		aiCacheClient.invalidateMenuAvailability(item.getId());
 
 		return MenuQueryService.toResponse(
 				item,

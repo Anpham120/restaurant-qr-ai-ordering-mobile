@@ -25,14 +25,12 @@ describe("marketing and ordering app separation", () => {
     expect(menuPreview).not.toContain("saveMenuCart");
   });
 
-  it("keeps marketing modules out and owns AI inside the ordering entrypoint", () => {
+  it("keeps marketing modules out of the ordering entrypoint", () => {
     const orderingEntrypoint = read("apps/ordering-web/src/main.tsx");
     const orderingMenu = read("src/ordering/OrderingMenuPage.tsx");
 
     expect(orderingEntrypoint).not.toContain("CustomerHomePage");
     expect(orderingEntrypoint).not.toContain("RestaurantAlbumPage");
-    expect(orderingEntrypoint).toContain("ChatPage");
-    expect(orderingEntrypoint).toContain('path: "ai"');
     expect(orderingEntrypoint).toContain("OrderingLayout");
     expect(orderingMenu).not.toContain("CustomerTestimonials");
     expect(orderingMenu).not.toContain("CustomerWhyChooseUs");

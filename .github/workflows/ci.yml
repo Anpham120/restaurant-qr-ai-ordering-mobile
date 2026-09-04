@@ -14,7 +14,7 @@ on:
     #
     # Gấp đôi mọi thứ, và job đắt nhất là `golden-e2e`: nó dựng ảnh Docker 2,75GB có `torch`.
     #
-    # Việc này đắt hơn kể từ khi `ai-data-and-eval` và `golden-e2e` thành check BẮT BUỘC.
+    # Việc này đắt hơn kể từ khi `menu-data` và `golden-e2e` thành check BẮT BUỘC.
     #
     # Đánh đổi phải nói rõ: đẩy một nhánh mà CHƯA mở PR thì không có CI. Chấp nhận được vì mọi thay
     # đổi đều đi qua PR (`main` và `develop` đều bị ruleset chặn push thẳng), và đây là nếp chuẩn.
@@ -70,12 +70,11 @@ jobs:
   # `backend-test`. Gỡ một job đang là required check sẽ làm mọi PR treo PENDING vĩnh viễn — GitHub
   # coi check bắt buộc không chạy là chưa xong, không phải là bỏ qua.
 
-  # Phần AI đang được dựng lại trên nhánh `rebuild/**` (xem ai/README.md).  Bốn bước cũ
-  # ở job này gọi ai/app, ai/tests, retrieval_benchmark.py và ci_golden_gates.py — đều đã
-  # bị xóa cùng bản cũ.  Nay job chạy đúng những gì đã dựng lại: dữ liệu, tập đánh giá,
-  # và thước đo.  Chưa có dịch vụ AI nào để biên dịch, và job không giả vờ là có.
-  ai-data-and-eval:
-    name: ai-data-and-eval
+  # Đổi tên từ `ai-data-and-eval` sau khi gỡ trợ lý AI. Kiểm trước khi đổi: kho này không bật
+  # required status checks trên nhánh nào, nên việc đổi tên không làm PR treo — đúng cái bẫy mà
+  # ghi chú ngay trên đã cảnh báo.
+  menu-data:
+    name: menu-data
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -86,262 +85,36 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Bộ sinh dữ liệu và bộ kiểm chỉ dùng thư viện chuẩn — không cần cài gì.
+      # Job này TỪNG tên `ai-data-and-eval` và chạy thêm kho tri thức, đóng gói, thống kê và bộ
+      # test dịch vụ HTTP của trợ lý. Trợ lý đã gỡ khỏi hệ thống, nên những bước đó đi theo.
+      #
+      # Năm bước còn lại KHÔNG phải AI: chúng sinh và soát bộ nhãn thực đơn. `data/menu-tags.json`
+      # được giao diện khách dùng, và nhãn `method:` là thứ cụm ước lượng thời gian lên món dựa vào
+      # để chia trạm bếp — nên chúng ở lại, và chuyển sang `scripts/menu-tags/` cho đúng chỗ.
+      #
+      # Bộ sinh chỉ dùng thư viện chuẩn — không cần cài gì.
 
       # Chạy ở chế độ --check: nếu tệp đã commit khác kết quả sinh lại thì đỏ, tức có ai
       # sửa tay dữ liệu mà không chạy lại bộ sinh.
       - name: Kiểm từ điển nhãn và thực đơn sinh lại được
-        run: python ai/scripts/build_tag_dictionary.py --check
+        run: python scripts/menu-tags/build_tag_dictionary.py --check
 
       # Nhãn đổi thì cơ sở dữ liệu ĐANG CHẠY phải được cập nhật bằng một migration MỚI.
-      #
-      # Bước trên chỉ kiểm hai tệp dữ liệu sinh lại được; nó KHÔNG biết cơ sở dữ liệu thật đang
-      # mang nhãn nào. Bước này lo phần đó: đọc trạng thái hiệu lực (V2 + mọi migration cập nhật
-      # nhãn sau nó) rồi so với `menu-dataset.json`.
-      #
-      # Vì sao không sửa thẳng V2 cho gọn: V2 đã chạy trên mọi cơ sở dữ liệu có dữ liệu thật, và
-      # Flyway lưu checksum migration đã áp dụng — sửa nó là làm chúng TỪ CHỐI KHỞI ĐỘNG. Máy lập
-      # trình không thấy vì nó tạo cơ sở dữ liệu mới từ đầu, nên lỗi này chỉ lộ ra ở nơi có dữ
-      # liệu thật. Đây là bản Flyway của `build_tag_migration.py` cũ (EF Core), đóng nợ #110.
       - name: Kiểm nhãn cơ sở dữ liệu khớp thực đơn
-        run: python ai/scripts/build_tag_migration.py --check
+        run: python scripts/menu-tags/build_tag_migration.py --check
 
-      # Kho tri thức có 8/24 chủ đề tính từ thực đơn, nên nó phải sinh lại được — nếu
-      # thực đơn đổi mà tri thức không đổi theo thì con số trong câu trả lời sẽ sai.
-      # 48/60 tài liệu tri thức được SINH từ thực đơn, nên chúng phải sinh lại được — nếu
-      # thực đơn đổi mà tài liệu không đổi theo thì con số trong đó sai. Bước này cũng kiểm
-      # bất biến của kho: audience, mã đoạn liên tục, đoạn tự đủ nghĩa.
-      - name: Kiểm kho tri thức markdown + chia đoạn
-        run: python ai/scripts/build_knowledge.py --check
-
-      # Ảnh Docker là môi trường DUY NHẤT nơi tệp dữ liệu có thể thiếu, và không test nào chạy
-      # ở đó. Bước này đọc ai/Dockerfile rồi đối chiếu với đường dẫn mã lúc chạy thật sự dùng,
-      # nên nó bắt được lỗi đóng gói mà không phải dựng container.
-      - name: Kiểm dữ liệu lúc chạy có trong ảnh Docker
-        run: python -m unittest test_packaging
-        working-directory: ai/app
-
-      # Ký tự điều khiển trong mã nguồn là vô hình trên màn hình VÀ trong git diff, và nếu nó
-      # nằm trong regex thì regex im lặng không khớp gì. Dự án đã mất một cơ chế an toàn theo
-      # đúng cách đó: một byte 0x08 làm `\bkhong ...` thành `<backspace>khong ...`, nên mẫu
-      # "không ⟨chủ đề⟩" là MÃ CHẾT trong khi tài liệu ghi nó là hàng rào dị ứng.
-      #
-      # `pyyaml` được cài ở đây, không để test tự bỏ qua: bước này còn kiểm rằng CHÍNH TỆP NÀY
-      # phân tích được, và test bỏ qua âm thầm thì không khác gì không có test. Đúng lỗi đã xảy
-      # ra: một byte 0x08 trong chú thích của tệp này làm GitHub Actions không phân tích được nó,
-      # nên CẢ CI không chạy — mọi lần đẩy báo "failure" sau 0 giây và không bước nào thực thi.
-      - name: Kiểm vệ sinh mã nguồn và cơ chế an toàn có CHẠY
-        run: |
-          python -m pip install -q "pyyaml>=6.0,<7.0"
-          python -m unittest test_source_hygiene
-        working-directory: ai/app
-
-      # Test dịch vụ HTTP cần fastapi và httpx, còn phần dữ liệu/thước đo chỉ dùng thư viện
-      # chuẩn. Nên chúng tự bỏ qua khi thiếu thư viện — nhưng bỏ qua ÂM THẦM trong CI là test
-      # dối, nên AI_REQUIRE_SERVICE_TESTS=1 biến việc thiếu thư viện thành LỖI.
-      - name: Test dịch vụ HTTP và bộ nhớ phiên
-        env:
-          AI_REQUIRE_SERVICE_TESTS: "1"
-          AI_INTERNAL_TOKEN: token-ci
-        run: |
-          python -m pip install -q "fastapi>=0.115,<1.0" "httpx>=0.27,<1.0"             "uvicorn[standard]>=0.30,<1.0" "pydantic>=2.8,<3.0" "jsonschema>=4.20,<5.0"
-          python -m unittest test_service test_session test_cart test_answer test_contract test_packaging
-        working-directory: ai/app
-
-      # Bo kiem thong ke — moi ket luan so sanh trong Chuong 4 di qua hai ham nay.
-      #
-      # Cong thuc sai thi bao cao khang dinh sai ma khong co gi bao. Bo kiem chot bang nhung gia tri
-      # TINH DUOC BANG TAY: Wilson cho 8/8 phai ra khoang RONG (khong phai khoang diem nhu cong thuc
-      # Wald), va McNemar 10 ca lech cung chieu phai ra p = 2/2^10.
-      - name: Kiểm module thống kê (khoảng tin cậy, McNemar)
-        run: python -m unittest test_thong_ke
-        working-directory: ai/evaluation
-
-      # Nhãn dị nguyên chỉ phủ 44/91 món, và việc đối chiếu nhãn với mô tả món đã tìm ra
-      # bảy lỗ thật ở bước 1. Bản rà chạy trong CI để không lặp lại.
       - name: Rà nhãn dị nguyên
-        run: python ai/scripts/audit_allergen_tags.py
+        run: python scripts/menu-tags/audit_allergen_tags.py
 
-      # Rà nhãn MÙA, cùng khuôn với bản rà dị nguyên và cùng lý do: nhãn phải nhất quán với MÔ TẢ
-      # món. Phép so truy hồi làm lộ `season:cooling` chỉ gắn cho 2/56 món ăn trong khi nhiều món
-      # có mô tả ghi rõ "thanh mát" / "phù hợp mùa nóng" — bản rà tìm ra, và 3 lỗ đã được lấp.
-      #
-      # Rà HAI CHIỀU: thiếu nhãn, VÀ mang nhãn mà mô tả không có bằng chứng. Chỉ rà chiều đầu thì
-      # cách "sửa" dễ nhất là gắn nhãn cho thật nhiều món, và bản rà sẽ luôn sạch trong khi nhãn
-      # thành vô nghĩa.
       - name: Rà nhãn mùa
-        run: python ai/scripts/audit_season_tags.py
+        run: python scripts/menu-tags/audit_season_tags.py
 
-      # Rà nhãn CÁCH CHẾ BIẾN, và đây là bản rà DUY NHẤT chạy `--check` (chặn khi còn lệch).
-      #
-      # Được phép chặn vì nó gần như không có dương tính giả: nó chỉ đọc TÊN món, nơi bếp đã nói
-      # thẳng cách chế biến. Đọc cả mô tả thì 12 cảnh báo mà 11 là giả — mô tả nhắc động từ của cả
-      # món ăn kèm ("cuốn bánh tráng", "heo quay giòn da" là topping). Chỉ đọc tên: 1 cảnh báo,
-      # và nó đúng — "Gà rô ti kiểu Việt" mang `method:grilled` trong khi rô ti là QUAY.
-      #
-      # Hai bản rà trên không `--check` vì chúng suy từ mô tả nên còn dương tính giả; chúng in ra
-      # cho người đọc. Ranh giới: **chỉ bản rà nào đủ sạch để không ai muốn tắt nó mới được chặn.**
+      # Nhóm nhãn duy nhất mà TÊN món tự nói ra đáp án, nên soát được bằng máy.
       - name: Rà nhãn cách chế biến
-        run: python ai/scripts/audit_method_tags.py --check
+        run: python scripts/menu-tags/audit_method_tags.py --check
 
-      # Chỉ mục tài liệu phải khớp thư mục thật.
-      #
-      # Cổng này ra đời sau khi tìm thấy `docs/archive/README.md` KHAI đã chuyển 7 tệp vào thư mục
-      # đó trong khi thư mục RỖNG — cả 7 vẫn nằm ở `docs/`. Người đọc tin vào nó rồi đi tìm chỗ
-      # sai, và đó tệ hơn không có tài liệu.
-      #
-      # Cùng lúc `docs/README.md` chỉ trỏ tới 11/37 tệp, nên 26 tài liệu không có cửa vào nào.
-      # Cả hai đều là văn xuôi kể lại trạng thái thư mục, và văn xuôi thì trôi.
       - name: Kiểm chỉ mục tài liệu khớp thư mục
         run: python docs/build_docs_index.py --check
-
-      # Kiểm kê endpoint trong hợp đồng API phải khớp MÃ.
-      #
-      # Trước cổng này, `API_CONTRACT.md` viết tay liệt kê **10 endpoint trong khi backend có 84** —
-      # phủ 12% bề mặt API. Người đọc tin vào nó rồi tưởng endpoint mình cần không tồn tại.
-      #
-      # Cùng lớp lỗi với chỉ mục tài liệu và với `ai/docs/05` (ghi 425 đoạn khi kho có 452): văn
-      # xuôi kể lại trạng thái mã thì luôn trôi khỏi mã.
-      - name: Kiểm kiểm kê endpoint khớp mã backend
-        run: python docs/build_api_inventory.py --check
-
-      # Phần SỰ THẬT của tài liệu kiến trúc và DevOps (danh sách module, workflow, cổng) phải khớp
-      # mã. Cùng lý do với hai cổng trên; đây là hai chỗ còn lại có nhiều "danh sách kể lại".
-      - name: Kiểm kiến trúc và DevOps khớp mã
-        run: python docs/build_system_facts.py --check
-
-      # Khối số liệu của báo cáo môn Lập trình nâng cao. Một BÁO CÁO NỘP MÔN là chỗ dễ trôi nhất
-      # trong kho: viết một lần rồi không ai đọc lại, trong khi mã tiếp tục đổi. Số liệu bản Java
-      # vì thế sinh từ mã; số liệu bản .NET là hằng đã niêm phong (thư mục đó đã xoá ở #59).
-      - name: Kiểm số liệu báo cáo Lập trình nâng cao khớp mã
-        run: python docs/build_bao_cao_lap_trinh_nang_cao.py --check
-
-      # Cùng cơ chế, cho báo cáo môn Lập trình di động. Một báo cáo nộp môn viết một lần rồi
-      # không ai đọc lại, trong khi mã tiếp tục đổi — nên mọi con số về app Flutter sinh từ mã.
-      - name: Số liệu báo cáo Lập trình di động khớp mã Dart
-        run: python docs/build_bao_cao_lap_trinh_di_dong.py --check
-
-      # Tập đánh giá TRUY HỒI — khác tập 119 ca: nó chấm ĐOẠN ĐƯỢC LẤY, không chấm câu trả lời.
-      # Khóa đáp án là điều kiện chọn, giải ra chunk_id khi chạy, nên nó không thể trỏ vào tài
-      # liệu không tồn tại mà vẫn xanh.
-      - name: Kiểm tập đánh giá truy hồi sinh lại được
-        run: python ai/scripts/build_retrieval_cases.py --check
-
-      - name: Kiểm ca truy hồi (9 loại lỗi)
-        run: python ai/evaluation/validate_retrieval_cases.py
-
-      - name: Kiểm phép chia tập truy hồi
-        run: python ai/evaluation/build_retrieval_split.py --check
-
-      # Hai cổng dưới đây TỒN TẠI TỪ LÂU nhưng CI chưa bao giờ gọi — và đó là lý do một bộ ca
-      # chết nằm trong repo mà không ai biết: `ca_phu_kho.json` có 98/98 ca trỏ vào tài liệu đã
-      # bị xoá, và cổng `--check` lẽ ra bắt được thì không chạy.
-      #
-      # Một cổng không được gọi thì không phải cổng. Rà toàn bộ: 3/16 cổng `--check` ở tình trạng
-      # đó; một cái đã bỏ cùng bộ ca của nó, hai cái còn lại thêm ở đây.
-      - name: Kiểm bộ ca chọn mục sinh lại được
-        run: python ai/scripts/build_chunk_selection_cases.py --check
-
-      - name: Kiểm phép chia tập chọn mục
-        run: python ai/evaluation/build_chunk_selection_split.py --check
-
-      # Kịch bản ĐA LƯỢT — đo BỘ NHỚ PHIÊN, thứ 119 ca một lượt không thể đo.
-      # Lỗi bộ nhớ chỉ hiện từ lượt 2: khách khai dị ứng ở lượt 1, hỏi tiếp ở lượt 5 không nhắc
-      # lại, và nếu bộ nhớ quên thì hệ thống mời đúng món khách không ăn được. Bước này trả mã
-      # khác 0 khi có LỖI AN TOÀN, nên nó là CHỐT, không phải theo dõi tỷ lệ.
-      - name: Kiểm kịch bản đa lượt sinh lại được
-        run: python ai/scripts/build_session_scripts.py --check
-
-      - name: Bộ nhớ phiên — 25 kịch bản đa lượt
-        run: python ai/evaluation/run_session_eval.py
-
-      # Ba cách truy hồi. CI chạy BM25 THÔI, có chủ ý: `sentence-transformers` kéo theo torch và
-      # ~2–3GB, tức mỗi lần chạy CI tải bằng cả ảnh Docker. Con số của embedding đo tại máy và ghi
-      # trong `ai/docs/07-error-analysis.md` kèm ngày.
-      #
-      # Bỏ qua như vậy KHÔNG âm thầm: `run_retrieval_comparison.py` in rõ "embedding và hybrid BỊ
-      # BỎ QUA" kèm lý do, và nó vẫn CHẶN nếu BM25 lấy đoạn bị cấm ở nhóm chốt hoặc không biết
-      # KHÔNG trả lời. Cài `ai/requirements.txt` (nay đã gồm embedding) rồi chạy lại để có
-      # phép so ba phương pháp — con số ba phương pháp đo tại máy, xem `07-error-analysis.md`.
-      - name: Test ba cách truy hồi (công thức tính tay được)
-        run: python -m unittest test_rag
-        working-directory: ai/app
-
-      - name: So truy hồi trên hai bài toán (BM25 — xem ghi chú)
-        run: python ai/evaluation/run_retrieval_comparison.py
-
-      # Không trả mã lỗi — nó phân tích chứ không chặn. Chạy trong CI để nó không mục: một công cụ
-      # phân tích hỏng thầm thì lần cần dùng nhất là lần nó không chạy.
-      - name: Phân tích nguyên nhân sai (cả ba tập)
-        run: python ai/evaluation/analyze_failures.py
-
-      - name: Kiểm tập đánh giá
-        run: python ai/evaluation/validate_cases.py
-
-      - name: Kiểm phép chia tập đánh giá
-        run: python ai/evaluation/build_split.py --check
-
-      - name: Test hai chiều cho thước đo
-        run: python -m unittest discover -s ai/evaluation -p "test_*.py" -v
-
-      # Bộ dò lỗ là chốt: nếu một câu trả lời vô nghĩa qua được ca nào thì thước đo có lỗ,
-      # và mọi con số đo bằng nó đều đáng nghi.
-      - name: Dò lỗ trong thước đo
-        run: python ai/evaluation/probe_metric_holes.py
-
-      - name: Test phần hiểu câu hỏi
-        run: python -m unittest discover -s ai/app -p "test_*.py" -v
-
-      # run_baseline trả về mã khác 0 khi có LỖI AN TOÀN, nên bước này là chốt fail-closed
-      # cho dị ứng, bịa món và rò rỉ — không phải chỉ theo dõi tỷ lệ.
-      - name: Số nền — trả lời chỉ bằng tra thực đơn
-        run: python ai/evaluation/run_baseline.py --all
-
-      - name: Giá trị từng cơ chế (ablation)
-        run: python ai/evaluation/run_ablation.py
-
-      # Hai việc, và việc thứ hai được thêm sau khi việc thứ nhất để lọt một lỗi:
-      #
-      #   1. So NGUỒN của từng ô với bộ sinh. Bắt trường hợp ai đó sửa tay notebook — khi đó
-      #      notebook không còn sinh lại được và mọi số trong báo cáo mất đường truy về mã.
-      #   2. Đọc KẾT QUẢ đã commit và báo đỏ nếu có ô nào NỔ. Việc 1 xanh với một ô không chạy
-      #      được — đúng chuyện đã xảy ra: ô mục 15d nổ `TypeError` hai lần liền, `--check` vẫn
-      #      xanh, và notebook mang một traceback đỏ giữa báo cáo. Cùng lớp lỗi "tệp có ≠ nó
-      #      chạy" của dự án, ở dạng "ô có ≠ ô chạy".
-      #
-      # KHÔNG chạy notebook ở đây: chạy mất hàng chục phút vì có mã hóa embedding. Bước này đọc
-      # kết quả đã commit, tức nó ép người commit phải chạy được notebook trước khi commit.
-      # Chỉ cần nbformat.
-      - name: Kiểm notebook báo cáo sinh lại được
-        run: |
-          python -m pip install -q "nbformat>=5.10,<6.0"
-          python ai/notebooks/build_teaching_notebook.py --check
-
-      # BÁO CÁO ĐỒ ÁN cũng phải sinh lại được — và bước này có mặt vì bản trước của nó đã TRÔI hoàn
-      # toàn: nó viết tay 1587 dòng, mô tả một kiến trúc không còn tồn tại, và 11/11 lệnh trong Phụ lục
-      # B trỏ vào tệp đã bị xóa. Không phép kiểm nào bắt được, vì tài liệu viết tay không có cách nào
-      # tự kiểm.
-      #
-      # Bộ sinh còn TỰ KIỂM Phụ lục B: mọi lệnh tái lập được đối chiếu với hệ thống tệp, nên một lệnh
-      # trỏ vào tệp không tồn tại là bước này ĐỎ — không phải một dòng sai lặng lẽ trong bài nộp.
-      #
-      # Không cần `sentence-transformers`: bộ sinh ĐỌC số từ `ai/evaluation/measurements/` thay vì tính
-      # lại. Đó là lý do các bộ so ghi kết quả ra tệp.
-      - name: Kiểm báo cáo đồ án sinh lại được (và Phụ lục B tự kiểm)
-        run: python ai/docs/build_bao_cao_do_an.py --check
-
-      # Chạy trên cache đã commit, KHÔNG gọi mô hình thật: CI không có proxy 9router, và
-      # một bước CI phụ thuộc mạng ngoài thì đỏ vì lý do không liên quan. Bước này trả mã
-      # khác 0 nếu mô hình làm tụt ca nào hoặc gây lỗi an toàn mới.
-      #
-      # LLM_MODEL là bắt buộc để cache dùng được: khóa cache gồm tên mô hình, nên thiếu nó
-      # thì mọi lần tra đều trượt và cache đã commit thành vô dụng. Tên mô hình không phải
-      # bí mật; KHÓA và URL thì không khai ở đây, nên nếu có câu hỏi thiếu cache thì bước
-      # này suy giảm êm chứ không gọi mạng.
-      - name: Mô hình sinh không được làm tụt ca nào
-        env:
-          LLM_MODEL: cx/gpt-5.6-luna-review
-        run: python ai/evaluation/run_with_model.py
 
   golden-e2e:
     name: golden-e2e

@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# LLM_RATE_LIMIT_FALLBACK_MODEL is deliberately absent from required_vars: a
-# single-model deployment has no fallback, and the loop below rejects empty
-# values, so listing it would force naming a model that is never called.
-#
-# Keep this note outside the array.  DeploymentConfigTest (backend-java) đọc khối
+# Ghi chú này phải nằm NGOÀI mảng.  DeploymentConfigTest (backend-java) đọc khối
 # required_vars và tách theo khoảng trắng để kiểm .github/workflows/cd.yml có cấp đủ mọi tên hay
 # không, nên một ghi chú nằm TRONG ngoặc sẽ thành danh sách tên biến giả — bash bỏ qua, phép kiểm
 # đó thì không.
@@ -36,21 +32,10 @@ required_vars=(
   FIREBASE_API_KEY
   FIREBASE_PROJECT_ID
   GOOGLE_CLIENT_ID
-  AI_SERVICE_URL
-  AI_INTERNAL_TOKEN
-  LLM_API_KEY
-  LLM_MODEL
 )
-# Ba tên vừa RA khỏi danh sách: LLM_PROVIDER, LLM_RATE_LIMIT_FALLBACK_ENABLED, AI_PIPELINE_PROFILE.
-#
-# Không mô-đun nào đọc chúng nữa — `ai/app` chỉ đọc LLM_BASE_URL, LLM_API_KEY, LLM_MODEL,
-# LLM_TIMEOUT_SECONDS, AI_INTERNAL_TOKEN, AI_ENABLE_GENERATION, AI_EMBEDDING_CACHE. Đòi một biến
-# không ai đọc là dựng một cái bẫy: deploy DỪNG vì thiếu thứ không có tác dụng gì, và người sửa
-# phải đi tìm hiểu một biến đã chết để biết nên đặt giá trị nào.
-#
-# `AI_PIPELINE_PROFILE` còn tệ hơn hai cái kia: `ChatAiProvider.ReadPipelineProfile()` NÉM LỖI với
-# bất kỳ giá trị không thuộc ba tên profile cũ, rồi gửi trường đó tới dịch vụ mới — nơi bỏ qua nó.
-# Tức đặt cho nó một tên của hệ thống mới là làm sập mọi lượt chat.
+# Mọi tên liên quan tới trợ lý AI đã ra khỏi danh sách cùng với chính trợ lý. Nguyên tắc giữ lại:
+# đòi một biến không mô-đun nào đọc là dựng một cái bẫy — deploy DỪNG vì thiếu thứ không có tác
+# dụng gì, và người sửa phải đi tìm hiểu một biến đã chết để biết nên đặt giá trị nào.
 
 for var_name in "${required_vars[@]}"; do
   if [ -z "${!var_name:-}" ]; then
@@ -165,24 +150,8 @@ FRONTEND_SERVER_NAMES=$(env_quote "$FRONTEND_SERVER_NAMES")
   # bundle đã được dựng để gọi API qua HTTPS. Đã gặp thật.
   TLS_CERT_DIR=$(env_quote "${TLS_CERT_DIR:-}")
 RUN_DB_MIGRATIONS_ON_STARTUP=$(env_quote "${RUN_DB_MIGRATIONS_ON_STARTUP:-false}")
-CHAT_AI_PROVIDER=$(env_quote "${CHAT_AI_PROVIDER:-python-rag}")
-AI_SERVICE_URL=$(env_quote "$AI_SERVICE_URL")
-AI_SERVICE_PORT=$(env_quote "${AI_SERVICE_PORT:-8001}")
-# Cùng luật với AI_SERVICE_PORT: bỏ trống thì cả hai môi trường về mặc định 20128 và môi trường
-# lên sau chết vì "port is already allocated".
-NINE_ROUTER_PORT=$(env_quote "${NINE_ROUTER_PORT:-20128}")
-# Mật khẩu dashboard 9router. Nó TỪ CHỐI đăng nhập từ xa khi còn mật khẩu mặc định `123456`, và
-# không có lệnh CLI nào đặt được — chỉ có biến này hoặc vào từ chính máy chạy nó.
-NINE_ROUTER_PASSWORD=$(env_quote "${NINE_ROUTER_PASSWORD:-}")
-AI_INTERNAL_TOKEN=$(env_quote "$AI_INTERNAL_TOKEN")
-LLM_BASE_URL=$(env_quote "${LLM_BASE_URL:-}")
-# Rỗng = không dựng dịch vụ AI. Đặt "ai" để bật lại.
+# Giữ lại dù không còn profile nào: compose vẫn đọc biến này, và để trống là hành vi mặc định.
 COMPOSE_PROFILES=$(env_quote "${COMPOSE_PROFILES:-}")
-LLM_API_KEY=$(env_quote "$LLM_API_KEY")
-LLM_MODEL=$(env_quote "$LLM_MODEL")
-AI_TIMEOUT_SECONDS=$(env_quote "${AI_TIMEOUT_SECONDS:-60}")
-LLM_TIMEOUT_SECONDS=$(env_quote "${LLM_TIMEOUT_SECONDS:-${AI_TIMEOUT_SECONDS:-30}}")
-VITE_USE_MOCK_CHAT=$(env_quote "${VITE_USE_MOCK_CHAT:-false}")
 VITE_USE_MOCK_ORDER=$(env_quote "${VITE_USE_MOCK_ORDER:-false}")
 BOOTSTRAP_ADMIN_EMAIL=$(env_quote "${BOOTSTRAP_ADMIN_EMAIL:-}")
 BOOTSTRAP_ADMIN_PASSWORD=$(env_quote "${BOOTSTRAP_ADMIN_PASSWORD:-}")

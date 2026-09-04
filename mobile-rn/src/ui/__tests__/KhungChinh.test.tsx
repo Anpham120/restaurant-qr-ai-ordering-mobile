@@ -153,13 +153,20 @@ const DAU_HIEU: readonly (readonly [string, () => unknown])[] = [
   ['Thực đơn', () => screen.getByPlaceholderText(/Tìm món/)],
   ['Giỏ', () => screen.getByText(/Giỏ đang trống/)],
   ['Đơn', () => screen.getByText(/Bàn chưa có đơn nào/)],
-  ['Trợ lý', () => screen.getByPlaceholderText(/Hỏi trợ lý về món ăn/)],
   ['Khuyến mãi', () => screen.getByText(/Hiện chưa có khuyến mãi nào/)],
   ['Tài khoản', () => screen.getByText(/Khách vãng lai/)],
 ];
 
 describe('điều hướng theo tab', () => {
-  it('có đúng 6 tab, không thừa không thiếu', async () => {
+  it('KHÔNG còn tab Trợ lý', async () => {
+    // Trợ lý AI đã gỡ khỏi hệ thống. Ca này là đối chứng: thiếu nó thì một lần khôi phục nhầm
+    // đưa tab đó trở lại mà bộ kiểm vẫn xanh, và khách bấm vào một màn hình gọi API không còn tồn tại.
+    await dungKhung();
+
+    expect(screen.queryByLabelText('Trợ lý')).toBeNull();
+  });
+
+  it('có đúng 5 tab, không thừa không thiếu', async () => {
     await dungKhung();
 
     for (const [nhan] of DAU_HIEU) {

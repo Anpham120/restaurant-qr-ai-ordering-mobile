@@ -5,7 +5,6 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { type AuthSession } from '../core/auth/authSession';
 import { type CartApi } from '../core/cart/cartApi';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
-import { type ChatApi } from '../core/chat/chatApi';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { type MenuApi } from '../core/menu/menuApi';
 import { type CreateOrderApi } from '../core/orders/createOrderApi';
@@ -18,7 +17,6 @@ import { type PromotionApi } from '../core/promotions/promotionApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { AccountTab } from './AccountTab';
 import { CartScreen } from './CartScreen';
-import { ChatScreen } from './ChatScreen';
 import { MenuScreen } from './MenuScreen';
 import { OrdersScreen } from './OrdersScreen';
 import { PromotionsScreen } from './PromotionsScreen';
@@ -39,7 +37,6 @@ export interface KhungChinhProps {
   cartApi: CartApi;
   createOrderApi: CreateOrderApi;
   orderApi: OrderApi;
-  chatApi: ChatApi;
   promotionApi: PromotionApi;
   invoiceApi: InvoiceApi;
   historyApi: OrderHistoryApi;
@@ -136,20 +133,6 @@ export function KhungChinh(p: KhungChinhProps) {
         nhan: 'Đơn',
         man: () => (
           <OrdersScreen api={p.orderApi} phienBan={p.phienBan} tokenStore={p.tokenStore} />
-        ),
-      },
-      {
-        khoa: 'troLy',
-        nhan: 'Trợ lý',
-        man: () => (
-          <ChatScreen
-            api={p.chatApi}
-            onBaoTin={p.onBaoTin}
-            // Trợ lý KHÔNG tự thêm gì. Nó chỉ gọi lại hàm này khi khách bấm "Thêm", và hàm này đi
-            // qua đúng API giỏ hàng như khi khách tự chọn món.
-            onThemVaoGio={themVaoGio}
-            phienBan={p.phienBan}
-          />
         ),
       },
       {

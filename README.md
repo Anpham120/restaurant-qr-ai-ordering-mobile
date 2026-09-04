@@ -1,7 +1,7 @@
 <div align="center">
   <img src="frontend/src/mocks/images/logo.png" alt="Logo CMC Restaurant" width="220" />
-  <h1>CMC Restaurant — QR AI Ordering</h1>
-  <p><strong>Quét QR, gọi món, phối hợp vận hành và tư vấn món ăn bằng AI trên một nền tảng thống nhất.</strong></p>
+  <h1>CMC Restaurant — QR Ordering</h1>
+  <p><strong>Quét QR, gọi món và phối hợp vận hành nhà hàng trên một nền tảng thống nhất.</strong></p>
   <p>
     <a href="https://cmcrestaurant.app">Trải nghiệm khách hàng</a> ·
     <a href="https://admin.cmcrestaurant.app">Cổng vận hành</a> ·
@@ -23,14 +23,14 @@
 
 CMC Restaurant số hóa toàn bộ hành trình phục vụ tại bàn: khách mở menu bằng QR mà không cần cài ứng dụng, tự chọn món và theo dõi đơn; nhân viên và bếp nhận cùng một trạng thái vận hành; quản trị viên kiểm soát menu, bàn và đơn hàng từ một hệ thống duy nhất.
 
-AI được đặt trong đúng vai trò hỗ trợ: tư vấn dựa trên menu và kho tri thức của nhà hàng, giải thích lựa chọn và chuyển tiếp cho nhân viên khi câu hỏi vượt phạm vi. AI không tự tạo đơn, thêm món hoặc thực hiện thanh toán.
+Trợ lý AI đã được gỡ khỏi hệ thống. Dự án tập trung vào hai mảng làm sâu: **hạ tầng triển khai** (CI/CD, môi trường tách biệt, kiểm sức khoẻ sau deploy, quay lui) và **nghiệp vụ đặt món** (trạng thái từng món, ước lượng thời gian lên món theo trạm, tích điểm, thanh toán QR tự động).
 
 | Khả năng | Giá trị nhận được |
 | --- | --- |
 | **QR ordering tại bàn** | Giảm thời gian chờ gọi món, tránh nhầm bàn và không yêu cầu cài app |
 | **Điều phối theo thời gian thực** | Nhân viên, bếp và khách nhìn thấy tiến độ đơn nhất quán |
 | **Không gian làm việc theo vai trò** | Customer, ordering, staff, kitchen và admin có giao diện đúng nhiệm vụ |
-| **AI tư vấn có grounding** | Câu trả lời dựa trên menu/knowledge base, có guardrail và fallback được kiểm soát |
+| **Ước lượng thời gian lên món** | Tính theo tải của TỪNG TRẠM — bếp, quầy pha chế, món lấy sẵn — thay vì một hàng đợi chung |
 | **Vận hành có thể kiểm chứng** | CI, security checks, health checks, staging, production và rollback được quản lý bằng workflow |
 
 ## Trải nghiệm theo vai trò
@@ -38,7 +38,7 @@ AI được đặt trong đúng vai trò hỗ trợ: tư vấn dựa trên menu 
 | Vai trò | Trải nghiệm chính |
 | --- | --- |
 | **Khách hàng** | Khám phá nhà hàng, xem menu và bắt đầu hành trình gọi món |
-| **Khách tại bàn** | Quét QR, chọn món, chat với AI, gửi đơn và theo dõi trạng thái |
+| **Khách tại bàn** | Quét QR, chọn món, gửi đơn và theo dõi trạng thái từng món |
 | **Nhân viên** | Theo dõi bàn, tiếp nhận đơn và hỗ trợ khách trong quá trình phục vụ |
 | **Bếp** | Xem hàng đợi món, cập nhật tiến độ chuẩn bị và phối hợp giao món |
 | **Quản trị viên** | Quản lý menu, bàn, mã QR, đơn hàng và số liệu vận hành |
@@ -47,8 +47,6 @@ AI được đặt trong đúng vai trò hỗ trợ: tư vấn dựa trên menu 
 flowchart LR
   Scan["Khách quét QR tại bàn"] --> Menu["Xem menu điện tử"]
   Menu --> Cart["Chọn món và kiểm tra giỏ"]
-  Menu -. "Cần gợi ý" .-> AI["AI tư vấn theo menu"]
-  AI -.-> Cart
   Cart --> Order["Gửi đơn"]
   Order --> Staff["Nhân viên tiếp nhận"]
   Staff --> Kitchen["Bếp chuẩn bị món"]
@@ -115,17 +113,10 @@ flowchart TB
   API --> Orders
   API <--> Hub
   Orders --> DB[("PostgreSQL 16")]
-  API --> AI["FastAPI AI Service"]
-
-  subgraph Intelligence["Grounded AI/RAG"]
-    AI --> Retriever["Retriever & Query Filters"]
-    Retriever --> KB["Restaurant Knowledge Base"]
-    AI --> Guardrails["Grounding · Guardrails · Fallback"]
-    Guardrails --> LLM["Google Gemini"]
-  end
+  API --> Pay["VietQR · SePay webhook"]
 ```
 
-Backend nghiệp vụ được tổ chức như một modular monolith để giữ transaction và luồng order/payment nhất quán. AI/RAG là service độc lập vì có vòng đời dependency, evaluation và khả năng mở rộng khác với nghiệp vụ nhà hàng.
+Backend nghiệp vụ được tổ chức như một modular monolith để giữ transaction và luồng order/payment nhất quán — các module dùng chung một cơ sở dữ liệu và một giao dịch, nên không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích điểm.
 
 ### Công nghệ chính
 
@@ -134,21 +125,18 @@ Backend nghiệp vụ được tổ chức như một modular monolith để gi�
 | Frontend | React 19, TypeScript, Vite, React Router, STOMP client (`@stomp/stompjs`) |
 | Backend | Java 21, Spring Boot 3.3, Spring Data JPA, Flyway, STOMP/WebSocket, JWT |
 | Data | PostgreSQL 16 |
-| AI service | Python 3.12, FastAPI, RAG, sentence-transformers, Gemini |
-| Testing | Vitest, JUnit 5 + ArchUnit + Testcontainers, Python unittest/evaluation |
+| Testing | Vitest, JUnit 5 + ArchUnit + Testcontainers, Jest (React Native) |
 | Delivery | GitHub Actions, Docker Compose, Nginx, HTTPS, staging/production |
 
-### AI, bảo mật và độ tin cậy
+### Bảo mật và độ tin cậy
 
-- **Grounded AI:** truy xuất menu và knowledge base trước khi tạo câu trả lời; filter loại món, ràng buộc và menu exclusions được kiểm thử riêng.
-- **Guardrails:** AI không được phép tự tạo đơn, thay đổi giỏ hoặc thanh toán; câu hỏi ngoài phạm vi có fallback/escalation.
 - **Session tại bàn:** QR token và table session được backend xác thực, xoay vòng và không được tin cậy chỉ từ client.
 - **Phân quyền:** JWT và role-based authorization tách quyền customer, staff, kitchen và admin.
-- **Secrets:** khóa AI, signing key và database credentials chỉ được cấu hình phía server qua environment/secrets.
-- **Reliability:** health checks cho PostgreSQL, API, AI và frontend; migration tách riêng; deployment có staging, promotion và rollback.
-- **Verification:** CI build/test frontend, backend, AI/RAG và kiểm tra Docker Compose trên pull request/push.
+- **Secrets:** signing key, khoá webhook thanh toán và database credentials chỉ được cấu hình phía server qua environment/secrets.
+- **Reliability:** health checks cho PostgreSQL, API và frontend; migration tách riêng; deployment có staging, promotion và rollback.
+- **Verification:** CI build/test frontend, backend, app di động và kiểm tra Docker Compose trên pull request/push.
 
-Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [AI/RAG architecture](docs/archive/AI_ARCHITECTURE.md), [security policy](SECURITY.md) và [production operations](docs/devops/PIPELINE_AND_DEPLOY.md).
+Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [security policy](SECURITY.md) và [production operations](docs/devops/PIPELINE_AND_DEPLOY.md).
 
 ## Bắt đầu phát triển
 
@@ -173,14 +161,11 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml up -d --
 |---|---|
 | <http://127.0.0.1:8080> | giao diện khách + vận hành |
 | <http://127.0.0.1:8081/api/health> | API Java |
-| <http://127.0.0.1:8001/ready> | dịch vụ AI |
 
 Hai điều đáng biết trước:
 
 - **`migrate` là bước riêng, phải chạy trước.** API cố ý không tự migrate lúc khởi động — nhiều
   instance cùng migrate một cơ sở dữ liệu là loại lỗi chỉ xảy ra khi triển khai thật.
-- **Ảnh dịch vụ AI nặng (~9 GB)** vì có `torch` và mô hình embedding. Lần dựng đầu mất khá lâu;
-  những lần sau dùng lại ảnh đã có.
 
 Hạ stack: `docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml down`
 (thêm `-v` nếu muốn xoá luôn dữ liệu Postgres).
@@ -210,27 +195,12 @@ cd backend-java && ./gradlew bootRun
 
 Thiết lập PostgreSQL và migration: [Backend Database Setup](docs/backend/DATABASE.md).
 
-### AI/RAG service
-
-```powershell
-cd ai
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn service:app --app-dir app --reload --port 8001
-```
-
-AI service vẫn có fallback có kiểm soát khi chưa cấu hình `GEMINI_API_KEY`; xem [AI Chatbot](docs/archive/AI_ARCHITECTURE.md) và [AI Knowledge Base Guide](docs/archive/AI_KNOWLEDGE_BASE_GUIDE.md).
-
 ### Kiểm chứng
 
 ```powershell
 npm --prefix frontend test
 npm --prefix frontend run build
 cd backend-java && ./gradlew build
-$env:PYTHONPATH = "ai"
-python -m unittest discover -s ai/tests
-python -m compileall ai/app
 docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 ```
 
@@ -240,7 +210,6 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 .
 ├── frontend/   # 5 React/Vite apps, shared packages và frontend tests
 ├── backend-java/  # Java Spring Boot API, domain modules và test
-├── ai/         # FastAPI service, RAG pipeline, knowledge base và evaluation
 ├── deploy/     # Docker Compose và cấu hình triển khai
 ├── docs/       # Product, architecture, API, quality và operations
 └── .github/    # CI/CD, security, issue và pull request templates
@@ -254,13 +223,12 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 | --- | --- |
 | Product & system design | [BA/SA System Design](docs/backend/ARCHITECTURE.md) · [SPEC](SPEC.md) |
 | API & architecture | [API Contract](docs/backend/API_CONTRACT.md) · [Backend Architecture](docs/backend/ARCHITECTURE.md) |
-| AI & RAG | [AI/RAG Architecture](docs/archive/AI_ARCHITECTURE.md) · [Evaluation Runbook](docs/archive/AI_EVALUATION.md) · [Retriever ADR](docs/ai/AI_DECISION_HISTORY.md) |
 | Verification | [E2E Multi-device Checklist](docs/archive/TESTING.md) |
 | Delivery & operations | [Deployment](docs/devops/PIPELINE_AND_DEPLOY.md) · [Production Operations](docs/devops/PIPELINE_AND_DEPLOY.md) |
 
 ## Trạng thái và định hướng
 
-Dự án đang ở giai đoạn MVP/demo đã triển khai trực tuyến. Các luồng QR table session, menu, order, payment, realtime, role-based operations và AI/RAG đều có implementation cùng test/evidence trong repository; độ sẵn sàng production tiếp tục được củng cố qua evaluation, observability và security hardening.
+Dự án đang ở giai đoạn MVP/demo đã triển khai trực tuyến. Các luồng QR table session, menu, order, payment, realtime và role-based operations đều có implementation cùng test/evidence trong repository; độ sẵn sàng production tiếp tục được củng cố qua observability và security hardening.
 
 Ưu tiên tiếp theo:
 
