@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # Phép kiểm sau deploy: dịch vụ vừa dựng có ĐANG phục vụ đúng cấu hình đã đo không.
 #
-# Kiểm ba thứ, theo thứ tự từ ngoài vào: web lên, API sống, API sẵn sàng (cơ sở dữ liệu).
+# Kiểm hai thứ, theo thứ tự từ ngoài vào: web lên, API sống.
+#
+# KHÔNG kiểm `/health/ready` nữa: đường đó KHÔNG TỒN TẠI trong backend. Chỉ có `/api/health`, và
+# SecurityConfig cũng chỉ mở đúng đường đó — nên `/health/ready` trả 401 chứ không phải 200.
+#
+# Nó nằm im suốt vì nhánh "bỏ qua khi profile AI tắt" thoát THÀNH CÔNG ngay trước bước này, mà
+# production thì chưa bao giờ bật profile AI. Gỡ trợ lý đi là gỡ luôn nhánh đó, và một cấu hình
+# chết từ lâu mới lộ ra bằng một lượt triển khai đỏ.
 #
 # Toàn bộ phần kiểm trợ lý AI đã gỡ cùng chính trợ lý — 312 dòng đối chiếu `/ready.retriever`,
 # `generation_enabled` và ba ca khói ngữ nghĩa. Chúng canh một dịch vụ không còn tồn tại.
@@ -33,7 +40,6 @@ esac
 
 frontend_url="${FRONTEND_HEALTH_URL:-${giao_thuc}://${primary_frontend_domain}/}"
 api_health_url="${API_HEALTH_URL:-${giao_thuc}://${API_SERVER_NAME}/api/health}"
-api_ready_url="${API_READY_URL:-${giao_thuc}://${API_SERVER_NAME}/health/ready}"
 api_chat_sessions_url="${API_CHAT_SESSIONS_URL:-${giao_thuc}://${API_SERVER_NAME}/api/chat/sessions}"
 
 
@@ -43,8 +49,6 @@ curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors 
 echo "Checking API health: ${api_health_url}"
 curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors "$api_health_url"
 
-echo "Checking API readiness (database): ${api_ready_url}"
-curl --fail --show-error --silent --retry 10 --retry-delay 5 --retry-all-errors "$api_ready_url"
 
 report_dir="/opt/cmc-restaurant/${DEPLOY_ENV}/reports"
 mkdir -p "$report_dir"
@@ -60,7 +64,6 @@ cat > "${report_dir}/last-deployment.md" <<EOF
 - Environment: ${DEPLOY_ENV}
 - Frontend URL: ${frontend_url}
 - API health URL: ${api_health_url}
-- API readiness URL: ${api_ready_url}
 - Checked at UTC: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Result: PASS
 
