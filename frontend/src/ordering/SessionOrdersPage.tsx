@@ -29,7 +29,7 @@ import { mergeSessionOrdersLoadResults } from "./sessionOrdersLoad";
 import { TableInvoicePaymentModal } from "./TableInvoicePaymentModal";
 import { TableElectronicReceiptModal } from "./TableElectronicReceiptModal";
 import { layLinkTaiApp } from "../utils/linkTaiApp";
-import { labelGuestItemStatus, labelOrderStatus } from "../utils/opsStatusLabels";
+import { labelGuestItemStatus, labelGuestOrderStatus } from "../utils/opsStatusLabels";
 import { demTienDoMon, monVuaSanSang } from "./tienDoMonKhach";
 
 const journeySteps = ["Gọi món", "Chế biến", "Phục vụ", "Thanh toán"] as const;
@@ -344,7 +344,14 @@ export function SessionOrdersPage() {
                 </li>
               ))}
             </ul>
-            <footer><span>{t("Trạng thái: {status}", { status: t(labelOrderStatus(order.status)) })}</span><strong data-money>{formatMoney(order.subtotalAmount)}</strong></footer>
+            <footer>
+              {/*
+                Trạng thái ĐƠN nói bằng lời của KHÁCH. Chỗ này từng gọi `labelOrderStatus` — bộ chữ
+                của QUẦY — nên cùng một đơn `Ready`, khách đọc "Sẵn sàng" ở danh sách rồi bấm vào
+                chi tiết thành "Nấu xong, chờ mang ra". Đúng lỗi vừa vá ở màn chi tiết, còn nguyên
+                ở màn này, cách một cú chạm.
+              */}
+              <span>{t("Trạng thái: {status}", { status: t(labelGuestOrderStatus(order.status)) })}</span><strong data-money>{formatMoney(order.subtotalAmount)}</strong></footer>
           </article>
         ))}
       </div>

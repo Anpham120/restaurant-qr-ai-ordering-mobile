@@ -21,6 +21,22 @@ function sourceFiles(relativePath: string): string[] {
   });
 }
 
+/**
+ * Bỏ ghi chú trước khi quét.
+ *
+ * Máy quét này đọc mã nguồn bằng biểu thức chính quy, nên nó thấy cả chữ trong GHI CHÚ. Một dòng
+ * bình luận nhắc tới dạng gọi hàm dịch cũng làm cả cổng đỏ — đã xảy ra thật khi viết chú thích
+ * giải thích chính lớp lỗi mà cổng này canh.
+ *
+ * Cắt thô bằng biểu thức chính quy là đủ ở đây: thứ tệ nhất có thể xảy ra là bỏ sót một chuỗi nằm
+ * trong dòng trông giống ghi chú, mà cổng bỏ sót thì im — không báo động giả.
+ */
+function boGhiChu(nguon: string): string {
+  return nguon
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
+}
+
 describe("V44 complete VI/EN localization", () => {
   it("covers the canonical seed and accepts the shared MenuItem shape", () => {
     // Nguồn seed chuyển sang migration Flyway của bản Java (#59). Mã món nằm thẳng trong SQL
@@ -68,7 +84,7 @@ describe("V44 complete VI/EN localization", () => {
     const missing = new Set<string>();
 
     for (const file of files) {
-      const source = readFileSync(file, "utf8");
+      const source = boGhiChu(readFileSync(file, "utf8"));
       for (const match of source.matchAll(/\bt\(\s*\"((?:[^\"\\]|\\.)*)\"/g)) {
         const key = JSON.parse(`\"${match[1]}\"`) as string;
         if (!EN_COPY[key]) missing.add(key);
