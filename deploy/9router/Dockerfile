@@ -10,10 +10,16 @@ FROM node:22-alpine
 ARG NINE_ROUTER_VERSION=latest
 RUN npm install -g "9router@${NINE_ROUTER_VERSION}"
 
-# Cấu hình và lịch sử dùng nằm trong SQLite ở /app/data. Không gắn volume thì khởi động lại là mất
-# sạch khoá của các nhà cung cấp.
+# Cấu hình, mật khẩu và khoá nhà cung cấp nằm trong SQLite ở `/root/.9router`.
+#
+# KHÔNG phải `/app/data`. Dòng này trước đây khai `/app/data` và compose gắn volume theo, nên
+# volume luôn rỗng còn dữ liệu thật nằm trong lớp ghi tạm — mất sạch ở lần dựng lại. Đo trên máy
+# chủ đang chạy: `/app/data` 0 byte, `/root/.9router` 30.6MB.
+#
+# Giữ dòng VOLUME ở ĐÚNG chỗ để ai chạy `docker run` trần cũng không mất dữ liệu, dù compose vẫn
+# khai mount tường minh.
 WORKDIR /app
-VOLUME ["/app/data"]
+VOLUME ["/root/.9router"]
 
 EXPOSE 20128
 
