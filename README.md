@@ -10,9 +10,9 @@
     <a href="#bắt-đầu-phát-triển">Bắt đầu phát triển</a>
   </p>
   <p>
-    <a href="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/ci.yml"><img src="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/ci.yml/badge.svg?branch=develop" alt="CI" /></a>
-    <a href="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/security.yml"><img src="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/security.yml/badge.svg?branch=develop" alt="Security" /></a>
-    <a href="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/deploy-production.yml"><img src="https://github.com/Anpham120/restaurant-qr-ai-ordering/actions/workflows/deploy-production.yml/badge.svg" alt="Production Deployment" /></a>
+    <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/ci.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/ci.yml/badge.svg?branch=develop" alt="CI" /></a>
+    <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/security.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/security.yml/badge.svg?branch=develop" alt="Security" /></a>
+    <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/cd.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/cd.yml/badge.svg" alt="Deploy" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-c9a227.svg" alt="License: MIT" /></a>
   </p>
 </div>
