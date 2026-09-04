@@ -168,6 +168,12 @@ RUN_DB_MIGRATIONS_ON_STARTUP=$(env_quote "${RUN_DB_MIGRATIONS_ON_STARTUP:-false}
 CHAT_AI_PROVIDER=$(env_quote "${CHAT_AI_PROVIDER:-python-rag}")
 AI_SERVICE_URL=$(env_quote "$AI_SERVICE_URL")
 AI_SERVICE_PORT=$(env_quote "${AI_SERVICE_PORT:-8001}")
+# Cùng luật với AI_SERVICE_PORT: bỏ trống thì cả hai môi trường về mặc định 20128 và môi trường
+# lên sau chết vì "port is already allocated".
+NINE_ROUTER_PORT=$(env_quote "${NINE_ROUTER_PORT:-20128}")
+# Mật khẩu dashboard 9router. Nó TỪ CHỐI đăng nhập từ xa khi còn mật khẩu mặc định `123456`, và
+# không có lệnh CLI nào đặt được — chỉ có biến này hoặc vào từ chính máy chạy nó.
+NINE_ROUTER_PASSWORD=$(env_quote "${NINE_ROUTER_PASSWORD:-}")
 AI_INTERNAL_TOKEN=$(env_quote "$AI_INTERNAL_TOKEN")
 LLM_BASE_URL=$(env_quote "${LLM_BASE_URL:-}")
 # Rỗng = không dựng dịch vụ AI. Đặt "ai" để bật lại.

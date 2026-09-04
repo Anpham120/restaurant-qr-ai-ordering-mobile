@@ -155,6 +155,11 @@ jobs:
           # Phải khai riêng cho từng môi trường: bỏ trống thì cả hai cùng về mặc định 8001 và
           # môi trường lên sau hỏng vì cổng đã bị chiếm.
           AI_SERVICE_PORT: ${{ vars.AI_SERVICE_PORT }}
+          # Cùng lý do như AI_SERVICE_PORT ngay trên.
+          NINE_ROUTER_PORT: ${{ vars.NINE_ROUTER_PORT }}
+          # 9router từ chối đăng nhập từ xa khi còn mật khẩu mặc định `123456`. Bỏ trống thì bảng
+          # điều khiển không dùng được từ ngoài, dù nginx đã cho qua.
+          NINE_ROUTER_PASSWORD: ${{ secrets.NINE_ROUTER_PASSWORD }}
           AI_SERVICE_URL: ${{ vars.AI_SERVICE_URL }}
           AI_INTERNAL_TOKEN: ${{ secrets.AI_INTERNAL_TOKEN }}
           # Địa chỉ cổng LLM. deploy-vps.sh có ghi biến này nhưng cd.yml trước đây bỏ sót, nên nó

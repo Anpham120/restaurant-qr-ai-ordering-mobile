@@ -206,6 +206,10 @@ services:
     # Vì nó thoát bằng mã 0 nên `restart: unless-stopped` cũng không cứu được, và nhật ký trông
     # như mọi thứ bình thường.
     tty: true
+    environment:
+      # Không có biến này thì 9router giữ mật khẩu mặc định `123456` và TỪ CHỐI mọi lượt đăng nhập
+      # từ xa — bảng điều khiển coi như không dùng được, dù nginx đã cho qua.
+      INITIAL_PASSWORD: ${NINE_ROUTER_PASSWORD:-}
     ports:
       - "127.0.0.1:${NINE_ROUTER_PORT:-20128}:20128"
     volumes:
