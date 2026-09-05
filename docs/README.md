@@ -1,6 +1,6 @@
 # CMC Restaurant — chỉ mục tài liệu
 
-**61 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
+**52 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
 `docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không
 tồn tại, và không thể bỏ sót tệp mới.
 
@@ -19,20 +19,6 @@ Thêm tài liệu mới: đặt đúng thư mục rồi chạy `python docs/buil
 | [CONTEXT.md](../CONTEXT.md) | Restaurant Table Ordering |
 | [CHANGELOG.md](../CHANGELOG.md) | Changelog |
 | [README.md](assets/report/README.md) | Ảnh dùng trong báo cáo học phần |
-
-## Hệ thống AI — cách xây
-
-| Tài liệu | Nội dung |
-|---|---|
-| [00-problem-statement.md](../ai/docs/00-problem-statement.md) | Bước 0 — Phát biểu bài toán |
-| [01-data-dictionary.md](../ai/docs/01-data-dictionary.md) | Bước 1 — Từ điển dữ liệu thực đơn |
-| [02-evaluation-set.md](../ai/docs/02-evaluation-set.md) | Bước 2 — Tập đánh giá |
-| [03-answer-metric.md](../ai/docs/03-answer-metric.md) | Bước 3 — Thước đo chất lượng câu trả lời |
-| [04-answers-without-a-model.md](../ai/docs/04-answers-without-a-model.md) | Bước 4 — Trả lời không cần mô hình |
-| [05-knowledge-base.md](../ai/docs/05-knowledge-base.md) | Bước 5 — Kho tri thức nhà hàng |
-| [06-generative-model.md](../ai/docs/06-generative-model.md) | Bước 6 — Mô hình sinh, và chỗ duy nhất nó chứng minh được giá trị |
-| [07-error-analysis.md](../ai/docs/07-error-analysis.md) | Bước 7 — Truy hồi, phân tích nguyên nhân sai, và bốn phép đo phải làm lại |
-| [PHAN-CONG-5-THANH-VIEN.md](../ai/docs/PHAN-CONG-5-THANH-VIEN.md) | Phân công 5 thành viên |
 
 ## Hệ thống AI — vận hành và quyết định
 
