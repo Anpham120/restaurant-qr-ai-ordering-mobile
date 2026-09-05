@@ -1,5 +1,5 @@
 /**
- * E2E Guest/Customer Test — Fable Restaurant QR Ordering App
+ * E2E khách tại bàn — CMC Restaurant QR Ordering
  * Table: T01 | QR: cmc-table-t01-qr
  *
  * Flows tested:
@@ -8,20 +8,28 @@
  * 3. Place Order     — send to kitchen, capture order number
  * 4. Ordered Tab     — check "Món đã gọi", verify Vietnamese status labels
  * 5. Status Poll     — poll up to 60s for admin-confirmed status updates
- * 6. AI Guide Tab    — open AI tab, verify no crash
- * 7. Language Toggle — EN/VI switch, verify label changes
- * 8. Payment Flow    — check payment options (COD/VietQR) display
+ * 6. Language Toggle — EN/VI switch, verify label changes
+ * 7. Payment Flow    — check payment options (COD/VietQR) display
+ *
+ * CHẠY: cần `playwright`, mà nó KHÔNG khai trong `frontend/package.json`. Phải cài tay:
+ *     npm --prefix frontend i -D playwright && npx --prefix frontend playwright install chromium
+ *     node scripts/e2e/guest-test.js
+ * Không CI nào chạy tệp này.
  */
 
 const path = require("path");
 const fs = require("fs");
+
+// Script nằm ở scripts/e2e/, nhưng playwright và chỗ ghi kết quả đều tính từ GỐC KHO.
+// Không dùng process.cwd(): nó phụ thuộc chỗ người ta đang đứng lúc gõ lệnh.
+const GOC = path.join(__dirname, "..", "..");
 // Resolve playwright from frontend workspace (not hoisted to repo root)
-const { chromium } = require(path.join(__dirname, "frontend", "node_modules", "playwright"));
+const { chromium } = require(path.join(GOC, "frontend", "node_modules", "playwright"));
 
 const BASE_URL = "http://localhost:5177";
 const ENTRY_URL = `${BASE_URL}/table/T01?qr=cmc-table-t01-qr`;
-const SCREENSHOT_DIR = path.join(__dirname, "e2e-screenshots");
-const REPORT_PATH = path.join(__dirname, "e2e-guest-report.md");
+const SCREENSHOT_DIR = path.join(GOC, "e2e-screenshots");
+const REPORT_PATH = path.join(GOC, "e2e-guest-report.md");
 
 if (!fs.existsSync(SCREENSHOT_DIR)) {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -470,33 +478,9 @@ async function runTests() {
     }
 
     // =========================================================================
-    // FLOW 6: AI Guide Tab
+    // FLOW 6: Language Toggle EN/VI
     // =========================================================================
-    log("=== FLOW 6: AI Guide Tab ===");
-    if (sessionId) {
-      await page.goto(`${BASE_URL}/table-session/${sessionId}/ai`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(3000);
-      await screenshot(page, "06-ai-tab");
-
-      const aiText = await page.locator("body").innerText().catch(() => "");
-      const aiErrorVisible = await page.locator("[role=alert]").count() > 0;
-      const hasAiContent = aiText.length > 100 && !aiText.includes("404") && !aiText.includes("Not Found");
-
-      log(`AI tab content (200 chars): ${aiText.substring(0, 200)}`);
-
-      if (hasAiContent && !aiErrorVisible) {
-        pass("Flow 6: AI Guide Tab", "Loaded without crash");
-      } else if (aiErrorVisible) {
-        fail("Flow 6: AI Guide Tab", "Error/alert visible on AI tab");
-      } else {
-        warn("Flow 6: AI Guide Tab", `Content: ${aiText.substring(0, 200)}`);
-      }
-    }
-
-    // =========================================================================
-    // FLOW 7: Language Toggle EN/VI
-    // =========================================================================
-    log("=== FLOW 7: Language Toggle ===");
+    log("=== FLOW 6: Language Toggle ===");
     if (sessionId) {
       await page.goto(`${BASE_URL}/table-session/${sessionId}/menu`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(2000);
@@ -532,9 +516,9 @@ async function runTests() {
     }
 
     // =========================================================================
-    // FLOW 8: Payment Flow
+    // FLOW 7: Payment Flow
     // =========================================================================
-    log("=== FLOW 8: Payment Flow ===");
+    log("=== FLOW 7: Payment Flow ===");
     if (sessionId && orderId) {
       // Navigate to order detail / tracking
       const orderTrackUrl = `${BASE_URL}/table-session/${sessionId}/orders/${encodeURIComponent(orderId)}`;

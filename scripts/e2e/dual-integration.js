@@ -1,9 +1,18 @@
 /**
- * Dual E2E: Guest ordering + Admin ops in one browser context.
+ * E2E kép: khách gọi món + vận hành, trong cùng một phiên trình duyệt.
+ *
+ * CHẠY: cần `playwright`, mà nó KHÔNG khai trong `frontend/package.json`. Phải cài tay:
+ *     npm --prefix frontend i -D playwright && npx --prefix frontend playwright install chromium
+ *     node scripts/e2e/dual-integration.js
+ * Không CI nào chạy tệp này.
  */
 const path = require("path");
 const fs = require("fs");
-const { chromium } = require(path.join(__dirname, "frontend", "node_modules", "playwright"));
+
+// Script nằm ở scripts/e2e/, nhưng playwright và chỗ ghi kết quả đều tính từ GỐC KHO.
+// Không dùng process.cwd(): nó phụ thuộc chỗ người ta đang đứng lúc gõ lệnh.
+const GOC = path.join(__dirname, "..", "..");
+const { chromium } = require(path.join(GOC, "frontend", "node_modules", "playwright"));
 
 const GUEST_URL = "http://localhost:5177";
 const ADMIN_URL = "http://localhost:5174";
@@ -11,7 +20,7 @@ const API_URL = "http://localhost:5084/api";
 const ENTRY = `${GUEST_URL}/table/T01?qr=cmc-table-t01-qr`;
 const ADMIN_EMAIL = "admin@local.test";
 const ADMIN_PASS = "AdminPass!2026";
-const REPORT_PATH = path.join(__dirname, "e2e-dual-report.md");
+const REPORT_PATH = path.join(GOC, "e2e-dual-report.md");
 
 const VI = {
   waitPrep: "Ch\u1edd ch\u1ebf bi\u1ebfn",
