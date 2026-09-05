@@ -33,14 +33,20 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 import sys
-_ten = sys.argv[1] if len(sys.argv) > 1 else "BAO_CAO_CONG_NGHE_PHAN_MEM.md"
-NGUON = HERE / _ten
+# Tên báo cáo BẮT BUỘC truyền vào. Trước đây chỗ này mặc định về một tệp cụ thể; khi tệp đó bị xoá
+# thì script chết bằng traceback của thư viện, ở tận chỗ đọc nội dung — xa nguyên nhân thật.
+if len(sys.argv) <= 1:
+    sys.exit("Cần tên tệp báo cáo, ví dụ:\n"
+             "    python docs/bao-cao/xuat_bao_cao_docx.py BAO_CAO_<HỌC_PHẦN>.md\n"
+             "Chưa có báo cáo nào thì chép `KHUON_BAO_CAO.md` ra làm bản đầu.")
+NGUON = HERE / sys.argv[1]
+if not NGUON.is_file():
+    sys.exit(f"Không thấy {NGUON.relative_to(ROOT).as_posix()}")
 THU_MUC_RA = HERE / "output"
-DICH = THU_MUC_RA / (NGUON.stem + (".docx" if len(sys.argv) > 1 else "_v2.docx"))
-SO_DO = THU_MUC_RA / ("_diagrams_" + NGUON.stem[:18]
-                      if len(sys.argv) > 1 else "_diagrams")
+DICH = THU_MUC_RA / (NGUON.stem + ".docx")
+SO_DO = THU_MUC_RA / ("_diagrams_" + NGUON.stem[:18])
 
-REPO = "https://github.com/Anpham120/restaurant-qr-ai-ordering"
+REPO = "https://github.com/Anpham120/restaurant-qr-ordering-mobile"
 NHANH = "develop"
 
 FONT = "Times New Roman"

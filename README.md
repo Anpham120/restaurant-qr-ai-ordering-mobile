@@ -5,8 +5,8 @@
   <p>
     <a href="https://cmcrestaurant.app">Trải nghiệm khách hàng</a> ·
     <a href="https://admin.cmcrestaurant.app">Cổng vận hành</a> ·
-    <a href="docs/BA_SA_SYSTEM_DESIGN.md">Kiến trúc</a> ·
-    <a href="docs/API_CONTRACT.md">API</a> ·
+    <a href="docs/backend/ARCHITECTURE.md">Kiến trúc</a> ·
+    <a href="docs/backend/API_CONTRACT.md">API</a> ·
     <a href="#bắt-đầu-phát-triển">Bắt đầu phát triển</a>
   </p>
   <p>
@@ -21,27 +21,34 @@
 
 ## Sản phẩm giải quyết điều gì?
 
-CMC Restaurant số hóa toàn bộ hành trình phục vụ tại bàn: khách mở menu bằng QR mà không cần cài ứng dụng, tự chọn món và theo dõi đơn; nhân viên và bếp nhận cùng một trạng thái vận hành; quản trị viên kiểm soát menu, bàn và đơn hàng từ một hệ thống duy nhất.
+CMC Restaurant số hoá hành trình phục vụ tại bàn: khách mở menu bằng QR mà không cần cài ứng
+dụng, tự chọn món và theo dõi từng món; nhân viên và bếp nhìn cùng một trạng thái vận hành; quản
+trị viên kiểm soát menu, bàn và đơn hàng từ một hệ thống duy nhất.
 
-Trợ lý AI đã được gỡ khỏi hệ thống. Dự án tập trung vào hai mảng làm sâu: **hạ tầng triển khai** (CI/CD, môi trường tách biệt, kiểm sức khoẻ sau deploy, quay lui) và **nghiệp vụ đặt món** (trạng thái từng món, ước lượng thời gian lên món theo trạm, tích điểm, thanh toán QR tự động).
+Dự án làm sâu đúng hai mảng, thay vì trải mỏng ra nhiều tính năng:
+
+1. **Hạ tầng triển khai** — CI/CD, hai môi trường tách biệt, kiểm sức khoẻ sau khi triển khai,
+   đường quay lui.
+2. **Nghiệp vụ đặt món** — trạng thái từng món chứ không chỉ từng đơn, ước lượng thời gian lên
+   món theo tải của từng trạm, tích điểm, thanh toán QR đối soát tự động.
 
 | Khả năng | Giá trị nhận được |
 | --- | --- |
-| **QR ordering tại bàn** | Giảm thời gian chờ gọi món, tránh nhầm bàn và không yêu cầu cài app |
-| **Điều phối theo thời gian thực** | Nhân viên, bếp và khách nhìn thấy tiến độ đơn nhất quán |
-| **Không gian làm việc theo vai trò** | Customer, ordering, staff, kitchen và admin có giao diện đúng nhiệm vụ |
-| **Ước lượng thời gian lên món** | Tính theo tải của TỪNG TRẠM — bếp, quầy pha chế, món lấy sẵn — thay vì một hàng đợi chung |
-| **Vận hành có thể kiểm chứng** | CI, security checks, health checks, staging, production và rollback được quản lý bằng workflow |
+| **Gọi món bằng QR tại bàn** | Không phải cài app, không nhầm bàn, không phải chờ gọi nhân viên |
+| **Trạng thái theo TỪNG MÓN** | Bàn 4 món mà xong 1 thì khách thấy đúng món nào đã lên, không phải đoán |
+| **Ước lượng thời gian lên món** | Tính theo tải của từng trạm — bếp, quầy pha chế, món lấy sẵn — thay vì một hàng đợi chung |
+| **Điều phối thời gian thực** | Khách, nhân viên và bếp nhận cùng một sự kiện qua STOMP/WebSocket |
+| **Vận hành kiểm chứng được** | CI, quét bảo mật, kiểm sức khoẻ, staging, production và quay lui đều chạy bằng workflow |
 
 ## Trải nghiệm theo vai trò
 
 | Vai trò | Trải nghiệm chính |
 | --- | --- |
-| **Khách hàng** | Khám phá nhà hàng, xem menu và bắt đầu hành trình gọi món |
+| **Khách hàng** | Xem giới thiệu nhà hàng, thực đơn và bắt đầu hành trình gọi món |
 | **Khách tại bàn** | Quét QR, chọn món, gửi đơn và theo dõi trạng thái từng món |
-| **Nhân viên** | Theo dõi bàn, tiếp nhận đơn và hỗ trợ khách trong quá trình phục vụ |
-| **Bếp** | Xem hàng đợi món, cập nhật tiến độ chuẩn bị và phối hợp giao món |
-| **Quản trị viên** | Quản lý menu, bàn, mã QR, đơn hàng và số liệu vận hành |
+| **Nhân viên** | Theo dõi bàn, tiếp nhận đơn, xử lý yêu cầu hỗ trợ và thu ngân |
+| **Bếp** | Xem hàng đợi món, cập nhật tiến độ chuẩn bị, báo trễ |
+| **Quản trị viên** | Quản lý menu, bàn, mã QR, đơn hàng, ưu đãi và số liệu vận hành |
 
 ```mermaid
 flowchart LR
@@ -49,27 +56,27 @@ flowchart LR
   Menu --> Cart["Chọn món và kiểm tra giỏ"]
   Cart --> Order["Gửi đơn"]
   Order --> Staff["Nhân viên tiếp nhận"]
-  Staff --> Kitchen["Bếp chuẩn bị món"]
+  Staff --> Kitchen["Bếp chuẩn bị từng món"]
   Kitchen --> Ready["Món sẵn sàng"]
   Ready --> Served["Phục vụ tại bàn"]
-  Order -. "STOMP/WebSocket" .-> Track["Khách theo dõi trạng thái"]
+  Order -. "STOMP/WebSocket" .-> Track["Khách theo dõi từng món"]
   Staff -. "STOMP/WebSocket" .-> Track
   Kitchen -. "STOMP/WebSocket" .-> Track
 ```
 
 ## Giao diện sản phẩm
 
-Ảnh chụp trực tiếp từ các ứng dụng production ngày **17/07/2026**. Gallery này phản ánh giao diện hiện hành, không dùng lại ảnh từ các báo cáo issue cũ.
+Ảnh chụp trực tiếp từ ứng dụng đang chạy, ngày **17/07/2026**.
 
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/assets/readme/customer-home-2026-07-17.png" alt="Trang giới thiệu CMC Restaurant trên production" />
+      <img src="docs/assets/readme/customer-home-2026-07-17.png" alt="Trang giới thiệu CMC Restaurant" />
       <br /><strong>Website nhà hàng</strong>
     </td>
     <td width="50%" align="center">
-      <img src="docs/assets/readme/customer-menu-2026-07-17.png" alt="Menu CMC Restaurant trên production" />
-      <br /><strong>Menu ẩm thực hiện hành</strong>
+      <img src="docs/assets/readme/customer-menu-2026-07-17.png" alt="Menu CMC Restaurant" />
+      <br /><strong>Thực đơn</strong>
     </td>
   </tr>
   <tr>
@@ -78,7 +85,7 @@ flowchart LR
       <br /><strong>Điểm vào gọi món bằng QR</strong>
     </td>
     <td width="50%" align="center">
-      <img src="docs/assets/readme/operations-login-2026-07-17.png" alt="Cổng đăng nhập vận hành CMC Restaurant" />
+      <img src="docs/assets/readme/operations-login-2026-07-17.png" alt="Cổng đăng nhập vận hành" />
       <br /><strong>Cổng vận hành</strong>
     </td>
   </tr>
@@ -96,16 +103,19 @@ flowchart TB
     Admin["Admin Web"]
   end
 
+  Mobile["App khách — Expo / React Native"]
+
   Customer --> API
   Ordering --> API
   Staff --> API
   Kitchen --> API
   Admin --> API
+  Mobile --> API
 
   subgraph Backend["Java Spring Boot API"]
     API["REST API"]
-    Auth["JWT & Role-based Access"]
-    Orders["Menu · Tables · Orders · Payments"]
+    Auth["JWT & phân quyền theo vai trò"]
+    Orders["Menu · Bàn · Đơn · Thanh toán · Tích điểm"]
     Hub["STOMP Order Hub"]
   end
 
@@ -116,27 +126,36 @@ flowchart TB
   API --> Pay["VietQR · SePay webhook"]
 ```
 
-Backend nghiệp vụ được tổ chức như một modular monolith để giữ transaction và luồng order/payment nhất quán — các module dùng chung một cơ sở dữ liệu và một giao dịch, nên không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích điểm.
+Backend là một **modular monolith**: các module dùng chung một cơ sở dữ liệu và một giao dịch, nên
+không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích điểm. Mười hai module nghiệp vụ:
+`auth`, `cart`, `counter`, `loyalty`, `menu`, `orders`, `payments`, `promotions`, `realtime`,
+`reports`, `tables`, `shared`.
 
 ### Công nghệ chính
 
 | Lớp | Công nghệ |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite, React Router, STOMP client (`@stomp/stompjs`) |
-| Backend | Java 21, Spring Boot 3.3, Spring Data JPA, Flyway, STOMP/WebSocket, JWT |
-| Data | PostgreSQL 16 |
-| Testing | Vitest, JUnit 5 + ArchUnit + Testcontainers, Jest (React Native) |
-| Delivery | GitHub Actions, Docker Compose, Nginx, HTTPS, staging/production |
+| Frontend | React 19, TypeScript, Vite — 5 ứng dụng, 7 gói dùng chung |
+| App di động | Expo SDK 57, React Native |
+| Backend | Java 21, Spring Boot 3.3.4, Spring Data JPA, Flyway (28 migration), STOMP/WebSocket, JWT |
+| Dữ liệu | PostgreSQL 16 |
+| Kiểm thử | Vitest, JUnit 5 + ArchUnit + Testcontainers, Jest |
+| Triển khai | GitHub Actions, Docker Compose, Nginx, HTTPS, staging/production |
 
 ### Bảo mật và độ tin cậy
 
-- **Session tại bàn:** QR token và table session được backend xác thực, xoay vòng và không được tin cậy chỉ từ client.
-- **Phân quyền:** JWT và role-based authorization tách quyền customer, staff, kitchen và admin.
-- **Secrets:** signing key, khoá webhook thanh toán và database credentials chỉ được cấu hình phía server qua environment/secrets.
-- **Reliability:** health checks cho PostgreSQL, API và frontend; migration tách riêng; deployment có staging, promotion và rollback.
-- **Verification:** CI build/test frontend, backend, app di động và kiểm tra Docker Compose trên pull request/push.
+- **Phiên tại bàn:** mã QR và phiên bàn do backend cấp, xoay vòng và xác thực; không tin dữ liệu
+  từ phía client.
+- **Phân quyền:** JWT tách quyền khách, nhân viên, bếp và quản trị.
+- **Bí mật:** khoá ký JWT, khoá webhook thanh toán và thông tin cơ sở dữ liệu chỉ nằm trong biến
+  môi trường phía máy chủ — không có giá trị thật nào nằm trong kho mã.
+- **Mặc định an toàn:** cấu hình để trống thì cổng liên quan TỪ CHỐI mọi lời gọi, không phải nhận
+  tất cả. Áp cho Google, Firebase và webhook SePay.
+- **Kiểm chứng:** CI dựng và kiểm frontend, backend, app di động, dữ liệu thực đơn, cấu hình
+  Docker Compose, và chạy một phép kiểm realtime đầu-cuối với backend thật.
 
-Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [security policy](SECURITY.md) và [production operations](docs/devops/PIPELINE_AND_DEPLOY.md).
+Tài liệu chuyên sâu: [kiến trúc backend](docs/backend/ARCHITECTURE.md),
+[chính sách bảo mật](SECURITY.md), [CI/CD và vận hành](docs/devops/PIPELINE_AND_DEPLOY.md).
 
 ## Bắt đầu phát triển
 
@@ -144,10 +163,10 @@ Tài liệu chuyên sâu: [modular monolith](docs/backend/ARCHITECTURE.md), [sec
 
 - Node.js 24 và npm.
 - JDK 21 (Gradle wrapper đi kèm, không cần cài Gradle riêng).
-- Python 3.12.
+- Python 3.12 — cho các script dữ liệu thực đơn và chỉ mục tài liệu.
 - PostgreSQL 16 hoặc Docker/Docker Compose.
 
-Sao chép các tệp `.env.example` tương ứng và chỉ dùng secret dành cho môi trường local.
+Chép các tệp `.env.example` tương ứng và chỉ dùng giá trị dành cho máy cá nhân.
 
 ### Cách nhanh nhất: cả hệ thống bằng một lệnh
 
@@ -162,10 +181,8 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml up -d --
 | <http://127.0.0.1:8080> | giao diện khách + vận hành |
 | <http://127.0.0.1:8081/api/health> | API Java |
 
-Hai điều đáng biết trước:
-
-- **`migrate` là bước riêng, phải chạy trước.** API cố ý không tự migrate lúc khởi động — nhiều
-  instance cùng migrate một cơ sở dữ liệu là loại lỗi chỉ xảy ra khi triển khai thật.
+**`migrate` là bước riêng, phải chạy trước.** API cố ý không tự migrate lúc khởi động — nhiều
+instance cùng migrate một cơ sở dữ liệu là loại lỗi chỉ xảy ra khi triển khai thật.
 
 Hạ stack: `docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml down`
 (thêm `-v` nếu muốn xoá luôn dữ liệu Postgres).
@@ -178,14 +195,7 @@ npm ci
 npm run dev
 ```
 
-Các workspace khác:
-
-```powershell
-npm run dev:ordering
-npm run dev:admin
-npm run dev:kitchen
-npm run dev:staff
-```
+Các workspace khác: `npm run dev:ordering`, `dev:admin`, `dev:kitchen`, `dev:staff`.
 
 ### Backend
 
@@ -208,38 +218,44 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 
 ```text
 .
-├── frontend/   # 5 React/Vite apps, shared packages và frontend tests
-├── backend-java/  # Java Spring Boot API, domain modules và test
-├── deploy/     # Docker Compose và cấu hình triển khai
-├── docs/       # Product, architecture, API, quality và operations
-└── .github/    # CI/CD, security, issue và pull request templates
+├── frontend/      # 5 ứng dụng React/Vite, 7 gói dùng chung và test frontend
+├── backend-java/  # API Spring Boot, 12 module nghiệp vụ và test
+├── mobile-rn/     # App khách hàng thân thiết (Expo / React Native)
+├── deploy/        # Docker Compose, cấu hình môi trường và script triển khai
+├── data/          # Dữ liệu thực đơn — nguồn của các cổng kiểm trong CI
+├── docs/          # Kiến trúc, API, vận hành và khuôn báo cáo
+└── .github/       # CI/CD, quét bảo mật, khuôn issue và pull request
 ```
 
 ## Tài liệu
 
-Điểm bắt đầu đầy đủ: **[Documentation Hub](docs/README.md)**. Hub chỉ quảng bá các tài liệu đang được dùng làm điểm vào hiện hành; kế hoạch và bằng chứng lịch sử vẫn được giữ trong repository để truy vết nhưng không được xem là mô tả trạng thái mới nhất.
+Điểm bắt đầu: **[Chỉ mục tài liệu](docs/README.md)** — trang đó được **sinh ra** từ chính các tệp
+có thật, nên nó không thể trỏ vào tệp không tồn tại.
 
 | Chủ đề | Tài liệu chính |
 | --- | --- |
-| Product & system design | [BA/SA System Design](docs/backend/ARCHITECTURE.md) · [SPEC](SPEC.md) |
-| API & architecture | [API Contract](docs/backend/API_CONTRACT.md) · [Backend Architecture](docs/backend/ARCHITECTURE.md) |
-| Verification | [E2E Multi-device Checklist](docs/archive/TESTING.md) |
-| Delivery & operations | [Deployment](docs/devops/PIPELINE_AND_DEPLOY.md) · [Production Operations](docs/devops/PIPELINE_AND_DEPLOY.md) |
+| Kiến trúc và hợp đồng | [Kiến trúc backend](docs/backend/ARCHITECTURE.md) · [Hợp đồng API](docs/backend/API_CONTRACT.md) · [SPEC](SPEC.md) |
+| Cơ sở dữ liệu | [Database](docs/backend/DATABASE.md) |
+| Vận hành | [CI/CD và triển khai](docs/devops/PIPELINE_AND_DEPLOY.md) · [Triển khai máy chủ](docs/trien-khai-may-chu.md) |
+| Quy trình | [Git và làm việc nhóm](docs/devops/GIT_AND_TEAM.md) |
 
 ## Trạng thái và định hướng
 
-Dự án đang ở giai đoạn MVP/demo đã triển khai trực tuyến. Các luồng QR table session, menu, order, payment, realtime và role-based operations đều có implementation cùng test/evidence trong repository; độ sẵn sàng production tiếp tục được củng cố qua observability và security hardening.
+Hệ thống đang chạy trực tuyến ở mức MVP, trên hai môi trường tách biệt (staging và production).
+Các luồng phiên bàn QR, thực đơn, đơn hàng, thanh toán, thời gian thực và phân quyền theo vai trò
+đều đã có bản cài đặt kèm test trong kho mã.
 
 Ưu tiên tiếp theo:
 
-- Mở rộng regression/E2E coverage cho hành trình đa thiết bị.
-- Theo dõi chất lượng retrieval và grounded response bằng bộ evaluation tái lập.
-- Hoàn thiện accessibility, performance budget và trải nghiệm mobile.
-- Tăng cường observability, backup/restore và operational readiness.
+- Quan trắc: log tập trung, cảnh báo, và số đo thời gian phục vụ thật thay vì ước lượng.
+- Sao lưu và khôi phục cơ sở dữ liệu có kiểm chứng, không chỉ có script.
+- Mở rộng kiểm hồi quy cho hành trình nhiều thiết bị.
+- Hoàn thiện khả năng tiếp cận, ngân sách hiệu năng và trải nghiệm trên di động.
 
 ## Đóng góp
 
-Đọc [CONTRIBUTING.md](CONTRIBUTING.md), tạo branch từ `develop` và dùng pull request template của dự án. Quy ước nhánh, review và release nằm trong [Documentation Hub](docs/README.md).
+Đọc [CONTRIBUTING.md](CONTRIBUTING.md), tạo nhánh từ `develop` và dùng khuôn pull request của dự
+án. Quy ước nhánh, review và phát hành nằm trong [Git và làm việc nhóm](docs/devops/GIT_AND_TEAM.md).
 
 ## Giấy phép
 
@@ -248,5 +264,5 @@ Dự án được phát hành theo [MIT License](LICENSE).
 ---
 
 <div align="center">
-  Built for a faster, clearer and more reliable restaurant service flow.
+  Phục vụ nhanh hơn, rõ hơn, và đáng tin hơn.
 </div>

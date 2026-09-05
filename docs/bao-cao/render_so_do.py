@@ -26,10 +26,14 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 
-_ten = sys.argv[1] if len(sys.argv) > 1 else "BAO_CAO_CONG_NGHE_PHAN_MEM.md"
-SRC = HERE / _ten
-OUT = (HERE / "output" / "_diagrams") if len(sys.argv) <= 1 \
-    else (HERE / "output" / f"_diagrams_{SRC.stem[:18]}")
+# Tên báo cáo BẮT BUỘC truyền vào — xem ghi chú cùng chỗ trong `xuat_bao_cao_docx.py`.
+if len(sys.argv) <= 1:
+    sys.exit("Cần tên tệp báo cáo, ví dụ:\n"
+             "    python docs/bao-cao/render_so_do.py BAO_CAO_<HỌC_PHẦN>.md")
+SRC = HERE / sys.argv[1]
+if not SRC.is_file():
+    sys.exit(f"Không thấy {SRC.name}")
+OUT = HERE / "output" / f"_diagrams_{SRC.stem[:18]}"
 
 MERMAID = HERE / "_mermaid" / "mermaid.min.js"
 PLANTUML = HERE / "_plantuml"
