@@ -69,7 +69,7 @@ export interface Tab {
  *
  *     bấm "Đơn"        → hiện Giỏ hàng
  *     bấm "Khuyến mãi" → hiện Đơn bàn T01
- *     bấm "Tài khoản"  → hiện Trợ lý
+ *     bấm "Tài khoản"  → hiện Khuyến mãi
  *
  * Nó lên tới máy thật và chỉ bị phát hiện bằng mắt qua ảnh chụp. 198 ca kiểm lúc đó đều xanh, vì
  * không ca nào đếm hai danh sách.

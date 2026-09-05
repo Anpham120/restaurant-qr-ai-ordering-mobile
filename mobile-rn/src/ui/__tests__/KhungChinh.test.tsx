@@ -21,7 +21,7 @@ const PHIEN: TableSession = {
  * Mỗi tab bấm vào phải mở ra ĐÚNG màn hình của chính nó.
  *
  * Bản Flutter có lỗi lệch chỉ số giữa hai danh sách song song — 6 màn hình, 4 tab — và nó lên tới
- * máy thật: bấm "Đơn" hiện Giỏ hàng, bấm "Tài khoản" hiện Trợ lý. Bản Flutter chữa bằng một ca
+ * máy thật: bấm "Đơn" hiện Giỏ hàng, bấm "Tài khoản" hiện Khuyến mãi. Bản Flutter chữa bằng một ca
  * kiểm ĐẾM hai danh sách.
  *
  * Bản này bỏ hẳn danh sách thứ hai, nên phép đếm không còn nghĩa gì. Ca kiểm thay thế phải kiểm
@@ -44,21 +44,6 @@ const API_TRONG = {
     }),
   },
   orderApi: { donCuaPhien: async () => [], huyMon: async () => undefined },
-  chatApi: {
-    moPhien: async () => ({
-      chatSessionId: 'cs',
-      accessToken: 'c',
-      reused: false,
-      messages: [],
-    }),
-    gui: async () => ({
-      tinKhach: { id: 'u', role: 'user', content: '', goiY: [] },
-      traLoi: { id: 'a', role: 'assistant', content: '', goiY: [] },
-      goiY: [],
-      canGoiNhanVien: false,
-      guardrailFlags: [],
-    }),
-  },
   promotionApi: { dangChay: async () => [] },
   invoiceApi: {
     hoaDon: async () => ({
