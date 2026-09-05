@@ -15,7 +15,7 @@
 |---|---|
 | `auto-merge.yml` | pull_request_target |
 | `cd.yml` | workflow_dispatch |
-| `ci-java.yml` | pull_request, push |
+| `ci-java.yml` | pull_request, push, workflow_dispatch |
 | `ci-mobile.yml` | pull_request, push, workflow_dispatch |
 | `ci.yml` | pull_request, push, workflow_dispatch, workflow_call |
 | `dependency-review.yml` | pull_request |
