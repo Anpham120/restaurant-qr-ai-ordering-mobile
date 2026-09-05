@@ -7,10 +7,19 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
 
 	Optional<UserEntity> findByEmailIgnoreCase(String email);
 
+	/** Nối theo {@code sub}, không theo email: email của tài khoản Google đổi được, {@code sub} thì không. */
+	Optional<UserEntity> findByGoogleSub(String googleSub);
+
 	/** Đã có tài khoản KHÁC nào giữ số này chưa — dùng khi liên kết số điện thoại (V9, #27). */
 	boolean existsByPhoneNumberAndIdNot(String phoneNumber, String id);
 
+	/** Tài khoản đang giữ số này. Chỉ có tối đa một, theo `ux_users_phone_number`. */
+	Optional<UserEntity> findByPhoneNumber(String phoneNumber);
+
 	boolean existsByEmailIgnoreCase(String email);
+
+	/** Đã có quản trị viên nào chưa — {@link AdminBootstrap} hỏi để không ghi đè tài khoản có sẵn. */
+	boolean existsByRole(String role);
 
 	/**
 	 * Admin cũ nhất KHÁC tài khoản đang bị xoá — nơi nhận lại lịch sử ca quầy (#90).

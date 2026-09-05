@@ -3,7 +3,7 @@ import { orderTrackingPath, orderingNavigation, orderingPath } from "./orderingR
 
 describe("ordering routes", () => {
   it("keeps every transactional destination under its table-session boundary", () => {
-    expect(orderingPath("session-123", "ai")).toBe("/table-session/session-123/ai");
+    expect(orderingPath("session-123", "cart")).toBe("/table-session/session-123/cart");
     expect(orderingPath("session-123", "cart")).toBe("/table-session/session-123/cart");
     expect(orderingPath("session-123", "orders")).toBe("/table-session/session-123/orders");
   });
@@ -15,7 +15,6 @@ describe("ordering routes", () => {
   it("exposes the table-ordering navigation including AI consultation", () => {
     expect(orderingNavigation).toEqual([
       { label: "Thực đơn", path: "menu" },
-      { label: "AI tư vấn", path: "ai" },
       { label: "Giỏ hàng", path: "cart" },
       { label: "Món đã gọi", path: "orders" },
     ]);

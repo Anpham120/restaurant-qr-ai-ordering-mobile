@@ -688,3 +688,16 @@
     animation: none;
   }
 }
+
+/*
+  Ước lượng thời gian lên món, dưới mỗi dòng món.
+
+  Nhỏ và mờ hơn tên món: đây là thông tin phụ trợ, và một con số ước lượng in to bằng tên món sẽ
+  hứa nhiều hơn thứ hệ thống thật sự biết.
+*/
+.cmc-ot-uoc-luong {
+  color: var(--ot-muted, #6b7280);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 2px 0 0;
+}

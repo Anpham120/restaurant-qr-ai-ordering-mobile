@@ -31,6 +31,12 @@ class ApiGiaLap implements AuthApi {
     if (this.ketQua instanceof AuthException) throw this.ketQua;
     return this.ketQua;
   }
+  async dangKy(): Promise<AuthSession> {
+    return this.dangNhap();
+  }
+  async dangNhapGoogle(): Promise<AuthSession> {
+    return this.dangNhap();
+  }
 }
 
 /**
@@ -48,6 +54,12 @@ class ApiTreo implements AuthApi {
   dangNhap(): Promise<AuthSession> {
     return this.cho;
   }
+  dangKy(): Promise<AuthSession> {
+    return this.cho;
+  }
+  dangNhapGoogle(): Promise<AuthSession> {
+    return this.cho;
+  }
   hoanThanh(s: AuthSession) {
     this.xong(s);
   }
@@ -56,8 +68,25 @@ class ApiTreo implements AuthApi {
 // Tiêu đề màn hình và nhãn nút cùng là "Đăng nhập", nên tìm theo chữ sẽ khớp hai phần tử. Bản
 // Flutter không gặp chuyện này vì nó tìm theo KIỂU widget. Tìm theo vai trò là bản tương đương
 // gần nhất, và nó còn chốt luôn việc nút thật sự khai mình là nút cho trình đọc màn hình.
+//
+// Tên khớp CẢ hai trạng thái của nút gửi, để phép kiểm trạng thái "đang gửi" vẫn thấy nó.
 function nutDangNhap() {
-  return screen.getByRole('button');
+  return screen.getByRole('button', { name: /^(Đăng nhập|Đang đăng nhập…)$/ });
+}
+
+class ApiGhiLaiToken implements AuthApi {
+  tokenDaNhan: string | null = null;
+  constructor(private readonly ketQua: AuthSession) {}
+  async dangNhap(): Promise<AuthSession> {
+    return this.ketQua;
+  }
+  async dangKy(): Promise<AuthSession> {
+    return this.ketQua;
+  }
+  async dangNhapGoogle(idToken: string): Promise<AuthSession> {
+    this.tokenDaNhan = idToken;
+    return this.ketQua;
+  }
 }
 
 function repoVoi(api: AuthApi) {
@@ -68,15 +97,17 @@ describe('màn hình đăng nhập', () => {
   it('sai mật khẩu thì hiện câu tiếng Việt và KHÔNG cho vào app', async () => {
     const xong = jest.fn();
     const repo = repoVoi(
-      new ApiGiaLap(new AuthException('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.')),
+      new ApiGiaLap(
+        new AuthException('INVALID_CREDENTIALS', 'Số điện thoại, email hoặc mật khẩu không đúng.'),
+      ),
     );
     await render(<LoginScreen repository={repo} onDangNhapXong={xong} />);
 
-    await fireEvent.changeText(screen.getByLabelText('Email'), 'a@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Số điện thoại hoặc email'), '0901234567');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'sai');
     await fireEvent.press(nutDangNhap());
 
-    await screen.findByText('Email hoặc mật khẩu không đúng.');
+    await screen.findByText('Số điện thoại, email hoặc mật khẩu không đúng.');
     expect(xong).not.toHaveBeenCalled();
   });
 
@@ -86,7 +117,7 @@ describe('màn hình đăng nhập', () => {
       <LoginScreen repository={repoVoi(new ApiGiaLap(PHIEN_HOP_LE))} onDangNhapXong={xong} />,
     );
 
-    await fireEvent.changeText(screen.getByLabelText('Email'), 'a@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Số điện thoại hoặc email'), '0901234567');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'matkhau12345');
     await fireEvent.press(nutDangNhap());
 
@@ -121,5 +152,124 @@ describe('màn hình đăng nhập', () => {
     expect(nutDangNhap().props.accessibilityState?.disabled).toBe(true);
 
     api.hoanThanh(PHIEN_HOP_LE);
+  });
+});
+
+describe('KHÔNG còn đường tạo tài khoản bằng email', () => {
+  // Trước đây màn này có nút "Chưa có tài khoản? Tạo mới" mở ra form họ tên + email + mật khẩu.
+  // Backend đã bỏ hẳn đường đó: `/api/auth/register` chỉ nhận `phoneIdToken`, nên nút cũ gửi lên
+  // và nhận về 400 PHONE_TOKEN_REQUIRED MỌI lần — không ca nào chạy được.
+  //
+  // Ba phép kiểm cũ ở đây kiểm rất kỹ một luồng đã chết, và chúng xanh suốt vì chúng chỉ nói
+  // chuyện với một AuthApi giả lập. Xoá đi, giữ lại một ca canh chiều ngược lại: form đó mà quay
+  // về thì phải có người cố ý mang nó về, chứ không phải lẫn vào trong một lần sửa khác.
+  it('không có ô họ tên và không có nút chuyển sang đăng ký', async () => {
+    await render(
+      <LoginScreen repository={repoVoi(new ApiGiaLap(PHIEN_HOP_LE))} onDangNhapXong={jest.fn()} />,
+    );
+
+    expect(screen.queryByLabelText('Họ tên')).toBeNull();
+    expect(screen.queryByText('Chưa có tài khoản? Tạo mới')).toBeNull();
+  });
+});
+
+describe('đăng nhập bằng Google', () => {
+  const PHIEN: AuthSession = {
+    accessToken: 'jwt-google',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    user: { userId: 'usr_1', fullName: 'An Phạm', email: 'an@gmail.com', role: 'Customer' },
+  };
+
+  function nutGoogle() {
+    return screen.getByLabelText('Tiếp tục với Google');
+  }
+
+  it('KHÔNG hiện nút khi máy chủ chưa bật Google', async () => {
+    // Nút bấm không ra gì tệ hơn không có nút: khách bấm, không thấy phản ứng, kết luận app hỏng.
+    await render(
+      <LoginScreen repository={repoVoi(new ApiGiaLap(PHIEN))} onDangNhapXong={jest.fn()} />,
+    );
+
+    expect(screen.queryByLabelText('Tiếp tục với Google')).toBeNull();
+  });
+
+  it('lấy được token thì vào app', async () => {
+    const xong = jest.fn();
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={xong}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(xong).toHaveBeenCalledWith(PHIEN);
+  });
+
+  it('gửi ĐÚNG token nhận từ Google, không phải chuỗi nào khác', async () => {
+    const api = new ApiGhiLaiToken(PHIEN);
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(api)}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(api.tokenDaNhan).toBe('id-token-tu-google');
+  });
+
+  it('khách bấm huỷ thì KHÔNG báo lỗi và KHÔNG vào app', async () => {
+    // Huỷ là đổi ý, không phải hỏng. Hiện câu đỏ ở đây là phạt khách vì đã đổi ý.
+    const xong = jest.fn();
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => null}
+        onDangNhapXong={xong}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(xong).not.toHaveBeenCalled();
+    expect(screen.queryByText(/không thành công|không hợp lệ|lỗi/i)).toBeNull();
+  });
+
+  it('máy chủ chưa cấu hình thì nói rõ là lỗi máy chủ, không bảo khách thử lại', async () => {
+    const api = new ApiGiaLap(
+      new AuthException(
+        'GOOGLE_NOT_CONFIGURED',
+        'Đăng nhập Google chưa được bật trên máy chủ này.',
+      ),
+    );
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'id-token-tu-google'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(api)}
+      />,
+    );
+
+    await fireEvent.press(nutGoogle());
+
+    expect(screen.getByText('Đăng nhập Google chưa được bật trên máy chủ này.')).toBeTruthy();
+  });
+
+  it('nói TRƯỚC rằng Google không tự mang điểm cũ sang', async () => {
+    // Không nói thì khách đăng nhập xong thấy 0 điểm và tưởng hệ thống nuốt mất điểm của mình.
+    await render(
+      <LoginScreen
+        layTokenGoogle={async () => 'x'}
+        onDangNhapXong={jest.fn()}
+        repository={repoVoi(new ApiGiaLap(PHIEN))}
+      />,
+    );
+
+    expect(screen.getByText(/liên kết số điện thoại/)).toBeTruthy();
   });
 });

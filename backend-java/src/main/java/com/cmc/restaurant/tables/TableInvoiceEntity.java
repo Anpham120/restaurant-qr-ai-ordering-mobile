@@ -72,9 +72,22 @@ public class TableInvoiceEntity {
 	}
 
 	/** Ghi lại toàn bộ phần tính được từ một lần khách yêu cầu thanh toán. */
+	@Column(name = "loyalty_redemption_id")
+	private String loyaltyRedemptionId;
+
+	/** Phần giảm do đổi điểm, tách khỏi {@code discountAmount} vốn là TỔNG. */
+	@Column(name = "loyalty_discount_amount")
+	private BigDecimal loyaltyDiscountAmount;
+
+	/**
+	 * @param discount tổng mọi khoản giảm, đã cắt theo trần
+	 * @param loyaltyRedemptionId lần đổi điểm đã dùng, {@code null} nếu không dùng
+	 * @param loyaltyDiscount phần do đổi điểm, tách khỏi tổng để biên nhận giải thích được
+	 */
 	void applyPaymentRequest(
 			BigDecimal subtotal, BigDecimal discount, BigDecimal total, String promotionCode,
-			String customerPhoneNumber, String method, OffsetDateTime now) {
+			String customerPhoneNumber, String method, String loyaltyRedemptionId,
+			BigDecimal loyaltyDiscount, OffsetDateTime now) {
 		this.status = "Pending";
 		this.subtotalAmount = subtotal;
 		this.discountAmount = discount;
@@ -82,7 +95,17 @@ public class TableInvoiceEntity {
 		this.promotionCode = promotionCode;
 		this.customerPhoneNumber = customerPhoneNumber;
 		this.method = method;
+		this.loyaltyRedemptionId = loyaltyRedemptionId;
+		this.loyaltyDiscountAmount = loyaltyDiscount;
 		this.updatedAt = now;
+	}
+
+	public String getLoyaltyRedemptionId() {
+		return loyaltyRedemptionId;
+	}
+
+	public BigDecimal getLoyaltyDiscountAmount() {
+		return loyaltyDiscountAmount;
 	}
 
 	void settle(String status, OffsetDateTime now) {

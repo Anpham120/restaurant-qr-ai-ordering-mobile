@@ -17,7 +17,7 @@
 
 *(gộp từ `docs/GIT_WORKFLOW.md`)*
 
-Tài liệu này quy định cách dùng branch, pull request và release cho dự án **Restaurant QR AI Ordering**. README chỉ giới thiệu dự án; toàn bộ quy trình làm việc, review và CI/CD được đặt trong tài liệu này và các tài liệu DevOps liên quan.
+Tài liệu này quy định cách dùng branch, pull request và release cho dự án **CMC Restaurant — QR Ordering**. README chỉ giới thiệu dự án; toàn bộ quy trình làm việc, review và CI/CD được đặt trong tài liệu này và các tài liệu DevOps liên quan.
 
 Trạng thái hiện tại: CI/CD đã được triển khai bằng GitHub Actions (`.github/workflows/**`) và Docker/deploy config. Phần còn lại để pipeline trở thành cổng bắt buộc là bật branch ruleset và required checks tương ứng trên repo.
 
@@ -236,7 +236,7 @@ gates.
 
 *(gộp từ `docs/TEAM_WORKFLOW.md`)*
 
-Tài liệu này mô tả cách nhóm phối hợp khi phát triển **Restaurant QR AI Ordering**. README dùng để giới thiệu dự án; tài liệu này dùng cho phân công, policy CI/CD, báo cáo và phối hợp với AI agent.
+Tài liệu này mô tả cách nhóm phối hợp khi phát triển **CMC Restaurant — QR Ordering**. README dùng để giới thiệu dự án; tài liệu này dùng cho phân công, policy CI/CD, báo cáo và phối hợp với AI agent.
 
 Trạng thái hiện tại: pipeline DevOps tự động đã được triển khai trong `.github/workflows/**`; phần còn lại để hoàn tất là bật branch ruleset, required checks/merge queue và cấu hình GitHub Secrets trên repo.
 
@@ -446,9 +446,9 @@ Repo chỉ chứa source code, migration, cấu hình mẫu và tài liệu cầ
 
 ### Quy tắc ignore
 
-- .NET: không commit `bin/`, `obj/`, `*.csproj.user`.
+- Java/Gradle: không commit `backend-java/build/`, `.gradle/`.
 - Frontend: không commit `node_modules/`, `dist/`, `*.tsbuildinfo`, `coverage/`.
-- Python/AI: không commit `__pycache__/`, `*.pyc`, `.pytest_cache/`, virtual environment.
+- Python: không commit `__pycache__/`, `*.pyc`, `.pytest_cache/`, môi trường ảo.
 - Local evidence/demo: không commit `output/`, `site-demo/`, `coursework/`, `tools/`, `commit_msg.txt`, `issue_comment.txt`, `pr*_body.txt`.
 - Secrets: chỉ commit file mẫu như `.env.example`; không commit `.env`, `.env.*`, private key, token hoặc log chứa secret.
 

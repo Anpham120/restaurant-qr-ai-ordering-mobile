@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createOrderHubClient } from "./index";
+import type { OrderItemStatusChangedEvent } from "@cmc/shared-types";
 
 // Khai tại chỗ thay vì thêm `@types/node` cho cả package: package này chạy trong TRÌNH DUYỆT, và
 // `process` chỉ tồn tại ở đây — trong bộ chạy vitest của Node. Kéo `@types/node` vào sẽ làm mã sản
@@ -176,3 +177,60 @@ async function taoDon(): Promise<{ orderCode: string; orderToken: string }> {
   })).json();
   return { orderCode: o.orderCode, orderToken: o.customerAccessToken };
 }
+
+/**
+ * Món tặng đổi bằng điểm được thêm vào một đơn ĐANG CHẠY — đường duy nhất trong hệ thống mà một
+ * thay đổi của đơn không đi qua OrderService. Chính vì thế nó là chỗ dễ quên báo bếp nhất, và
+ * quên thì món nằm im tới lượt bảng bếp tự tải lại.
+ *
+ * Cần thêm LIVE_CUST_TOKEN (khách đã liên kết số và còn đủ điểm), LIVE_REWARD_ID (ưu đãi tặng
+ * món), LIVE_ORDER_CODE (đơn còn mở).
+ */
+describe.runIf(
+  HUB && API && process.env.LIVE_STAFF_TOKEN && process.env.LIVE_CUST_TOKEN
+    && process.env.LIVE_REWARD_ID && process.env.LIVE_ORDER_CODE,
+)("món tặng đổi bằng điểm", () => {
+  it("thêm vào đơn đang chạy thì bảng bếp nhận được ngay", async () => {
+    const nhan: OrderItemStatusChangedEvent[] = [];
+    const trangThai: string[] = [];
+    const client = createOrderHubClient({
+      hubUrl: HUB!,
+      accessTokenFactory: () => process.env.LIVE_STAFF_TOKEN ?? "",
+      handlers: {
+        onOrderItemStatusChanged: (e) => nhan.push(e),
+        onStatusChanged: (s) => trangThai.push(s),
+      },
+    });
+
+    await client.connect();
+    for (let i = 0; i < 150 && !trangThai.includes("connected"); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(trangThai, `trạng thái: ${trangThai.join(",")}`).toContain("connected");
+    await new Promise((r) => setTimeout(r, 500));
+
+    const res = await fetch(`${API}/api/loyalty/me/redeem`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.LIVE_CUST_TOKEN}`,
+        "Idempotency-Key": "rt-" + Date.now(),
+      },
+      body: JSON.stringify({
+        rewardId: process.env.LIVE_REWARD_ID,
+        orderCode: process.env.LIVE_ORDER_CODE,
+      }),
+    });
+    expect(res.status, "đổi điểm phải thành công").toBe(200);
+
+    for (let i = 0; i < 100 && nhan.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await client.disconnect();
+
+    expect(nhan.length, "bảng bếp phải nhận được món tặng vừa thêm").toBeGreaterThan(0);
+    // Tên trong sự kiện phải KHỚP tên dòng in trên phiếu bếp. Tính riêng hai lần là cách hai chỗ
+    // lệch nhau — đã xảy ra một lần và chính phép kiểm này bắt được.
+    expect(nhan[0]!.menuItemName).toContain("đổi điểm");
+  }, 45000);
+});

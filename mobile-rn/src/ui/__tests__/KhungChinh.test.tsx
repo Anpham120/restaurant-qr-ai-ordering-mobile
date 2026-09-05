@@ -21,7 +21,7 @@ const PHIEN: TableSession = {
  * Mỗi tab bấm vào phải mở ra ĐÚNG màn hình của chính nó.
  *
  * Bản Flutter có lỗi lệch chỉ số giữa hai danh sách song song — 6 màn hình, 4 tab — và nó lên tới
- * máy thật: bấm "Đơn" hiện Giỏ hàng, bấm "Tài khoản" hiện Trợ lý. Bản Flutter chữa bằng một ca
+ * máy thật: bấm "Đơn" hiện Giỏ hàng, bấm "Tài khoản" hiện Khuyến mãi. Bản Flutter chữa bằng một ca
  * kiểm ĐẾM hai danh sách.
  *
  * Bản này bỏ hẳn danh sách thứ hai, nên phép đếm không còn nghĩa gì. Ca kiểm thay thế phải kiểm
@@ -44,21 +44,6 @@ const API_TRONG = {
     }),
   },
   orderApi: { donCuaPhien: async () => [], huyMon: async () => undefined },
-  chatApi: {
-    moPhien: async () => ({
-      chatSessionId: 'cs',
-      accessToken: 'c',
-      reused: false,
-      messages: [],
-    }),
-    gui: async () => ({
-      tinKhach: { id: 'u', role: 'user', content: '', goiY: [] },
-      traLoi: { id: 'a', role: 'assistant', content: '', goiY: [] },
-      goiY: [],
-      canGoiNhanVien: false,
-      guardrailFlags: [],
-    }),
-  },
   promotionApi: { dangChay: async () => [] },
   invoiceApi: {
     hoaDon: async () => ({
@@ -85,8 +70,32 @@ const API_TRONG = {
   historyApi: { lichSuCuaToi: async () => [] },
   favouriteApi: { monHayGoi: async () => [] },
   loyaltyApi: {
-    cuaToi: async () => ({ linked: false, phoneNumber: null, points: 0, availableRewards: [] }),
-    noiSo: async () => ({ linked: true, phoneNumber: '090', points: 0, availableRewards: [] }),
+    cuaToi: async () => ({
+      linked: false,
+      coHoSo: false,
+      phoneNumber: null,
+      points: 0,
+      availableRewards: [],
+      hang: 'BAC' as const,
+      tenHang: 'Bạc',
+      chiTieu12Thang: 0,
+      tenHangKeTiep: 'Vàng',
+      conThieu: 5_000_000,
+      phieuChuaDung: [],
+    }),
+    noiSo: async () => ({
+      linked: true,
+      coHoSo: true,
+      phoneNumber: '0901234567',
+      points: 0,
+      availableRewards: [],
+      hang: 'BAC' as const,
+      tenHang: 'Bạc',
+      chiTieu12Thang: 0,
+      tenHangKeTiep: 'Vàng',
+      conThieu: 5_000_000,
+      phieuChuaDung: [],
+    }),
     doiDiem: async () => {
       throw new Error('không dùng');
     },
@@ -103,6 +112,7 @@ async function dungKhung() {
   await render(
     <KhungChinh
       {...API_TRONG}
+      guiMaOtp={async () => ({ xacNhan: async () => 'token-otp' })}
       cauHinh={{ apiBaseUrl: 'http://test:8081', imageBaseUrl: 'http://test:8080' }}
       dangNhap={null}
       onDangNhap={jest.fn()}
@@ -128,13 +138,20 @@ const DAU_HIEU: readonly (readonly [string, () => unknown])[] = [
   ['Thực đơn', () => screen.getByPlaceholderText(/Tìm món/)],
   ['Giỏ', () => screen.getByText(/Giỏ đang trống/)],
   ['Đơn', () => screen.getByText(/Bàn chưa có đơn nào/)],
-  ['Trợ lý', () => screen.getByPlaceholderText(/Hỏi trợ lý về món ăn/)],
   ['Khuyến mãi', () => screen.getByText(/Hiện chưa có khuyến mãi nào/)],
   ['Tài khoản', () => screen.getByText(/Khách vãng lai/)],
 ];
 
 describe('điều hướng theo tab', () => {
-  it('có đúng 6 tab, không thừa không thiếu', async () => {
+  it('KHÔNG còn tab Trợ lý', async () => {
+    // Trợ lý AI đã gỡ khỏi hệ thống. Ca này là đối chứng: thiếu nó thì một lần khôi phục nhầm
+    // đưa tab đó trở lại mà bộ kiểm vẫn xanh, và khách bấm vào một màn hình gọi API không còn tồn tại.
+    await dungKhung();
+
+    expect(screen.queryByLabelText('Trợ lý')).toBeNull();
+  });
+
+  it('có đúng 5 tab, không thừa không thiếu', async () => {
     await dungKhung();
 
     for (const [nhan] of DAU_HIEU) {

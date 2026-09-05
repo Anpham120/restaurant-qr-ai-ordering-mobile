@@ -58,7 +58,6 @@ if (-not $env:SPRING_DATASOURCE_PASSWORD -and $env:DB_PASSWORD) {
     $env:SPRING_DATASOURCE_PASSWORD = $env:DB_PASSWORD
 }
 if (-not $env:BACKEND_JAVA_PORT) { $env:BACKEND_JAVA_PORT = "8081" }
-if (-not $env:AI_SERVICE_PORT) { $env:AI_SERVICE_PORT = "8001" }
 if (-not $env:CORS_ALLOWED_ORIGINS) {
     $env:CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177"
 }
@@ -70,8 +69,6 @@ if (-not $env:JWT_SIGNING_KEY -or $env:JWT_SIGNING_KEY.Length -lt 32) {
 if ($Install -or -not (Test-Path (Join-Path $root "frontend/node_modules"))) {
     & npm.cmd ci --prefix (Join-Path $root "frontend")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    & python -m pip install -r (Join-Path $root "ai/requirements.txt")
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 $processes = @()
@@ -80,12 +77,11 @@ try {
     # Wrapper nằm trong `backend-java/`, không ở gốc kho.
     $gradlew = Join-Path $root "backend-java/gradlew.bat"
     $processes += Start-Process $gradlew -ArgumentList @("bootRun") -WorkingDirectory (Join-Path $root "backend-java") -NoNewWindow -PassThru
-    $processes += Start-Process python -ArgumentList @("-m", "uvicorn", "service:app", "--app-dir", "app", "--reload", "--host", "127.0.0.1", "--port", $env:AI_SERVICE_PORT) -WorkingDirectory (Join-Path $root "ai") -NoNewWindow -PassThru
     foreach ($portal in @("customer", "ordering", "ops")) {
         $processes += Start-Process npm.cmd -ArgumentList @("run", "dev:$portal") -WorkingDirectory (Join-Path $root "frontend") -NoNewWindow -PassThru
     }
 
-    Write-Host "Đã chạy: API Java (:$($env:BACKEND_JAVA_PORT)), dịch vụ AI (:$($env:AI_SERVICE_PORT)), và ba giao diện. Ctrl+C để dừng."
+    Write-Host "Đã chạy: API Java (:$($env:BACKEND_JAVA_PORT)) và ba giao diện. Ctrl+C để dừng."
     while ($true) {
         Start-Sleep -Seconds 1
         $failed = $processes | Where-Object { $_.HasExited }

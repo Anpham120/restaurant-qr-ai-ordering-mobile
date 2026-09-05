@@ -58,7 +58,23 @@ export function chuanHoaDiaChi(nhapVao: string, congMacDinh: number): string | n
   // `URL.port` bỏ trống với cổng mặc định của scheme, nên `example.com:80` sẽ trông như không có
   // cổng và bị gán nhầm cổng mặc định của app. Đọc thẳng từ chuỗi để giữ đúng thứ người dùng gõ.
   const congGoTay = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*?:(\d+)(?:[/?#]|$)/i.exec(s);
-  const cong = congGoTay?.[1] ?? (uri.port !== '' ? uri.port : String(congMacDinh));
+
+  // Gõ `https://` mà KHÔNG gõ cổng nghĩa là bản triển khai thật sau nginx và TLS — tức 443, không
+  // phải cổng LAN của app.
+  //
+  // LỖI CÓ THẬT, đo bằng chính hàm này:
+  //
+  //   "api.cmcrestaurant.app"           -> http://api.cmcrestaurant.app:8081    không ai nghe
+  //   "https://api.cmcrestaurant.app"   -> https://api.cmcrestaurant.app:8081   không ai nghe
+  //   "https://api.cmcrestaurant.app:443" -> https://api.cmcrestaurant.app:443  chạy
+  //
+  // Máy chủ công khai chỉ mở 80 và 443; 8081 là cổng nội bộ của container. Nên HAI cách gõ tự
+  // nhiên nhất đều cho ra cấu hình chết, và người dùng chỉ thấy "không kết nối được máy chủ" —
+  // không có gì chỉ ra rằng cái sai là một con số app tự thêm vào.
+  //
+  // `congMacDinh` giữ nguyên vai trò cho `http://` trong mạng LAN của quán, đúng lý do nó sinh ra.
+  const macDinhTheoScheme = uri.protocol === 'https:' ? '443' : String(congMacDinh);
+  const cong = congGoTay?.[1] ?? (uri.port !== '' ? uri.port : macDinhTheoScheme);
 
   return `${uri.protocol}//${uri.hostname}:${cong}`;
 }
@@ -74,6 +90,26 @@ export function suyRaDiaChiAnh(apiBaseUrl: string, congAnh = 8080): string {
   try {
     const uri = new URL(apiBaseUrl);
     if (uri.hostname.length === 0) return apiBaseUrl;
+
+    // KHÔNG có cổng trong địa chỉ = bản triển khai thật, đứng sau nginx và TLS.
+    //
+    // Gắn `:8080` vào đây là cho ra một địa chỉ KHÔNG TỚI ĐƯỢC: máy chủ công khai chỉ mở 80 và
+    // 443, còn 8080 là cổng nội bộ của container. Đo trên máy chủ thật:
+    //
+    //   https://api.cmcrestaurant.app:8080/menu-images/…  -> không kết nối được
+    //   https://api.cmcrestaurant.app/menu-images/…       -> 401 (miền này là API, đòi đăng nhập)
+    //   https://order.cmcrestaurant.app/menu-images/…      -> 200 image/webp
+    //
+    // Ảnh do container web phục vụ, và nginx gắn nó vào các miền giao diện chứ không gắn vào miền
+    // API. Nên đổi tiền tố `api.` thành `order.` — cùng quy ước mà cổng quản trị đang dùng để dựng
+    // link đặt món.
+    if (uri.port === '') {
+      const host = uri.hostname.startsWith('api-')
+        ? uri.hostname.replace(/^api-/, 'order-')
+        : uri.hostname.replace(/^api\./, 'order.');
+      return `${uri.protocol}//${host}`;
+    }
+
     return `${uri.protocol}//${uri.hostname}:${congAnh}`;
   } catch {
     // Địa chỉ hỏng thì trả nguyên vào, không nổ: nơi gọi đang dựng giao diện, và một ngoại lệ ở

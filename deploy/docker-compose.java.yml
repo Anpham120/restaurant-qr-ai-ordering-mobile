@@ -27,20 +27,23 @@ x-api-environment: &api-environment
   JWT_AUDIENCE: ${JWT_AUDIENCE:-RestaurantQrAiOrdering.Client}
   JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
   JWT_ACCESS_TOKEN_MINUTES: ${JWT_ACCESS_TOKEN_MINUTES:-60}
+  # Tài khoản quản trị đầu tiên. Bỏ trống = không tạo gì, và đó là mặc định đúng: chỉ lần triển
+  # khai đầu lên một cơ sở dữ liệu trống mới cần tới chúng.
+  ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+  ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+  ADMIN_BOOTSTRAP_FULL_NAME: ${ADMIN_BOOTSTRAP_FULL_NAME:-}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
   PAYMENTS_VIETQR_BANKID: ${PAYMENTS_VIETQR_BANKID:-}
   PAYMENTS_VIETQR_ACCOUNTNUMBER: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:-}
   PAYMENTS_VIETQR_ACCOUNTNAME: ${PAYMENTS_VIETQR_ACCOUNTNAME:-}
   PAYMENTS_VIETQR_TEMPLATE: ${PAYMENTS_VIETQR_TEMPLATE:-compact2}
   # Để trống thì webhook từ chối mọi lời gọi — trạng thái an toàn, xem issue #12.
-  PAYMENTS_CASSO_SECURETOKEN: ${PAYMENTS_CASSO_SECURETOKEN:-}
-  AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8001}
-  AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
-  # 50 giây, và phải LỚN HƠN `LLM_TIMEOUT_SECONDS` (30) của dịch vụ AI: dịch vụ phải hết hạn
-  # TRƯỚC backend thì backend mới nhận được câu thoái hoá của nó, thay vì tự hết hạn rồi trả lỗi
-  # cho khách đang ngồi ở bàn. Giá trị cũ ở đây là 12 — tức ĐẢO NGƯỢC quan hệ, và bản .NET có test
-  # canh đúng chỗ này (`DeploymentConfigurationTests`) trong khi bản Java thì không.
-  BACKEND_AI_TIMEOUT_SECONDS: ${BACKEND_AI_TIMEOUT_SECONDS:-50}
+  PAYMENTS_SEPAY_APIKEY: ${PAYMENTS_SEPAY_APIKEY:-}
+  # Xác minh số điện thoại lúc đăng ký (OTP) và đăng nhập Google. Để trống thì cả hai đường TỪ CHỐI
+  # mọi lời gọi — cùng luật an toàn với khoá webhook ở trên.
+  FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+  FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
 
 services:
   postgres:
@@ -90,10 +93,24 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      ai-service:
-        condition: service_healthy
     ports:
-      - "${BACKEND_JAVA_PORT:-8081}:8081"
+      # Địa chỉ gắn cổng đổi theo môi trường, mặc định mở cho MỌI giao diện.
+      #
+      # Local phải mở: điện thoại thật gọi vào http://<IP-LAN>:8081, đó là cách duy nhất chạy thử
+      # trên máy thật khi không có máy dựng riêng (§9.10).
+      #
+      # Trên máy chủ công khai phải đặt BACKEND_JAVA_BIND=127.0.0.1. Để nguyên 0.0.0.0 nghĩa là
+      # gọi thẳng http://<ip>:8081 được, ĐI VÒNG qua nginx — tức đi vòng qua TLS, và khoá webhook
+      # SePay sẽ đi qua mạng ở dạng chữ thường.
+      # Cổng HOST lấy từ BACKEND_PORT — CÙNG biến mà write-nginx-config.sh dùng để proxy.
+      #
+      # Trước đây chỗ này đọc BACKEND_JAVA_PORT, một cái tên KHÔNG tệp env nào khai, nên nó rơi về
+      # mặc định 8081. Hai hậu quả, đo thật trên máy chủ:
+      #   1. Đụng FRONTEND_PORT=8081 của staging -> "port is already allocated".
+      #   2. nginx proxy tới 127.0.0.1:5001 trong khi api nghe 8081 -> kể cả không đụng cổng thì
+      #      cũng không ai trả lời.
+      # BACKEND_JAVA_PORT ở khối environment phía trên vẫn giữ: đó là cổng BÊN TRONG container.
+      - "${BACKEND_JAVA_BIND:-0.0.0.0}:${BACKEND_PORT:-8081}:8081"
     healthcheck:
       # Cùng endpoint `/api/health` với bản .NET, nên pattern healthcheck không đổi.
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/api/health >/dev/null || exit 1"]
@@ -104,46 +121,6 @@ services:
       # lúc nó vẫn đang boot bình thường.
       start_period: 60s
 
-  ai-service:
-    image: ${AI_SERVICE_IMAGE:-cmc-restaurant-ai:${DEPLOY_ENV:-local}}
-    build:
-      context: ..
-      dockerfile: ai/Dockerfile
-    restart: unless-stopped
-    # Khối biến giữ ĐÚNG danh sách của `docker-compose.yml` (bản .NET), vì cùng một ảnh dịch vụ AI
-    # đọc cùng những biến đó. Trước đây khối này chỉ có hai biến, và hệ quả lộ ra ngay khi
-    # `golden-e2e` chuyển sang stack Java: câu thử `/ready` đỏ với `model_base_url_set: False`, tức
-    # dịch vụ chạy mà KHÔNG biết gọi mô hình ở đâu.
-    #
-    # CỐ Ý KHÔNG đặt `AI_SERVICE_HOST`. Bản .NET đặt `127.0.0.1` vì nó dùng `network_mode: host`;
-    # chép sang đây thì dịch vụ chỉ nghe loopback TRONG container, và cả backend lẫn cổng đã publish
-    # đều không với tới. Để trống thì `ai/Dockerfile` cấp `0.0.0.0` — đúng thứ mạng bridge cần.
-    environment:
-      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
-      AI_SERVICE_PORT: 8001
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:20128/v1}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-cx/gpt-5.6-luna-review}
-      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
-      AI_ENABLE_GENERATION: ${AI_ENABLE_GENERATION:-1}
-      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-4}
-    mem_limit: 3g
-    # Publish CHỈ trên loopback (#58). Bản .NET dùng `network_mode: host` nên dịch vụ AI vốn đã ở
-    # trên host; stack Java dùng bridge nên nếu không publish thì `wait_for_stack.py` và
-    # `run_deploy_probes.py` — hai script chạy trên máy CI, không phải trong container — không với
-    # tới được. Ràng vào 127.0.0.1 chứ không phải 0.0.0.0: dịch vụ này chỉ để backend gọi, không
-    # phải để lộ ra mạng, và nó chỉ có một lớp gác là AI_INTERNAL_TOKEN.
-    ports:
-      - "127.0.0.1:${AI_SERVICE_PORT:-8001}:8001"
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=3); exit(0 if b'ready' in r.read() else 1)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
-
-  # Frontend. Trước đây chỉ có ở compose bản .NET, nên `docker compose up` trên stack Java dựng
-  # được API mà không có giao diện — tức không chạy thử được cả hệ thống bằng một lệnh.
   frontend:
     image: ${FRONTEND_IMAGE:-cmc-restaurant-frontend:${DEPLOY_ENV:-local}}
     build:

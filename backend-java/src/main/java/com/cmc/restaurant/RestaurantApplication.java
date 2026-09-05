@@ -1,8 +1,8 @@
 package com.cmc.restaurant;
 
+import com.cmc.restaurant.auth.AdminBootstrapProperties;
 import com.cmc.restaurant.auth.JwtProperties;
-import com.cmc.restaurant.chat.ChatProperties;
-import com.cmc.restaurant.payments.CassoProperties;
+import com.cmc.restaurant.payments.SePayProperties;
 import com.cmc.restaurant.payments.VietQrProperties;
 import com.cmc.restaurant.orders.application.KitchenCapacityProperties;
 import com.cmc.restaurant.shared.CorsProperties;
@@ -12,10 +12,11 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, CassoProperties.class, ChatProperties.class,
-		CorsProperties.class,
+@EnableScheduling
+@EnableConfigurationProperties({JwtProperties.class, VietQrProperties.class, SePayProperties.class, 		CorsProperties.class, AdminBootstrapProperties.class,
 		KitchenCapacityProperties.class})
 public class RestaurantApplication {
 

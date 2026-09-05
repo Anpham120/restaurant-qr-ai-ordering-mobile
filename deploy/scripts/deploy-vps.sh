@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# LLM_RATE_LIMIT_FALLBACK_MODEL is deliberately absent from required_vars: a
-# single-model deployment has no fallback, and the loop below rejects empty
-# values, so listing it would force naming a model that is never called.
+# Ghi chú này phải nằm NGOÀI mảng.  DeploymentConfigTest (backend-java) đọc khối
+# required_vars và tách theo khoảng trắng để kiểm .github/workflows/cd.yml có cấp đủ mọi tên hay
+# không, nên một ghi chú nằm TRONG ngoặc sẽ thành danh sách tên biến giả — bash bỏ qua, phép kiểm
+# đó thì không.
 #
-# Keep this note outside the array.  frontend/src/utils/deploymentWorkflowEnv.test.ts
-# extracts the required_vars block and splits it on whitespace to check that both
-# deploy workflows supply every name, so a comment inside the parentheses becomes
-# a list of bogus variable names — bash ignores it, that test does not.
+# Ghi chú cũ trỏ tới frontend/src/utils/deploymentWorkflowEnv.test.ts. Tệp đó không còn tồn tại
+# trong repo này; luật được dựng lại ở DeploymentConfigTest.theWorkflowSuppliesEveryRequiredVariable.
 required_vars=(
   DEPLOY_ENV
   SSH_HOST
@@ -26,24 +25,17 @@ required_vars=(
   PUBLIC_API_BASE_URL
   JWT_SIGNING_KEY
   CORS_ALLOWED_ORIGINS
-  PAYMENTS__VIETQR__BANKID
-  PAYMENTS__VIETQR__ACCOUNTNUMBER
-  PAYMENTS__VIETQR__ACCOUNTNAME
-  AI_SERVICE_URL
-  AI_INTERNAL_TOKEN
-  LLM_API_KEY
-  LLM_MODEL
+  PAYMENTS_VIETQR_BANKID
+  PAYMENTS_VIETQR_ACCOUNTNUMBER
+  PAYMENTS_VIETQR_ACCOUNTNAME
+  PAYMENTS_SEPAY_APIKEY
+  FIREBASE_API_KEY
+  FIREBASE_PROJECT_ID
+  GOOGLE_CLIENT_ID
 )
-# Ba tên vừa RA khỏi danh sách: LLM_PROVIDER, LLM_RATE_LIMIT_FALLBACK_ENABLED, AI_PIPELINE_PROFILE.
-#
-# Không mô-đun nào đọc chúng nữa — `ai/app` chỉ đọc LLM_BASE_URL, LLM_API_KEY, LLM_MODEL,
-# LLM_TIMEOUT_SECONDS, AI_INTERNAL_TOKEN, AI_ENABLE_GENERATION, AI_EMBEDDING_CACHE. Đòi một biến
-# không ai đọc là dựng một cái bẫy: deploy DỪNG vì thiếu thứ không có tác dụng gì, và người sửa
-# phải đi tìm hiểu một biến đã chết để biết nên đặt giá trị nào.
-#
-# `AI_PIPELINE_PROFILE` còn tệ hơn hai cái kia: `ChatAiProvider.ReadPipelineProfile()` NÉM LỖI với
-# bất kỳ giá trị không thuộc ba tên profile cũ, rồi gửi trường đó tới dịch vụ mới — nơi bỏ qua nó.
-# Tức đặt cho nó một tên của hệ thống mới là làm sập mọi lượt chat.
+# Mọi tên liên quan tới trợ lý AI đã ra khỏi danh sách cùng với chính trợ lý. Nguyên tắc giữ lại:
+# đòi một biến không mô-đun nào đọc là dựng một cái bẫy — deploy DỪNG vì thiếu thứ không có tác
+# dụng gì, và người sửa phải đi tìm hiểu một biến đã chết để biết nên đặt giá trị nào.
 
 for var_name in "${required_vars[@]}"; do
   if [ -z "${!var_name:-}" ]; then
@@ -121,25 +113,45 @@ DB_MAX_POOL_SIZE=$(env_quote "${DB_MAX_POOL_SIZE:-50}")
 FRONTEND_SERVER_NAMES=$(env_quote "$FRONTEND_SERVER_NAMES")
   API_SERVER_NAME=$(env_quote "$API_SERVER_NAME")
   PUBLIC_API_BASE_URL=$(env_quote "$PUBLIC_API_BASE_URL")
-  PUBLIC_ORDER_HUB_URL=$(env_quote "${PUBLIC_ORDER_HUB_URL:-${PUBLIC_API_BASE_URL%/api}/hubs/orders}")
+  # `/hub/orders` SỐ ÍT. Bản .NET dùng `/hubs/orders`, và giá trị suy ra ở đây từng chép theo bản
+  # đó — trong khi `WebSocketConfig.addEndpoint` khai `/hub/orders`, có hẳn chú thích giải thích vì
+  # sao hai bên khác nhau (giao thức khác: STOMP chứ không phải SignalR).
+  #
+  # Sai một chữ `s` thì WebSocket không bao giờ kết nối, và nó hỏng IM LẶNG: bếp không tự thấy đơn
+  # mới, quầy không tự thấy trạng thái đổi, phải tải lại trang mới có dữ liệu. Không lỗi nào hiện
+  # lên vì kết nối hỏng chỉ là một lần thử bất thành trong nền.
+  PUBLIC_ORDER_HUB_URL=$(env_quote "${PUBLIC_ORDER_HUB_URL:-${PUBLIC_API_BASE_URL%/api}/hub/orders}")
+  # Hai địa chỉ này đi vào BUNDLE lúc build, không đọc lúc chạy — sai là phải dựng lại cả ảnh.
+  #
+  # Bỏ sót thì compose rơi về mặc định `http://127.0.0.1:8080`, và mọi link QR bàn trong cổng quản
+  # trị trỏ về MÁY CỦA NGƯỜI ĐANG XEM. Trang mở ra tưởng như đang tải rồi đứng im, không lỗi nào
+  # hiện lên. Đã gặp thật.
+  PUBLIC_ORDERING_BASE_URL=$(env_quote "${PUBLIC_ORDERING_BASE_URL:-}")
+  PUBLIC_MARKETING_BASE_URL=$(env_quote "${PUBLIC_MARKETING_BASE_URL:-}")
   CORS_ALLOWED_ORIGINS=$(env_quote "$CORS_ALLOWED_ORIGINS")
-  ASPNETCORE_ENVIRONMENT=$(env_quote "${ASPNETCORE_ENVIRONMENT:-Production}")
   JWT_SIGNING_KEY=$(env_quote "$JWT_SIGNING_KEY")
-  PAYMENTS__VIETQR__BANKID=$(env_quote "$PAYMENTS__VIETQR__BANKID")
-  PAYMENTS__VIETQR__ACCOUNTNUMBER=$(env_quote "$PAYMENTS__VIETQR__ACCOUNTNUMBER")
-  PAYMENTS__VIETQR__ACCOUNTNAME=$(env_quote "$PAYMENTS__VIETQR__ACCOUNTNAME")
-  PAYMENTS__VIETQR__TEMPLATE=$(env_quote "${PAYMENTS__VIETQR__TEMPLATE:-compact2}")
+  ADMIN_BOOTSTRAP_EMAIL=$(env_quote "${ADMIN_BOOTSTRAP_EMAIL:-}")
+  ADMIN_BOOTSTRAP_PASSWORD=$(env_quote "${ADMIN_BOOTSTRAP_PASSWORD:-}")
+  ADMIN_BOOTSTRAP_FULL_NAME=$(env_quote "${ADMIN_BOOTSTRAP_FULL_NAME:-}")
+  PAYMENTS_VIETQR_BANKID=$(env_quote "$PAYMENTS_VIETQR_BANKID")
+  PAYMENTS_VIETQR_ACCOUNTNUMBER=$(env_quote "$PAYMENTS_VIETQR_ACCOUNTNUMBER")
+  PAYMENTS_VIETQR_ACCOUNTNAME=$(env_quote "$PAYMENTS_VIETQR_ACCOUNTNAME")
+  PAYMENTS_VIETQR_TEMPLATE=$(env_quote "${PAYMENTS_VIETQR_TEMPLATE:-compact2}")
+  PAYMENTS_SEPAY_APIKEY=$(env_quote "$PAYMENTS_SEPAY_APIKEY")
+  FIREBASE_API_KEY=$(env_quote "$FIREBASE_API_KEY")
+  FIREBASE_PROJECT_ID=$(env_quote "$FIREBASE_PROJECT_ID")
+  GOOGLE_CLIENT_ID=$(env_quote "$GOOGLE_CLIENT_ID")
+  BACKEND_JAVA_BIND=$(env_quote "${BACKEND_JAVA_BIND:-127.0.0.1}")
+  # Thư mục chứng chỉ TLS. Bỏ trống = nginx chạy HTTP thuần.
+  #
+  # PHẢI đi qua đây, không thể chỉ đặt tay trên máy chủ một lần: script này cũng gọi
+  # `write-nginx-config.sh`, nên mỗi lượt triển khai ghi đè cấu hình nginx. Đặt TLS bằng tay rồi
+  # triển khai lại là mất TLS — và mất một cách khó thấy, vì trang vẫn lên trên HTTP trong khi
+  # bundle đã được dựng để gọi API qua HTTPS. Đã gặp thật.
+  TLS_CERT_DIR=$(env_quote "${TLS_CERT_DIR:-}")
 RUN_DB_MIGRATIONS_ON_STARTUP=$(env_quote "${RUN_DB_MIGRATIONS_ON_STARTUP:-false}")
-CHAT_AI_PROVIDER=$(env_quote "${CHAT_AI_PROVIDER:-python-rag}")
-AI_SERVICE_URL=$(env_quote "$AI_SERVICE_URL")
-AI_SERVICE_PORT=$(env_quote "${AI_SERVICE_PORT:-8001}")
-AI_INTERNAL_TOKEN=$(env_quote "$AI_INTERNAL_TOKEN")
-LLM_BASE_URL=$(env_quote "${LLM_BASE_URL:-}")
-LLM_API_KEY=$(env_quote "$LLM_API_KEY")
-LLM_MODEL=$(env_quote "$LLM_MODEL")
-AI_TIMEOUT_SECONDS=$(env_quote "${AI_TIMEOUT_SECONDS:-60}")
-LLM_TIMEOUT_SECONDS=$(env_quote "${LLM_TIMEOUT_SECONDS:-${AI_TIMEOUT_SECONDS:-30}}")
-VITE_USE_MOCK_CHAT=$(env_quote "${VITE_USE_MOCK_CHAT:-false}")
+# Giữ lại dù không còn profile nào: compose vẫn đọc biến này, và để trống là hành vi mặc định.
+COMPOSE_PROFILES=$(env_quote "${COMPOSE_PROFILES:-}")
 VITE_USE_MOCK_ORDER=$(env_quote "${VITE_USE_MOCK_ORDER:-false}")
 BOOTSTRAP_ADMIN_EMAIL=$(env_quote "${BOOTSTRAP_ADMIN_EMAIL:-}")
 BOOTSTRAP_ADMIN_PASSWORD=$(env_quote "${BOOTSTRAP_ADMIN_PASSWORD:-}")

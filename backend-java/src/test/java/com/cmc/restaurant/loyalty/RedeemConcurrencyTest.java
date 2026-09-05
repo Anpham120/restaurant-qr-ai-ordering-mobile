@@ -1,5 +1,7 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.auth.XacMinhGia;
+import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cmc.restaurant.auth.UserEntity;
@@ -40,6 +42,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * repository giả lập sẽ kiểm đúng phần không có luật.
  */
 @Testcontainers
+@Import(XacMinhGia.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RedeemConcurrencyTest {
 
@@ -62,16 +65,24 @@ class RedeemConcurrencyTest {
 	@Autowired
 	private LoyaltyRedemptionRepository redemptions;
 
+	@Autowired
+	private com.cmc.restaurant.menu.MenuItemRepository menuItems;
+
 	private record BoiCanh(String token, String phone, String rewardId) {
+	}
+
+	/** Số điện thoại ngẫu nhiên. Với bản giả, token xác minh CHÍNH LÀ số này. */
+	private static String soNgauNhienChoTaiKhoan() {
+		return "09" + String.format("%08d", (int) (Math.random() * 100000000));
 	}
 
 	@SuppressWarnings("unchecked")
 	private BoiCanh dungBoiCanh(int soDiem, int chiPhi) {
-		String email = "rd." + UUID.randomUUID() + "@local.test";
+		String soDangNhap = soNgauNhienChoTaiKhoan();
 		rest.postForEntity("/api/auth/register", json(Map.of(
-				"fullName", "K", "email", email, "password", "MatKhauProbe12345")), Map.class);
+				"fullName", "K", "phoneIdToken", soDangNhap, "password", "MatKhauProbe12345")), Map.class);
 		Map<String, Object> body = rest.postForEntity("/api/auth/login",
-				json(Map.of("email", email, "password", "MatKhauProbe12345")), Map.class).getBody();
+				json(Map.of("identifier", soDangNhap, "password", "MatKhauProbe12345")), Map.class).getBody();
 		String token = (String) body.get("accessToken");
 		String userId = (String) ((Map<String, Object>) body.get("user")).get("userId");
 
@@ -89,7 +100,14 @@ class RedeemConcurrencyTest {
 		OffsetDateTime now = OffsetDateTime.now();
 		LoyaltyRewardEntity r = new LoyaltyRewardEntity(
 				"rw_" + UUID.randomUUID().toString().replace("-", ""), now);
-		r.applyDefinition("Uu dai demo", "demo", chiPhi, true, now);
+		// Ưu đãi TẶNG MÓN chứ không phải giảm tiền. Phép kiểm này nói về tranh chấp khi trừ điểm,
+		// và ưu đãi giảm tiền bắt buộc kèm mã đơn — thêm một hoá đơn vào đây chỉ làm phép kiểm phụ
+		// thuộc vào một luật khác, và khi luật đó đổi thì nó đỏ vì lý do chẳng liên quan gì.
+		String monId = menuItems.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("CSDL thử thiếu món: migration chưa gieo thực đơn"))
+				.getId();
+		r.applyDefinition("Uu dai demo", "demo", chiPhi, true, now,
+				"FREE_ITEM", monId, null, "BAC");
 		rewards.save(r);
 
 		return new BoiCanh(token, phone, r.getId());

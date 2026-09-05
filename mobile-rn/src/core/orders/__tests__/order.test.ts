@@ -41,8 +41,28 @@ describe('nhãn trạng thái đơn', () => {
 });
 
 describe('nhãn trạng thái món', () => {
-  it('Pending ở cấp MÓN là chờ nấu, không phải chờ thu tiền', () => {
-    expect(nhanTrangThaiMon('Pending')).toBe('Chờ nấu');
+  it('nói theo việc đã xảy ra với món, và KHỚP TỪNG CHỮ với web', () => {
+    // Bộ chữ này phải giống hệt `ITEM_STATUS_VI` bên web
+    // (`frontend/src/utils/opsStatusLabels.ts`), và bên đó có một phép kiểm y hệt.
+    //
+    // Hai kho không dùng chung mã được, nên ghim chuỗi ở CẢ HAI bên là cách duy nhất khiến việc
+    // trôi khỏi nhau nhìn thấy được: sửa một bên mà quên bên kia thì phép kiểm bên đó đỏ.
+    //
+    // Trước bản này hai bên đã trôi thật — cùng trạng thái `Ready`, app nói "Nấu xong", web nói
+    // "Sẵn sàng phục vụ". Nhóm khách một người mở app một người quét web thấy hai câu khác nhau
+    // cho cùng một món.
+    expect(nhanTrangThaiMon('Pending')).toBe('Đã gửi bếp, chờ tới lượt');
+    expect(nhanTrangThaiMon('Preparing')).toBe('Đang làm món của bạn');
+    expect(nhanTrangThaiMon('Ready')).toBe('Món xong, đang mang ra bàn');
+    expect(nhanTrangThaiMon('Served')).toBe('Đã mang ra bàn');
+    expect(nhanTrangThaiMon('Cancelled')).toBe('Đã huỷ');
+  });
+
+  it('Pending ở cấp MÓN nói về BẾP, không phải về thu tiền', () => {
+    // `Pending` mang ba nghĩa khác nhau trong cùng hệ thống: món chờ nấu, hoá đơn chờ tiền, thanh
+    // toán chờ xác nhận. Dùng chung một hàm nhãn là cách nhanh nhất để nói sai với khách.
+    expect(nhanTrangThaiMon('Pending')).toContain('bếp');
+    expect(nhanTrangThaiMon('Pending')).not.toContain('thanh toán');
   });
 
   it('phủ hết trạng thái món', () => {

@@ -74,6 +74,25 @@ export function customerOrderTuJson(json: unknown): CustomerOrder {
  * trước khi app kịp cập nhật; hiện "Đang xử lý" cho mọi thứ chưa biết sẽ giấu mất chuyện đó và
  * không ai phát hiện app đã lạc hậu.
  */
+/**
+ * Mã của đơn đang mở trong phiên, để áp ưu đãi giảm tiền vào.
+ *
+ * "Đang mở" = chưa {@code Completed} và chưa {@code Cancelled} — cùng định nghĩa backend dùng khi
+ * từ chối `LOYALTY_ORDER_CLOSED`. Hai bên lệch nhau thì app sẽ chào một đơn mà backend từ chối.
+ *
+ * Nhiều đơn cùng mở là chuyện bình thường: một bàn gọi thêm vài lượt. Lấy đơn MỚI NHẤT vì đó là
+ * đơn khách vừa gọi và đang nghĩ tới.
+ */
+export function maDonDangMo(don: readonly CustomerOrder[]): string | null {
+  for (let i = don.length - 1; i >= 0; i--) {
+    const d = don[i];
+    if (d !== undefined && d.status !== 'Completed' && d.status !== 'Cancelled') {
+      return d.orderCode;
+    }
+  }
+  return null;
+}
+
 export function nhanTrangThaiDon(status: string): string {
   switch (status) {
     case 'Draft':
@@ -103,16 +122,31 @@ export function nhanTrangThaiDon(status: string): string {
  * `Pending` ở cấp MÓN nghĩa là chưa ai bắt đầu nấu — khác hẳn `Pending` ở cấp thanh toán (chờ thu
  * tiền). Dùng chung một chữ cho hai nghĩa là cách nhanh nhất để hiểu nhầm.
  */
+/**
+ * Nhãn trạng thái MÓN cho khách.
+ *
+ * Viết theo VIỆC ĐÃ XẢY RA với món của khách, không theo tên trạng thái của hệ thống. "Sẵn sàng
+ * phục vụ" là ngôn ngữ của người vận hành; người đang ngồi ăn cần biết món đang trên đường ra.
+ *
+ * PHẢI KHỚP TỪNG CHỮ với `ITEM_STATUS_VI` bên web (`frontend/src/utils/opsStatusLabels.ts`).
+ * Hai kho không dùng chung mã được, nên mỗi bên có một phép kiểm ghim đúng chuỗi này — đổi một
+ * bên mà quên bên kia thì phép kiểm bên đó đỏ.
+ *
+ * Trước đây hai bên nói hai kiểu cho cùng một trạng thái: app "Nấu xong", web "Sẵn sàng phục vụ".
+ * Nhóm khách một người mở app một người quét web sẽ thấy hai câu khác nhau cho cùng một món.
+ */
 export function nhanTrangThaiMon(status: string): string {
   switch (status) {
     case 'Pending':
-      return 'Chờ nấu';
+      // "Đã gửi bếp" chứ không "Bếp đã nhận": `Placed` là đã gửi, `Confirmed` mới là bếp nhận.
+      // Một câu đúng cho cả hai thì không cần rẽ nhánh theo trạng thái đơn.
+      return 'Đã gửi bếp, chờ tới lượt';
     case 'Preparing':
-      return 'Đang nấu';
+      return 'Đang làm món của bạn';
     case 'Ready':
-      return 'Nấu xong';
+      return 'Món xong, đang mang ra bàn';
     case 'Served':
-      return 'Đã mang ra';
+      return 'Đã mang ra bàn';
     case 'Cancelled':
       return 'Đã huỷ';
     default:

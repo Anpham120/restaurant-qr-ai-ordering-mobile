@@ -4,7 +4,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 
 /** Maps the existing {@code loyalty_rewards} table. */
 @Entity
@@ -32,6 +35,19 @@ public class LoyaltyRewardEntity {
 	@Column(name = "updated_at", nullable = false)
 	private OffsetDateTime updatedAt;
 
+	@Column(name = "reward_type", nullable = false)
+	private String rewardType;
+
+	@Column(name = "menu_item_id")
+	private String menuItemId;
+
+	@Column(name = "discount_amount")
+	private BigDecimal discountAmount;
+
+	/** Hạng tối thiểu để THẤY và đổi được ưu đãi này. */
+	@Column(name = "min_tier", nullable = false)
+	private String minTier;
+
 	protected LoyaltyRewardEntity() {
 	}
 
@@ -44,12 +60,17 @@ public class LoyaltyRewardEntity {
 
 	/** Ghi toàn bộ phần quản trị viên nhập được — cùng tập trường cho cả tạo và sửa. */
 	void applyDefinition(
-			String name, String description, int pointsRequired, boolean active, OffsetDateTime now) {
+			String name, String description, int pointsRequired, boolean active, OffsetDateTime now,
+			String rewardType, String menuItemId, BigDecimal discountAmount, String minTier) {
 		this.name = name;
 		this.description = description;
 		this.pointsRequired = pointsRequired;
 		this.active = active;
 		this.updatedAt = now;
+		this.rewardType = rewardType;
+		this.menuItemId = menuItemId;
+		this.discountAmount = discountAmount;
+		this.minTier = minTier;
 	}
 
 	public String getId() {
@@ -78,5 +99,34 @@ public class LoyaltyRewardEntity {
 
 	public OffsetDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public String getRewardType() {
+		return rewardType;
+	}
+
+	public String getMenuItemId() {
+		return menuItemId;
+	}
+
+	public BigDecimal getDiscountAmount() {
+		return discountAmount;
+	}
+
+	/**
+	 * Hạng tối thiểu. Đọc phòng thủ như {@code LoyaltyMemberEntity#getTier()}: một giá trị lạ trong
+	 * cột — do sửa tay hay do migration tương lai — phải làm ưu đãi KHÓ đổi hơn, không phải dễ hơn,
+	 * nên rơi về hạng CAO NHẤT chứ không phải hạng thấp nhất.
+	 */
+	public MemberTier getMinTier() {
+		if (minTier == null) {
+			return MemberTier.BAC;
+		}
+		try {
+			return MemberTier.valueOf(minTier);
+		} catch (IllegalArgumentException e) {
+			MemberTier[] tatCa = MemberTier.values();
+			return tatCa[tatCa.length - 1];
+		}
 	}
 }

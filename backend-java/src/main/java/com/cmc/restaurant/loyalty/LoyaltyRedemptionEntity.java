@@ -39,6 +39,47 @@ public class LoyaltyRedemptionEntity {
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
+	/** {@code null} nghĩa là phiếu còn dùng được. */
+	@Column(name = "honoured_at")
+	private OffsetDateTime honouredAt;
+
+	@Column(name = "honoured_by")
+	private String honouredBy;
+
+	/** Đơn mà phiếu này đã đi vào; {@code null} khi phiếu chưa gắn vào đơn nào. */
+	@Column(name = "order_code")
+	private String orderCode;
+
+	/**
+	 * Nhân viên đã đổi HỘ khách tại quầy; {@code null} khi khách tự đổi trong app.
+	 *
+	 * <p>Khác hẳn {@code honouredBy} — cột đó ghi ai PHÁT món, cột này ghi ai TIÊU ĐIỂM. Khi khách
+	 * khiếu nại "sao điểm của tôi mất", câu hỏi là ai tiêu chứ không phải ai phát.
+	 */
+	@Column(name = "redeemed_by")
+	private String redeemedBy;
+
+	/**
+	 * Mã khách đọc ra hoặc gõ vào; chỉ ưu đãi GIẢM TIỀN mới có.
+	 *
+	 * <p>Ưu đãi tặng món để trống: nó thành một dòng 0đ trong đơn ngay lúc đổi, không có gì để
+	 * khách cầm đi.
+	 */
+	@Column(name = "code")
+	private String code;
+
+	/** Số tiền giảm, chụp lại lúc đổi; {@code null} với ưu đãi tặng món. */
+	@Column(name = "discount_amount")
+	private java.math.BigDecimal discountAmount;
+
+	/** Dòng đơn do ưu đãi tặng món sinh ra; {@code null} với ưu đãi giảm tiền. */
+	@Column(name = "order_item_id")
+	private String orderItemId;
+
+	/** Khác {@code null} nghĩa là điểm đã trả lại và lần đổi này không còn giá trị. */
+	@Column(name = "reversed_at")
+	private OffsetDateTime reversedAt;
+
 	protected LoyaltyRedemptionEntity() {
 	}
 
@@ -55,6 +96,71 @@ public class LoyaltyRedemptionEntity {
 
 	public String getId() {
 		return id;
+	}
+
+	public String getMemberId() {
+		return memberId;
+	}
+
+	public OffsetDateTime getHonouredAt() {
+		return honouredAt;
+	}
+
+	public String getHonouredBy() {
+		return honouredBy;
+	}
+
+	/** Phiếu còn dùng được không. */
+	public boolean conDungDuoc() {
+		return honouredAt == null;
+	}
+
+	public String getOrderCode() {
+		return orderCode;
+	}
+
+	public String getRedeemedBy() {
+		return redeemedBy;
+	}
+
+	/** Ghi lại nhân viên đã đổi hộ. Chỉ gọi ở đường của quầy. */
+	void ghiNguoiDoiHo(String nhanVienId) {
+		this.redeemedBy = nhanVienId;
+	}
+
+	public String getCode() {
+		return code;
+	}
+
+	public java.math.BigDecimal getDiscountAmount() {
+		return discountAmount;
+	}
+
+	/** Ưu đãi giảm tiền: sinh mã và chụp lại số tiền, chưa gắn vào hoá đơn nào. */
+	void capMa(String ma, java.math.BigDecimal soTien) {
+		this.code = ma;
+		this.discountAmount = soTien;
+	}
+
+	public OffsetDateTime getReversedAt() {
+		return reversedAt;
+	}
+
+	/** Đơn bị huỷ nên lần đổi này không còn hiệu lực. */
+	void danhDauDaHoan(OffsetDateTime now) {
+		this.reversedAt = now;
+	}
+
+	/**
+	 * Phiếu được tiêu ngay lúc đổi vì món đã vào đơn — bếp sẽ làm, không còn gì để quầy phát nữa.
+	 *
+	 * <p>{@code honouredBy} để trống có chủ đích: không nhân viên nào đứng ra phát. Ghi đại userId
+	 * của khách vào đó sẽ làm hỏng đúng câu hỏi mà cột này sinh ra để trả lời — "ai phát phiếu này".
+	 */
+	void heThongGanVaoDon(String orderCode, String orderItemId, OffsetDateTime now) {
+		this.orderCode = orderCode;
+		this.orderItemId = orderItemId;
+		this.honouredAt = now;
 	}
 
 	public String getRewardId() {

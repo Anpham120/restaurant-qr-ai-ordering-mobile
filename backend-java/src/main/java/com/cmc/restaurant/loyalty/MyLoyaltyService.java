@@ -1,8 +1,11 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.loyalty.domain.MaUuDai;
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.auth.UserEntity;
 import com.cmc.restaurant.auth.UserRepository;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
+import com.cmc.restaurant.orders.application.OrderLoyaltyPort;
 import com.cmc.restaurant.shared.ApiException;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -30,10 +33,15 @@ public class MyLoyaltyService {
 	private final LoyaltyService loyaltyService;
 	private final LoyaltyRewardRepository rewards;
 	private final LoyaltyRedemptionRepository redemptions;
+	private final OrderLoyaltyPort donHang;
+	private final LoyaltyLedgerRepository soDiem;
 
 	public MyLoyaltyService(
 			UserRepository users, LoyaltyMemberRepository members, LoyaltyService loyaltyService,
-			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions) {
+			LoyaltyRewardRepository rewards, LoyaltyRedemptionRepository redemptions,
+			OrderLoyaltyPort donHang, LoyaltyLedgerRepository soDiem) {
+		this.donHang = donHang;
+		this.soDiem = soDiem;
 		this.users = users;
 		this.members = members;
 		this.loyaltyService = loyaltyService;
@@ -81,11 +89,14 @@ public class MyLoyaltyService {
 			return read(user);
 		}
 
-		if (members.findByPhoneNumber(phone).isPresent()) {
-			throw new ApiException(org.springframework.http.HttpStatus.CONFLICT,
-					"LOYALTY_PHONE_ALREADY_MEMBER",
-					"This phone number already has a loyalty profile. Ask staff at the counter to link it.");
-		}
+		// KHÔNG còn chặn số đã có hồ sơ điểm.
+		//
+		// Bản trước chặn vì nhận số TRẦN: cho gõ một số đã có điểm là cho người lạ chiếm hồ sơ của
+		// khách quen. Nhưng cái chặn đó rơi đúng vào ca phổ biến nhất — khách ăn ở quán qua web,
+		// tích điểm theo số, rồi mới tải app — và đẩy họ ra quầy nhờ nhân viên nối hộ.
+		//
+		// Số tới đây giờ đã qua OTP, tức là đã chứng minh đúng thứ cần chứng minh. Hồ sơ điểm khoá
+		// theo số, nên gán số vào tài khoản là hồ sơ về đúng chủ ngay, không cần bước nối nào nữa.
 		if (users.existsByPhoneNumberAndIdNot(phone, userId)) {
 			throw new ApiException(org.springframework.http.HttpStatus.CONFLICT,
 					"LOYALTY_PHONE_TAKEN", "This phone number is linked to another account.");
@@ -116,12 +127,13 @@ public class MyLoyaltyService {
 	 * {@code @Transactional} cuộn ngược.
 	 */
 	@Transactional
-	public LoyaltyDtos.RedeemResponse redeem(String userId, String rewardId, String idempotencyKey) {
+	public LoyaltyDtos.RedeemResponse redeem(
+			String userId, String rewardId, String orderCode, String idempotencyKey) {
 		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
 		if (daCo != null) {
 			return new LoyaltyDtos.RedeemResponse(
 					daCo.getId(), daCo.getRewardId(), daCo.getRewardName(), daCo.getPointsSpent(),
-					daCo.getCreatedAt(), me(userId));
+					daCo.getCreatedAt(), daCo.getCode(), me(userId));
 		}
 
 		UserEntity user = users.findById(userId)
@@ -136,6 +148,76 @@ public class MyLoyaltyService {
 				.orElseThrow(() -> ApiException.badRequest("LOYALTY_NO_POINTS",
 						"This account has no loyalty points yet."));
 
+		LoyaltyRedemptionEntity ghi =
+				doiChoHoiVien(member, rewardId, orderCode, idempotencyKey, null);
+		return new LoyaltyDtos.RedeemResponse(
+				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
+				ghi.getCreatedAt(), ghi.getCode(), me(userId));
+	}
+
+	/**
+	 * Quầy đổi thưởng HỘ khách chỉ dùng web.
+	 *
+	 * <p><b>Vì sao cần.</b> Khách quét QR dùng web không đăng nhập — hệ thống không biết họ là ai,
+	 * nên họ không tự đổi thưởng được. Nhưng điểm của họ vẫn tích: màn thanh toán bắt điền số điện
+	 * thoại, và {@code LoyaltyService.accrue} tự mở hồ sơ cho số nào chưa có. Trước bản này, cả
+	 * backend KHÔNG có đường nào cho quầy tạo một lần đổi — nghĩa là nhóm khách đó kiếm được điểm
+	 * mà vĩnh viễn không tiêu được, trừ khi cài app.
+	 *
+	 * <p>Đây là cùng một luật với đường của app, chỉ khác chỗ tra hội viên: theo SỐ ĐIỆN THOẠI thay
+	 * vì theo tài khoản. Phần lõi dùng chung {@link #doiChoHoiVien} chứ không chép — chép là cách
+	 * hai bản trôi khỏi nhau, và bản ít được chạy hơn sẽ âm thầm bỏ sót một luật mà bản kia có.
+	 *
+	 * <p><b>Thứ tự nghiệp vụ.</b> Đổi phải xảy ra TRƯỚC khi khách bấm yêu cầu thanh toán. Ưu đãi
+	 * giảm tiền sinh ra một MÃ, và khách gõ mã đó vào ô có sẵn ở màn thanh toán — nhờ vậy hoá đơn
+	 * tính đúng ngay lần đầu và mã QR chỉ sinh một lần với đúng số tiền. Áp thẳng vào một hoá đơn
+	 * đang chờ sẽ đổi số tiền sau khi mã QR đã sinh, và khách quét mã cũ là chuyển sai số.
+	 *
+	 * <p>KHÔNG chặn cứng khi hoá đơn đã ở trạng thái chờ: chuyện đó vẫn cứu được bằng nút huỷ yêu
+	 * cầu thanh toán mà quầy đang có sẵn, và chặn ở đây sẽ buộc gói tích điểm phải biết về gói hoá
+	 * đơn bàn — một chiều phụ thuộc mà toàn bộ phần còn lại đi ngược lại.
+	 *
+	 * @param nhanVienId ai bấm; ghi lại vì đây là nhân viên tiêu điểm THẬT của khách
+	 */
+	@Transactional
+	public LoyaltyDtos.CounterRedeemResponse doiHoTaiQuay(
+			String phoneNumber, String rewardId, String orderCode, String nhanVienId,
+			String idempotencyKey) {
+		String phone = PhoneNumber.normalize(phoneNumber);
+		if (phone == null) {
+			throw ApiException.badRequest("LOYALTY_PHONE_REQUIRED", "Nhập số điện thoại của khách.");
+		}
+
+		LoyaltyRedemptionEntity daCo = redemptions.findByIdempotencyKey(idempotencyKey).orElse(null);
+		if (daCo != null) {
+			return moTaChoQuay(daCo, phone);
+		}
+
+		LoyaltyMemberEntity member = members.findByPhoneNumber(phone)
+				.orElseThrow(() -> ApiException.badRequest("LOYALTY_MEMBER_NOT_FOUND",
+						"Số này chưa có điểm nào."));
+
+		LoyaltyRedemptionEntity ghi =
+				doiChoHoiVien(member, rewardId, orderCode, idempotencyKey, nhanVienId);
+		return moTaChoQuay(ghi, phone);
+	}
+
+	private LoyaltyDtos.CounterRedeemResponse moTaChoQuay(LoyaltyRedemptionEntity ghi, String phone) {
+		LoyaltyMemberEntity member = members.findByPhoneNumber(phone).orElseThrow();
+		return new LoyaltyDtos.CounterRedeemResponse(
+				ghi.getId(), ghi.getRewardName(), ghi.getPointsSpent(), ghi.getCode(),
+				ghi.getOrderCode(), member.getPoints());
+	}
+
+	/**
+	 * Phần lõi: trừ điểm và tạo phiếu cho MỘT hội viên đã xác định.
+	 *
+	 * <p>Dùng chung cho cả app lẫn quầy. Mọi luật đều nằm ở đây — đủ điểm, tối thiểu hạng, món còn
+	 * hàng, và hai nhánh tặng món / giảm tiền.
+	 */
+	private LoyaltyRedemptionEntity doiChoHoiVien(
+			LoyaltyMemberEntity member, String rewardId, String orderCode, String idempotencyKey,
+			String nhanVienDoiHo) {
 		LoyaltyRewardEntity reward = rewards.findById(rewardId)
 				.orElseThrow(() -> ApiException.notFound("LOYALTY_REWARD_NOT_FOUND",
 						"Reward was not found."));
@@ -144,7 +226,44 @@ public class MyLoyaltyService {
 					"This reward is no longer available.");
 		}
 
+		// Chặn hạng ở ĐÂY chứ không chỉ ở danh sách: danh sách là gợi ý hiển thị, còn đây là nơi
+		// điểm thật bị trừ. Một client tự gọi thẳng API với rewardId chép được vẫn phải bị từ chối.
+		MemberTier hang = member.getTier();
+		MemberTier canCo = reward.getMinTier();
+		if (!hang.datToiThieu(canCo)) {
+			throw ApiException.badRequest("LOYALTY_TIER_TOO_LOW",
+					"Ưu đãi này dành cho hạng " + canCo.tenHienThi() + " trở lên.");
+		}
+
+		// Hai loại ưu đãi đi hai đường khác hẳn nhau.
+		//
+		// GIẢM TIỀN: sinh ra một MÃ, không chạm vào đơn hàng nào. Mã đó nhập ở bước tất toán, cùng
+		// ô với mã khuyến mãi của quán, và trừ vào `table_invoices` — nơi tiền thật sự được chốt.
+		//
+		// Trước đây nó ghi vào `orders.discount_amount`, mà hoá đơn bàn tính lại tạm tính từ dòng
+		// món rồi chỉ trừ cấp hoá đơn — nên khách mất điểm và vẫn trả đủ tiền. Đó là lý do cấp đơn
+		// hàng bị bỏ hẳn ở đây thay vì chỉ sửa chỗ đọc.
+		//
+		// TẶNG MÓN: có đơn thì gắn món vào đơn để bếp làm ngay; không có đơn thì phiếu nằm chờ và
+		// quầy phát bằng tay. Cả hai đều hợp lệ — khách ngồi tại bàn muốn ăn luôn, khách đổi ở nhà
+		// muốn để dành.
+		boolean laGiamTien = "DISCOUNT".equals(reward.getRewardType());
+		boolean coDon = orderCode != null && !orderCode.isBlank();
+		boolean ganMonVaoDon = !laGiamTien && coDon;
+
+		OrderLoyaltyPort.HoaDon hoaDon = null;
+		if (ganMonVaoDon) {
+			hoaDon = kiemDonConMo(orderCode);
+			if (reward.getMenuItemId() == null) {
+				// Ưu đãi tặng món mà không trỏ tới món nào là dữ liệu hỏng, không phải trạng thái
+				// bình thường. Từ chối trước khi trừ điểm.
+				throw ApiException.badRequest("LOYALTY_REWARD_NO_ITEM",
+						"Ưu đãi này chưa gắn món. Nhờ nhân viên tại quầy đổi giúp.");
+			}
+		}
+
 		OffsetDateTime now = OffsetDateTime.now();
+		String maDongDon = null;
 		int daTru = members.truDiemNeuDu(member.getId(), reward.getPointsRequired(), now);
 		if (daTru == 0) {
 			// Không phân biệt "không đủ điểm" với "thua tranh chấp": với khách hai thứ nói cùng
@@ -153,13 +272,61 @@ public class MyLoyaltyService {
 					"Not enough points for this reward.");
 		}
 
-		LoyaltyRedemptionEntity ghi = redemptions.save(new LoyaltyRedemptionEntity(
-				"red_" + UUID.randomUUID().toString().replace("-", ""),
-				member.getId(), reward, idempotencyKey, now));
+		// Sau khi điểm đã trừ thành công. Cùng một @Transactional, nên nếu bước này ném lỗi thì
+		// điểm cũng được trả lại.
+		if (ganMonVaoDon) {
+			maDongDon = donHang.themMonTang(hoaDon.orderCode(), reward.getMenuItemId());
+		}
 
-		return new LoyaltyDtos.RedeemResponse(
-				ghi.getId(), ghi.getRewardId(), ghi.getRewardName(), ghi.getPointsSpent(),
-				ghi.getCreatedAt(), me(userId));
+		soDiem.save(LoyaltyLedgerEntity.doi(
+				"lgr_" + UUID.randomUUID().toString().replace("-", ""),
+				member.getId(), reward.getPointsRequired(), now));
+
+		LoyaltyRedemptionEntity ghi = new LoyaltyRedemptionEntity(
+				"red_" + UUID.randomUUID().toString().replace("-", ""),
+				member.getId(), reward, idempotencyKey, now);
+		if (ganMonVaoDon) {
+			// Món đã vào đơn thì phiếu tiêu xong ngay tại đây. Để nó ở trạng thái chờ sẽ cho khách
+			// chìa lại phiếu ở quầy và nhận món lần thứ hai.
+			ghi.heThongGanVaoDon(hoaDon.orderCode(), maDongDon, now);
+		} else if (laGiamTien) {
+			// Giảm tiền thì CHƯA tiêu: khách cầm mã, tiêu lúc tất toán. Phiếu ở trạng thái chờ là
+			// đúng — nó vẫn là thứ khách đang cầm và dùng được.
+			ghi.capMa(MaUuDai.sinh(), reward.getDiscountAmount());
+		}
+		// Ghi TRƯỚC khi lưu. Đặt sau `save` thì giá trị không xuống cơ sở dữ liệu — đã đo thật:
+		// cột `redeemed_by` ra null. Một cột kiểm toán rỗng còn tệ hơn không có cột nào, vì nó tạo
+		// cảm giác đã lần ra được người bấm.
+		if (nhanVienDoiHo != null) {
+			ghi.ghiNguoiDoiHo(nhanVienDoiHo);
+		}
+		redemptions.save(ghi);
+		return ghi;
+	}
+
+	/**
+	 * Hoá đơn có nhận được khoản giảm này không.
+	 *
+	 * <p>Kiểm TRƯỚC khi trừ điểm. Trừ trước rồi mới phát hiện đơn đã thanh toán sẽ phải hoàn điểm,
+	 * và đường hoàn điểm là đường ít được chạy nhất nên cũng là đường dễ sai nhất.
+	 */
+
+	/**
+	 * Đơn còn nhận thêm được không.
+	 *
+	 * <p>Chỉ ưu đãi TẶNG MÓN đi qua đây. Ưu đãi giảm tiền không chạm vào đơn nữa — nó sinh ra một
+	 * mã, và mã đó trừ ở cấp hoá đơn lúc tất toán.
+	 */
+	private OrderLoyaltyPort.HoaDon kiemDonConMo(String orderCode) {
+		OrderLoyaltyPort.HoaDon hoaDon = donHang.timHoaDon(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+
+		// Đơn đã xong hoặc đã huỷ thì tiền đã chốt; thêm vào đó chỉ làm lệch sổ.
+		if ("Completed".equals(hoaDon.status()) || "Cancelled".equals(hoaDon.status())) {
+			throw ApiException.badRequest("LOYALTY_ORDER_CLOSED",
+					"Đơn hàng này đã kết thúc, không áp dụng ưu đãi được nữa.");
+		}
+		return hoaDon;
 	}
 
 	/** Điểm và ưu đãi đủ điều kiện của tài khoản này. */
@@ -174,10 +341,23 @@ public class MyLoyaltyService {
 		if (phone == null) {
 			// Chưa liên kết KHÔNG phải lỗi: đó là trạng thái của mọi tài khoản mới. App hiện lời
 			// mời liên kết, không hiện màn hình lỗi.
-			return new LoyaltyDtos.MyLoyaltyResponse(false, null, 0, java.util.List.of());
+			return new LoyaltyDtos.MyLoyaltyResponse(
+					false, false, null, 0, java.util.List.of(),
+					MemberTier.BAC.name(), MemberTier.BAC.tenHienThi(), java.math.BigDecimal.ZERO,
+					MemberTier.BAC.ke().tenHienThi(), MemberTier.BAC.ke().nguong(),
+					java.util.List.of());
 		}
 		LoyaltyDtos.LookupResponse lookup = loyaltyService.lookup(phone);
+		// Khách phải xem được phiếu mình đã đổi. Không có màn hình này thì điểm biến mất mà không
+		// để lại gì nhìn thấy được, và khách không có cách nào biết mình còn phiếu chưa dùng.
+		java.math.BigDecimal chiTieu = lookup.spend12m();
+		MemberTier hang = MemberTier.theoChiTieu(chiTieu);
+		MemberTier ke = hang.ke();
 		return new LoyaltyDtos.MyLoyaltyResponse(
-				true, phone, lookup.points(), lookup.availableRewards());
+				true, lookup.hasProfile(), phone, lookup.points(), lookup.availableRewards(),
+				hang.name(), hang.tenHienThi(), chiTieu,
+				ke == null ? null : ke.tenHienThi(),
+				MemberTier.conThieuDeLenHang(chiTieu),
+				lookup.pendingVouchers());
 	}
 }

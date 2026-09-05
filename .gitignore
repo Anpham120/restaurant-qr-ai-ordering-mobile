@@ -7,7 +7,7 @@
 # Local environment and generated artifacts
 # Local scratch files created while preparing GitHub evidence
 # Loose source assets and binary deliverables kept out of the app repo
-# Playwright E2E local artifacts (scripts e2e-*.js are tracked)
+# Kết quả chạy E2E ở máy. Bản thân script nằm ở scripts/e2e/ và ĐƯỢC theo dõi.
 # Python AI service cache
 **/bin/
 **/obj/
@@ -58,3 +58,5 @@ pr_dev_body.txt
 site-demo/
 tmp/
 tools/
+.tmp-seed/
+.tmp-expo.log

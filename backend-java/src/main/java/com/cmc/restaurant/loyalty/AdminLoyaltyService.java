@@ -1,5 +1,6 @@
 package com.cmc.restaurant.loyalty;
 
+import com.cmc.restaurant.loyalty.domain.MemberTier;
 import com.cmc.restaurant.loyalty.domain.PhoneNumber;
 import com.cmc.restaurant.shared.ApiException;
 import java.time.OffsetDateTime;
@@ -144,13 +145,48 @@ public class AdminLoyaltyService {
 			throw ApiException.badRequest("LOYALTY_REWARD_POINTS_INVALID",
 					"Points required must be greater than zero.");
 		}
+
+		// Kiểm ở đây thay vì để ràng buộc CHECK của V13 bắt. Cùng một luật, nhưng vi phạm ở tầng cơ
+		// sở dữ liệu nổi lên thành 500 kèm câu tiếng Anh của Hibernate, còn ở đây là 400 kèm câu nói
+		// rõ thiếu gì. Ràng buộc dưới kia vẫn giữ nguyên vai trò chốt cuối.
+		String loai = request.rewardType() == null ? "" : request.rewardType().trim();
+		if (!"FREE_ITEM".equals(loai) && !"DISCOUNT".equals(loai)) {
+			throw ApiException.badRequest("LOYALTY_REWARD_TYPE_INVALID",
+					"Chọn loại ưu đãi: FREE_ITEM (tặng món) hoặc DISCOUNT (giảm tiền).");
+		}
+		if ("FREE_ITEM".equals(loai)
+				&& (request.menuItemId() == null || request.menuItemId().isBlank())) {
+			throw ApiException.badRequest("LOYALTY_REWARD_ITEM_REQUIRED",
+					"Ưu đãi tặng món phải chọn món.");
+		}
+		if ("DISCOUNT".equals(loai)
+				&& (request.discountAmount() == null || request.discountAmount().signum() <= 0)) {
+			throw ApiException.badRequest("LOYALTY_REWARD_AMOUNT_REQUIRED",
+					"Ưu đãi giảm tiền phải có số tiền lớn hơn 0.");
+		}
+		if (request.minTier() != null && !request.minTier().isBlank()) {
+			try {
+				MemberTier.valueOf(request.minTier().trim());
+			} catch (IllegalArgumentException e) {
+				throw ApiException.badRequest("LOYALTY_REWARD_TIER_INVALID", "Hạng tối thiểu không hợp lệ.");
+			}
+		}
 	}
 
 	private static void writeReward(
 			LoyaltyRewardEntity reward, AdminLoyaltyDtos.LoyaltyRewardRequest request, OffsetDateTime now) {
+		String loai = request.rewardType().trim();
 		reward.applyDefinition(
 				request.name().trim(), normalizeOptional(request.description()), request.pointsRequired(),
-				Boolean.TRUE.equals(request.isActive()), now);
+				Boolean.TRUE.equals(request.isActive()), now,
+				loai,
+				// Mỗi loại chỉ mang dữ liệu của nó. Ghi cả hai sẽ vi phạm ràng buộc payload của V13,
+				// và cũng vô nghĩa: một ưu đãi không thể vừa tặng món vừa giảm tiền.
+				"FREE_ITEM".equals(loai) ? normalizeOptional(request.menuItemId()) : null,
+				"DISCOUNT".equals(loai) ? request.discountAmount() : null,
+				request.minTier() == null || request.minTier().isBlank()
+						? MemberTier.BAC.name()
+						: request.minTier().trim());
 	}
 
 	private static String normalizeOptional(String value) {
@@ -178,6 +214,8 @@ public class AdminLoyaltyService {
 	public static AdminLoyaltyDtos.LoyaltyRewardResponse toResponse(LoyaltyRewardEntity reward) {
 		return new AdminLoyaltyDtos.LoyaltyRewardResponse(
 				reward.getId(), reward.getName(), reward.getDescription(), reward.getPointsRequired(),
-				reward.isActive(), reward.getCreatedAt(), reward.getUpdatedAt());
+				reward.isActive(), reward.getCreatedAt(), reward.getUpdatedAt(),
+				reward.getRewardType(), reward.getMenuItemId(), reward.getDiscountAmount(),
+				reward.getMinTier().name());
 	}
 }

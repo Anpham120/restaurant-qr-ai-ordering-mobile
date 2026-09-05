@@ -20,6 +20,7 @@ import { locMonTheoTen } from "./kitchenMenuFilter";
 import { getKitchenDelay, setKitchenDelay } from "../../services/kitchenDelayService";
 import type { KitchenDelay } from "../../services/kitchenDelayService";
 import { moTaTreBep, sapHetHan } from "../../components/kitchen/kitchenDelayLabel";
+import { TRAN_PHUT, chiGiuChuSo, docSoPhut } from "../../components/kitchen/kitchenDelayInput";
 import { ChefHat, RefreshCw, Timer, UtensilsCrossed } from "lucide-react";
 import "../../components/operations/operations.css";
 
@@ -36,6 +37,8 @@ export function KitchenRealtimePage() {
   const [timMon, setTimMon] = useState("");
   const [treBep, setTreBep] = useState<KitchenDelay | null>(null);
   const [dangDoiTre, setDangDoiTre] = useState(false);
+  const [phutNhap, setPhutNhap] = useState("");
+  const [loiTre, setLoiTre] = useState("");
 
   // Filter orders relevant to kitchen
   const kitchenOrders = useMemo(
@@ -121,6 +124,25 @@ export function KitchenRealtimePage() {
     },
     [],
   );
+
+  /**
+   * Đọc ô rồi gửi đi.
+   *
+   * Luật đọc nằm ở `docSoPhut` — kiểm được mà không cần dựng màn hình. Ở đây chỉ nối ô với nó và
+   * quyết định chỗ hiện lỗi.
+   */
+  const apDungTre = useCallback(async () => {
+    const kq = docSoPhut(phutNhap);
+    if (!kq.hopLe) {
+      setLoiTre(kq.loi);
+      return;
+    }
+    setLoiTre("");
+    await doiTreBep(kq.phut);
+    // Xoá ô sau khi gửi: con số đang có hiện ở dòng trạng thái bên trái, nên giữ lại trong ô chỉ
+    // làm người trực bếp tưởng mình còn một thay đổi chưa gửi.
+    setPhutNhap("");
+  }, [doiTreBep, phutNhap]);
 
   useEffect(() => {
     Promise.all([loadOrders(), loadMenu(), loadTreBep()]).finally(() => setIsLoading(false));
@@ -222,29 +244,60 @@ export function KitchenRealtimePage() {
         <strong>{moTaTreBep(treBep)}</strong>
         {sapHetHan(treBep) ? <span>— sắp tự tắt, bấm lại để gia hạn</span> : null}
         <span style={{ flex: 1 }} />
-        {[10, 20, 30].map((phut) => (
-          <button
-            className={
-              treBep?.delayMinutes === phut
-                ? "ops-btn ops-btn--sm"
-                : "ops-btn ops-btn--ghost ops-btn--sm"
-            }
+        {/*
+          Ô NHẬP thay cho ba nút cố định +10 / +20 / +30.
+
+          Ba mức đó là phỏng đoán của người viết mã về việc bếp trễ bao nhiêu. Bếp thì biết con số
+          thật: trễ 7 phút mà chỉ bấm được 10 nghĩa là hoặc khai quá tay, hoặc thôi không khai —
+          và cả hai đều làm ước lượng sai theo cách không ai truy ra được.
+
+          Luật đọc số nằm ở `kitchenDelayInput` để kiểm được. Ở đây chỉ giữ ô và nút.
+        */}
+        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span>Cộng thêm</span>
+          <input
+            aria-label="Số phút trễ"
+            className="ops-form-input"
             disabled={dangDoiTre}
-            key={phut}
-            onClick={() => doiTreBep(phut)}
-            type="button"
-          >
-            +{phut} phút
-          </button>
-        ))}
+            inputMode="numeric"
+            max={TRAN_PHUT}
+            min={1}
+            onChange={(e) => {
+              setPhutNhap(chiGiuChuSo(e.target.value));
+              setLoiTre("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void apDungTre();
+            }}
+            placeholder={String(treBep?.delayMinutes || "")}
+            style={{ width: 72, textAlign: "right" }}
+            value={phutNhap}
+          />
+          <span>phút</span>
+        </label>
+        <button
+          className="ops-btn ops-btn--sm"
+          disabled={dangDoiTre}
+          onClick={() => void apDungTre()}
+          type="button"
+        >
+          Áp dụng
+        </button>
         <button
           className="ops-btn ops-btn--ghost ops-btn--sm"
           disabled={dangDoiTre || !treBep || treBep.delayMinutes === 0}
-          onClick={() => doiTreBep(0)}
+          onClick={() => {
+            setPhutNhap("");
+            setLoiTre("");
+            void doiTreBep(0);
+          }}
           type="button"
         >
           Tắt
         </button>
+        {/* Lỗi nằm NGAY CẠNH ô, không đẩy lên dải lỗi chung ở đầu trang: người trực bếp đang nhìn
+            vào ô mình vừa gõ, không nhìn lên đầu màn hình. */}
+        {loiTre ? <span style={{ color: "var(--color-danger)", width: "100%" }}>{loiTre}</span> : null}
       </div>
 
       {/* Stats */}

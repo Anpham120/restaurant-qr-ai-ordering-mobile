@@ -18,7 +18,9 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "vn.cmc.restaurantqr"
+      "package": "vn.cmc.restaurantqr",
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["android.permission.CAMERA"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,11 +29,21 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Ứng dụng dùng camera để quét mã QR trên bàn."
+          "cameraPermission": "Ứng dụng dùng camera để quét mã QR trên bàn.",
+          "recordAudioAndroid": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-google-signin/google-signin",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
-    "scheme": "viangoi"
+    "scheme": "viangoi",
+    "extra": {
+      "eas": {
+        "projectId": "cdb5956b-ac05-45ac-9065-ceeb8092d971"
+      }
+    },
+    "owner": "anpham120"
   }
 }

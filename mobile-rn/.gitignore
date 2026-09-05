@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Cấu hình Firebase của dự án cmcrestaurants. Không phải bí mật theo nghĩa mật khẩu — khoá trong
+# tệp này nằm sẵn trong mọi bản cài app — nhưng nó gắn app với MỘT dự án Firebase cụ thể. Đưa vào
+# kho mã nghĩa là ai fork về cũng dựng bản build trỏ vào dự án của quán, và mọi lượt xác minh OTP
+# của họ tính vào quota ở đây.
+google-services.json
+GoogleService-Info.plist

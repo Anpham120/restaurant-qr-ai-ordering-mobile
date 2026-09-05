@@ -16,7 +16,31 @@ describe('chuẩn hoá địa chỉ người dùng gõ', () => {
   });
 
   it('https được giữ, không ép về http', () => {
-    expect(chuanHoaDiaChi('https://quan.example.com', 8081)).toBe('https://quan.example.com:8081');
+    expect(chuanHoaDiaChi('https://quan.example.com', 8081)).toBe('https://quan.example.com:443');
+  });
+
+  it('https KHÔNG cổng thì là 443, không phải cổng LAN của app', () => {
+    // Bản đầu gán `congMacDinh` cho mọi scheme, nên hai cách gõ tự nhiên nhất đều cho ra một địa
+    // chỉ KHÔNG TỚI ĐƯỢC — máy chủ công khai chỉ mở 80 và 443, còn 8081 là cổng nội bộ container:
+    //
+    //   "api.cmcrestaurant.app"         -> http://api.cmcrestaurant.app:8081
+    //   "https://api.cmcrestaurant.app" -> https://api.cmcrestaurant.app:8081
+    //
+    // Người dùng chỉ thấy "không kết nối được máy chủ", không thấy con số do app tự thêm vào.
+    expect(chuanHoaDiaChi('https://api.cmcrestaurant.app', 8081)).toBe(
+      'https://api.cmcrestaurant.app:443',
+    );
+
+    // Và phần ảnh phải suy ra đúng miền giao diện, không phải :8080 trên miền API.
+    expect(suyRaDiaChiAnh(chuanHoaDiaChi('https://api.cmcrestaurant.app', 8081) as string)).toBe(
+      'https://order.cmcrestaurant.app',
+    );
+  });
+
+  it('http trong LAN vẫn dùng cổng mặc định của app', () => {
+    // Đối chứng: sửa trên KHÔNG được cướp mất lý do `congMacDinh` sinh ra — quán gõ IP LAN trần.
+    expect(chuanHoaDiaChi('192.168.1.5', 8081)).toBe('http://192.168.1.5:8081');
+    expect(chuanHoaDiaChi('http://192.168.1.5', 8081)).toBe('http://192.168.1.5:8081');
   });
 
   it('cắt dấu / thừa ở cuối', () => {
@@ -56,6 +80,30 @@ describe('suy ra địa chỉ ảnh', () => {
 
   it('giữ scheme https', () => {
     expect(suyRaDiaChiAnh('https://quan.example.com:8081')).toBe('https://quan.example.com:8080');
+  });
+
+  it('địa chỉ KHÔNG có cổng thì đổi api. thành order., KHÔNG gắn 8080', () => {
+    // LỖI CÓ THẬT. Bản triển khai đứng sau nginx chỉ mở 80/443; 8080 là cổng nội bộ của container.
+    // Gắn nó vào cho ra một địa chỉ không tới được, và app im lặng không tải được ảnh món nào.
+    //
+    // Đo trên máy chủ thật:
+    //   https://api.cmcrestaurant.app:8080/menu-images/…  -> không kết nối được
+    //   https://api.cmcrestaurant.app/menu-images/…       -> 401 (miền API)
+    //   https://order.cmcrestaurant.app/menu-images/…      -> 200 image/webp
+    expect(suyRaDiaChiAnh('https://api.cmcrestaurant.app/api')).toBe(
+      'https://order.cmcrestaurant.app',
+    );
+  });
+
+  it('miền staging dùng dấu gạch nối thay vì dấu chấm', () => {
+    // `api-staging.` chứ không phải `api.staging.` — quy ước tên miền của dự án.
+    expect(suyRaDiaChiAnh('https://api-staging.cmcrestaurant.app/api')).toBe(
+      'https://order-staging.cmcrestaurant.app',
+    );
+  });
+
+  it('không có tiền tố api thì giữ nguyên host', () => {
+    expect(suyRaDiaChiAnh('https://quan.example.com/api')).toBe('https://quan.example.com');
   });
 
   it('địa chỉ hỏng thì trả nguyên vào, không nổ', () => {

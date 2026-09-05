@@ -48,6 +48,6 @@ public class MenuQueryService {
 	static MenuItemResponse toResponse(MenuItemEntity item, String categoryName) {
 		return new MenuItemResponse(
 				item.getId(), item.getName(), item.getDescription(), item.getPrice(), item.getCategoryId(),
-				categoryName, item.getImageUrl(), item.isAvailable(), item.getTags());
+				categoryName, item.getImageUrl(), item.isAvailable(), item.getTags(), item.getPrepMinutes());
 	}
 }

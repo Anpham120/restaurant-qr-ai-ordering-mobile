@@ -13,7 +13,7 @@ server:
 
 spring:
   application:
-    name: restaurant-qr-ai-ordering-java
+    name: cmc-restaurant-api
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:restaurant_qr}
     username: ${POSTGRES_USER:restaurant_user}
@@ -34,33 +34,50 @@ payments:
     account-number: ${PAYMENTS_VIETQR_ACCOUNTNUMBER:}
     account-name: ${PAYMENTS_VIETQR_ACCOUNTNAME:}
     template: ${PAYMENTS_VIETQR_TEMPLATE:compact2}
-  casso:
-    # No default either: an unset token makes the webhook reject every call, which is the safe
-    # failure mode — accepting unauthenticated payloads would mark orders paid for free.
-    secure-token: ${PAYMENTS_CASSO_SECURETOKEN:}
+  sepay:
+    # Khoá webhook SePay, gửi kèm header "Authorization: Apikey ...".
+    # Để trống thì webhook TỪ CHỐI mọi lời gọi — thà không đối soát tự động còn hơn nhận một
+    # thân request giả và đánh dấu đơn đã trả tiền.
+    api-key: ${PAYMENTS_SEPAY_APIKEY:}
 
 # Năng lực bếp — xem KitchenCapacityProperties. Số món bếp làm được CÙNG LÚC, dùng để đổi hàng
 # đợi thành thời gian chờ. Quán tự đo rồi chỉnh; mặc định là ước lượng cho bếp cỡ vừa.
 kitchen:
   parallel-dishes: ${KITCHEN_PARALLEL_DISHES:6}
+  parallel-bar-items: ${KITCHEN_PARALLEL_BAR_ITEMS:2}
 
 cors:
-  # Danh sách phân tách bằng dấu phẩy, khớp cách bản .NET nhận CORS_ALLOWED_ORIGINS.
-  # Mặc định "*" vì bản Java chỉ chạy cục bộ trong phạm vi môn học; điểm quan trọng là giờ
-  # deployment có thể siết lại mà không phải build lại image.
+  # Danh sách phân tách bằng dấu phẩy. Mặc định "*" cho máy cá nhân; bản triển khai thật siết
+  # lại bằng biến môi trường, không phải bằng cách dựng lại ảnh.
   allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
-chat:
-  ai:
-    # Same env var names the .NET backend and docker-compose already use, so both backends can point
-    # at one running Python service instead of two sets of settings to keep in sync.
-    service-url: ${AI_SERVICE_URL:}
-    internal-token: ${AI_INTERNAL_TOKEN:}
-    timeout-seconds: ${BACKEND_AI_TIMEOUT_SECONDS:12}
+firebase:
+  # Xác minh số điện thoại lúc đăng ký (OTP). KHÔNG có mặc định: chưa cấu hình thì
+  # FirebasePhoneClaimsRule từ chối mọi lời gọi, không nhận mọi lời gọi.
+  api-key: ${FIREBASE_API_KEY:}
+  project-id: ${FIREBASE_PROJECT_ID:}
+
+google:
+  # KHÔNG có mặc định. Chưa cấu hình thì GoogleClaimsRule từ chối mọi lời gọi — một triển khai
+  # quên cấu hình phải từ chối tất cả, không phải nhận tất cả. Cùng luật với khoá webhook SePay.
+  client-id: ${GOOGLE_CLIENT_ID:}
 
 jwt:
+  # ĐỪNG đổi hai giá trị mặc định này cho "hợp tên dự án mới". Chúng là định danh TRÊN ĐƯỜNG
+  # TRUYỀN, không phải nhãn hiển thị: `JwtService` gọi `requireIssuer(...)` lúc đọc token, nên đổi
+  # chuỗi là làm mọi token đang lưu hành hết hiệu lực — toàn bộ người đang đăng nhập bị đá ra.
+  # Cùng lý do với `PURPOSE` trong `TableSessionCapability`.
   issuer: ${JWT_ISSUER:RestaurantQrAiOrdering}
   audience: ${JWT_AUDIENCE:RestaurantQrAiOrdering.Client}
   # Dev-only default so the app boots without extra setup; production MUST override via env.
   signing-key: ${JWT_SIGNING_KEY:dev-only-signing-key-change-me-before-any-real-deploy}
   access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:60}
+
+# Tài khoản quản trị đầu tiên của một bản triển khai mới. Bỏ trống = không tạo gì.
+#
+# CỐ Ý không có mặc định cho email và mật khẩu: một cặp đặt sẵn trong mã nghĩa là mọi máy chủ chưa
+# cấu hình đều có chung một tài khoản quản trị mà ai đọc mã nguồn cũng biết mật khẩu.
+admin-bootstrap:
+  email: ${ADMIN_BOOTSTRAP_EMAIL:}
+  password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  full-name: ${ADMIN_BOOTSTRAP_FULL_NAME:}

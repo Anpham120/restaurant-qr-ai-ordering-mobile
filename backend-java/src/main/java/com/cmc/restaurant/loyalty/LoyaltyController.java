@@ -1,11 +1,15 @@
 package com.cmc.restaurant.loyalty;
 
 import com.cmc.restaurant.auth.AuthenticatedPrincipal;
+import com.cmc.restaurant.auth.PhoneTokenVerifier;
 import com.cmc.restaurant.shared.ApiException;
 import com.cmc.restaurant.shared.RequestIdempotency;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.OffsetDateTime;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,8 +24,11 @@ public class LoyaltyController {
 
 	private final LoyaltyService loyaltyService;
 	private final MyLoyaltyService myLoyaltyService;
+	private final PhoneTokenVerifier phoneVerifier;
 
-	public LoyaltyController(LoyaltyService loyaltyService, MyLoyaltyService myLoyaltyService) {
+	public LoyaltyController(LoyaltyService loyaltyService, MyLoyaltyService myLoyaltyService,
+			PhoneTokenVerifier phoneVerifier) {
+		this.phoneVerifier = phoneVerifier;
 		this.loyaltyService = loyaltyService;
 		this.myLoyaltyService = myLoyaltyService;
 	}
@@ -40,13 +47,27 @@ public class LoyaltyController {
 		return myLoyaltyService.me(principal.userId());
 	}
 
-	/** Nối số điện thoại vào tài khoản — chỉ được khi số đó chưa có hồ sơ tích điểm. */
+	/**
+	 * Khách TỰ nối số của mình vào tài khoản, xác minh bằng OTP.
+	 *
+	 * <p>Xác minh ngay tại đây rồi mới đưa xuống dịch vụ, giống {@code /api/auth/register}: dịch vụ
+	 * chỉ làm việc với số ĐÃ chứng minh, và kiểm được mà không cần gọi ra Firebase.
+	 *
+	 * <p>Đường nối tại quầy đã bị gỡ. Nó tồn tại vì bản trước nhận số TRẦN nên phải từ chối số đã
+	 * có hồ sơ điểm, và nhân viên quầy là đường vòng duy nhất. Nhưng chính mã của nó thừa nhận "mã
+	 * chỉ chứng minh khách sở hữu TÀI KHOẢN, không nói gì về SỐ" — yếu hơn hẳn OTP, mà OTP thì hệ
+	 * thống đã có.
+	 */
 	@PostMapping("/api/loyalty/me/phone")
 	@PreAuthorize("hasRole('Customer')")
 	public LoyaltyDtos.MyLoyaltyResponse linkPhone(
 			@AuthenticationPrincipal AuthenticatedPrincipal principal,
 			@RequestBody(required = false) LoyaltyDtos.LinkPhoneRequest request) {
-		return myLoyaltyService.linkPhone(principal.userId(), request == null ? null : request.phone());
+		if (request == null || request.phoneIdToken() == null || request.phoneIdToken().isBlank()) {
+			throw ApiException.badRequest("PHONE_TOKEN_REQUIRED", "Thiếu token xác minh số điện thoại.");
+		}
+		String soDaXacMinh = phoneVerifier.xacMinh(request.phoneIdToken());
+		return myLoyaltyService.linkPhone(principal.userId(), soDaXacMinh);
 	}
 
 	/**
@@ -72,7 +93,56 @@ public class LoyaltyController {
 		if (request == null || request.rewardId() == null || request.rewardId().isBlank()) {
 			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
 		}
-		return myLoyaltyService.redeem(principal.userId(), request.rewardId().trim(), key);
+		return myLoyaltyService.redeem(
+				principal.userId(), request.rewardId().trim(), request.orderCode(), key);
+	}
+
+	/**
+	 * Quầy đánh dấu đã phát phiếu.
+	 *
+	 * <p>Cùng nhóm quyền với {@code /lookup}: ai tra được điểm của khách thì cũng là người đứng
+	 * quầy phát món. Khách KHÔNG được tự thu phiếu của mình — đó là lý do đường này nằm ngoài
+	 * {@code /api/loyalty/me}.
+	 */
+	@PostMapping("/api/loyalty/redemptions/{redemptionId}/honour")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
+	public LoyaltyDtos.VoucherResponse thuPhieu(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@PathVariable String redemptionId) {
+		return loyaltyService.thuPhieu(redemptionId, principal.userId(), OffsetDateTime.now());
+	}
+
+	/**
+	 * Quầy đổi thưởng HỘ khách chỉ dùng web.
+	 *
+	 * <p>Khách quét QR dùng web không đăng nhập, nên hệ thống không biết họ là ai và họ không tự
+	 * đổi được. Nhưng điểm của họ vẫn tích — màn thanh toán bắt điền số điện thoại. Trước bản này
+	 * KHÔNG có đường nào cho quầy tạo một lần đổi, nghĩa là cả nhóm khách đó kiếm được điểm mà
+	 * không bao giờ tiêu được.
+	 *
+	 * <p>BẮT BUỘC {@code Idempotency-Key}, cùng lý do với đường của app: bấm hai lần lúc mạng chập
+	 * chờn ở đây tiêu điểm THẬT của khách. Ở quầy còn nặng hơn — người bấm không phải người mất
+	 * điểm.
+	 */
+	@PostMapping("/api/loyalty/counter/redeem")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
+	public LoyaltyDtos.CounterRedeemResponse doiHoTaiQuay(
+			@AuthenticationPrincipal AuthenticatedPrincipal principal,
+			@RequestBody(required = false) LoyaltyDtos.CounterRedeemRequest request,
+			HttpServletRequest httpRequest) {
+		String key = RequestIdempotency.readValid(httpRequest);
+		if (key == null) {
+			boolean coHeader = httpRequest.getHeader(RequestIdempotency.HEADER_NAME) != null;
+			throw ApiException.badRequest(
+					coHeader ? "IDEMPOTENCY_KEY_INVALID" : "IDEMPOTENCY_KEY_REQUIRED",
+					"A valid Idempotency-Key header is required.");
+		}
+		if (request == null || request.rewardId() == null || request.rewardId().isBlank()) {
+			throw ApiException.badRequest("LOYALTY_REWARD_REQUIRED", "rewardId is required.");
+		}
+		return myLoyaltyService.doiHoTaiQuay(
+				request.phone(), request.rewardId().trim(), request.orderCode(),
+				principal.userId(), key);
 	}
 
 	@GetMapping("/api/loyalty/lookup")

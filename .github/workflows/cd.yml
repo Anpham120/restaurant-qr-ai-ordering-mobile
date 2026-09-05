@@ -1,0 +1,164 @@
+name: cd
+
+# Triển khai lên máy chủ. CHỈ chạy khi bấm tay.
+#
+# Vì sao không tự chạy theo push: máy chủ đích là tài nguyên dùng chung, và một lần đẩy nhầm nhánh
+# là một lần thay đổi thứ người khác đang dùng. Bấm tay bắt người triển khai phải chọn môi trường
+# một cách có ý thức, và `environment:` ở dưới còn bắt phải có người duyệt.
+on:
+  workflow_dispatch:
+    inputs:
+      moi_truong:
+        description: Môi trường triển khai
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+
+# Không cho hai lần triển khai cùng môi trường chạy chồng nhau. KHÔNG huỷ lần đang chạy
+# (`cancel-in-progress: false`): cắt ngang giữa lúc chạy migration để lại cơ sở dữ liệu ở trạng
+# thái nửa vời, thứ mà một lần triển khai lại KHÔNG sửa được.
+concurrency:
+  group: cd-${{ inputs.moi_truong }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  kiem-truoc:
+    name: Kiểm lại trước khi đụng máy chủ
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Chạy lại phép kiểm thay vì tin vào lần chạy CI của commit này. Nhánh có thể đã đổi sau khi
+      # CI xanh, và thứ được triển khai là mã ĐANG có ở đây chứ không phải mã lúc CI chạy.
+      - name: Phép kiểm backend
+        working-directory: backend-java
+        run: ./gradlew --no-daemon test integrationTest
+
+      # Frontend ĐƯỢC DỰNG LẠI VÀ TRIỂN KHAI trong chính lượt này, nhưng trước đây không phép kiểm
+      # nào chạm tới nó — bundle web đi thẳng lên máy chủ. Đúng lớp lỗi đã gặp sáu lần: hỏng ở tầng
+      # trình duyệt trong khi backend vẫn xanh.
+      #
+      # `build` nằm trong đây chứ không chỉ `test`: nó chạy `tsc --noEmit` cho từng app rồi mới
+      # `vite build`, nên một lỗi kiểu chỉ có ở app con cũng chặn được trước khi đụng máy chủ.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cài phụ thuộc frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Phép kiểm frontend
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend dựng được
+        working-directory: frontend
+        run: npm run build
+
+      # Giá trị GIẢ, chỉ để đọc được tệp. Compose khai ba biến `:?bắt buộc` nên không có chúng
+      # thì `config` dừng ở biến đầu tiên và không kiểm được phần còn lại của tệp.
+      #
+      # KHÔNG dùng secret thật ở đây: bước này chỉ hỏi "tệp có đọc được không", và mượn bí mật cho
+      # một câu hỏi không cần tới chúng là mở rộng chỗ chúng đi qua mà không được gì.
+      - name: Compose đọc được
+        env:
+          POSTGRES_PASSWORD: kiem-cu-phap
+          JWT_SIGNING_KEY: kiem-cu-phap
+        run: docker compose -f deploy/docker-compose.java.yml config >/dev/null
+
+  trien-khai:
+    name: Triển khai ${{ inputs.moi_truong }}
+    needs: kiem-truoc
+    runs-on: ubuntu-latest
+    # Bắt buộc có người duyệt, và giữ bí mật riêng cho từng môi trường. Đặt "required reviewers"
+    # cho environment `production` trong Settings → Environments.
+    environment: ${{ inputs.moi_truong }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chạy deploy-vps.sh
+        env:
+          DEPLOY_ENV: ${{ inputs.moi_truong }}
+
+          # Máy chủ đích. KHÔNG ghi cứng địa chỉ ở đây: mỗi environment trỏ tới máy của mình, và
+          # một địa chỉ nằm trong tệp là một địa chỉ ai sửa cũng được mà không ai duyệt.
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+
+          COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT }}
+          BACKEND_PORT: ${{ vars.BACKEND_PORT }}
+          POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+          BACKEND_JAVA_BIND: ${{ vars.BACKEND_JAVA_BIND }}
+
+          POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+          FRONTEND_SERVER_NAMES: ${{ vars.FRONTEND_SERVER_NAMES }}
+          API_SERVER_NAME: ${{ vars.API_SERVER_NAME }}
+          PUBLIC_API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+
+          # Hai địa chỉ đi vào BUNDLE lúc build. Bỏ sót thì compose rơi về http://127.0.0.1:8080,
+          # và link QR bàn trong cổng quản trị trỏ về máy của người đang xem — trang mở ra đứng im
+          # mà không báo lỗi gì.
+          PUBLIC_ORDERING_BASE_URL: ${{ vars.PUBLIC_ORDERING_BASE_URL }}
+          PUBLIC_ORDER_HUB_URL: ${{ vars.PUBLIC_ORDER_HUB_URL }}
+          PUBLIC_MARKETING_BASE_URL: ${{ vars.PUBLIC_MARKETING_BASE_URL }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+
+          # Thư mục chứng chỉ Let's Encrypt trên máy chủ. Bỏ trống = HTTP thuần.
+          #
+          # Không truyền biến này thì mỗi lượt triển khai ghi đè cấu hình nginx về HTTP, kể cả khi
+          # chứng chỉ vẫn nằm nguyên trên máy. Hỏng khó thấy: trang vẫn lên trên HTTP, nhưng bundle
+          # đã dựng để gọi API qua HTTPS nên trình duyệt chặn mọi lời gọi.
+          TLS_CERT_DIR: ${{ vars.TLS_CERT_DIR }}
+
+          JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+
+          # Tài khoản quản trị đầu tiên. Bỏ trống thì không tạo gì — chỉ lần triển khai đầu lên
+          # một cơ sở dữ liệu trống mới cần. Không migration nào chèn người dùng, và mọi đường tạo
+          # tài khoản nhân sự đều nằm sau lớp xác thực vai trò Admin, nên thiếu bước này là bản
+          # triển khai tự khoá mình ra ngoài: năm cổng web lên xanh, không ai đăng nhập được.
+          ADMIN_BOOTSTRAP_EMAIL: ${{ vars.ADMIN_BOOTSTRAP_EMAIL }}
+          ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.ADMIN_BOOTSTRAP_PASSWORD }}
+          ADMIN_BOOTSTRAP_FULL_NAME: ${{ vars.ADMIN_BOOTSTRAP_FULL_NAME }}
+
+          PAYMENTS_VIETQR_BANKID: ${{ vars.PAYMENTS_VIETQR_BANKID }}
+          PAYMENTS_VIETQR_ACCOUNTNUMBER: ${{ vars.PAYMENTS_VIETQR_ACCOUNTNUMBER }}
+          PAYMENTS_VIETQR_ACCOUNTNAME: ${{ vars.PAYMENTS_VIETQR_ACCOUNTNAME }}
+          PAYMENTS_SEPAY_APIKEY: ${{ secrets.PAYMENTS_SEPAY_APIKEY }}
+
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+
+        run: |
+          chmod +x deploy/scripts/deploy-vps.sh
+          deploy/scripts/deploy-vps.sh
+
+      - name: Kiểm tra máy chủ còn sống
+        env:
+          API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+        run: |
+          # Triển khai xong mà không hỏi lại máy chủ thì "xanh" chỉ nghĩa là script chạy hết, không
+          # nghĩa là hệ thống đang phục vụ được.
+          curl -fsS --retry 5 --retry-delay 5 "${API_BASE_URL%/api}/api/health"

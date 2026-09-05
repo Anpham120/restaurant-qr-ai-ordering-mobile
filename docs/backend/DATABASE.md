@@ -12,10 +12,6 @@ Hệ thống sử dụng **PostgreSQL 16** làm cơ sở dữ liệu chính. Tru
 JPA / Hibernate**; lược đồ do **Flyway** quản lý bằng các tệp SQL đánh số trong
 `backend-java/src/main/resources/db/migration/`.
 
-> Tài liệu này trước đây mô tả backend .NET với Entity Framework Core. Backend đã chuyển sang Java
-> ở #59 và bản .NET bị xoá; phần hướng dẫn bên dưới đã viết lại cho Flyway. Ghi lại vì các lệnh
-> `dotnet ef` cũ trỏ vào một thư mục KHÔNG CÒN TỒN TẠI — ai làm theo sẽ hỏng ngay bước đầu.
-
 ## Prerequisites
 
 - JDK 21 (hoặc dùng `./gradlew` với toolchain tự tải)
@@ -61,7 +57,8 @@ không sửa lại được bằng cách viết đè.
 
 ### 4. Seed data
 
-Seed data được chạy tự động qua EF Core migrations. Các giá trị seed phải ổn định để khi scaffold migration mới không sinh `UpdateData` giả chỉ vì timestamp hoặc password salt thay đổi. Gồm:
+Dữ liệu mẫu do Flyway chạy cùng các migration. Giá trị mẫu phải ổn định — một giá trị đổi theo
+thời điểm chạy sẽ làm lần sinh migration sau khác lần trước mà không ai đổi gì. Gồm:
 
 - **6 categories**: Khai vi, Mon chinh, Pho va bun, Hai san, Do uong, Trang mieng
 - **12 menu items**: Com ga, Com suon nuong, Pho bo, Bun bo Hue, Goi cuon, Cha gio, Tom rang muoi, Lau Thai, Tra dao, Ca phe sua da, Che khuc bach, Banh flan
@@ -127,16 +124,22 @@ Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME};Username=${DB_USERNAME
 | `orders` | Đơn hàng |
 | `order_items` | Chi tiết món trong đơn hàng |
 | `payments` | Thông tin thanh toán |
-| `chat_sessions` | Phiên chat AI |
-| `chat_messages` | Tin nhắn trong phiên chat |
-| `knowledge_entries` | Tri thức cho AI chatbot |
+| `table_sessions` | Phiên khách ngồi tại một bàn |
+| `table_invoices` | Hoá đơn chốt theo bàn |
+| `cart_items` | Giỏ dùng chung của một phiên bàn |
+| `loyalty_members` · `loyalty_rewards` | Hội viên và ưu đãi đổi điểm |
+| `promotions` | Khuyến mãi áp theo đơn |
+| `counter_shifts` · `counter_shift_transactions` | Ca quầy và thu chi trong ca |
+
+Ba bảng `chat_sessions`, `chat_messages` và `knowledge_entries` có trong lược đồ nền (V1) nhưng
+đã bị **V28 xoá**. Đừng khôi phục chúng: không mã nào còn đọc.
 
 ### Key Conventions
 
 - Tất cả tables sử dụng `snake_case` naming
 - Tất cả columns sử dụng `snake_case` naming
 - Enums được lưu dưới dạng `string` trong database
-- Array types (tags, embedding) sử dụng PostgreSQL native types (`text[]`, `jsonb`)
+- Kiểu mảng (`tags`) dùng kiểu gốc của PostgreSQL (`text[]`)
 
 ### Indexes
 

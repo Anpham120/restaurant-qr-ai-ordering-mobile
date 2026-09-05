@@ -2,6 +2,10 @@ package com.cmc.restaurant.orders.application;
 
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemRepository;
 import com.cmc.restaurant.orders.domain.OrderItemStatus;
+import com.cmc.restaurant.orders.domain.TramChuanBi;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -96,16 +100,32 @@ public class OrderItemEstimationService {
 	 * một trạng thái bếp. Hỏi lại giữa chừng thì hai món cạnh nhau có thể dựa trên hai tải khác
 	 * nhau, và không có gì nói cho người đọc biết vì sao.
 	 *
-	 * @param tongViecTrongBep tổng prep_minutes của mọi món bếp đang làm
+	 * @param viecTheoTram tổng prep_minutes đang chờ, tách theo TRẠM
 	 * @param treBepKhai       số phút bếp tự khai thêm (#142)
 	 */
-	public record TaiBep(long tongViecTrongBep, int treBepKhai) {
+	public record TaiBep(Map<TramChuanBi, Long> viecTheoTram, int treBepKhai) {
+
+		public long viecCua(TramChuanBi tram) {
+			return viecTheoTram.getOrDefault(tram, 0L);
+		}
 	}
 
-	/** Chụp trạng thái bếp. Gọi một lần cho mỗi lượt trả, không phải cho mỗi món. */
+	/** Chụp trạng thái các trạm. Gọi một lần cho mỗi lượt trả, không phải cho mỗi món. */
 	public TaiBep chupTaiBep() {
-		return new TaiBep(
-				orderItemRepository.sumPrepMinutesInKitchenQueue(), kitchenDelay.phutTreHienTai());
+		Map<TramChuanBi, Long> theoTram = new EnumMap<>(TramChuanBi.class);
+		for (OrderItemRepository.DongHangDoi d : orderItemRepository.hangDoiTheoMon()) {
+			TramChuanBi tram = TramChuanBi.cua(tachNhan(d.getNhan()), d.getMaDanhMuc());
+			theoTram.merge(tram, d.getTongPhut(), Long::sum);
+		}
+		return new TaiBep(theoTram, kitchenDelay.phutTreHienTai());
+	}
+
+	/** Chuỗi nhãn nối bằng dấu phẩy, dạng cơ sở dữ liệu trả về. Rỗng thì không có nhãn nào. */
+	private static List<String> tachNhan(String noiBangPhay) {
+		if (noiBangPhay == null || noiBangPhay.isBlank()) {
+			return List.of();
+		}
+		return List.of(noiBangPhay.split(","));
 	}
 
 	public Optional<Estimate> estimate(String menuItemId, TaiBep tai) {
@@ -118,19 +138,36 @@ public class OrderItemEstimationService {
 			return Optional.empty();
 		}
 
-		// TRỪ chính món này ra khỏi tải bếp: nó cũng đang ở trạng thái Pending nên nằm trong tổng,
-		// nhưng khách không phải chờ chính món mình nấu xong rồi mới bắt đầu nấu nó.
+		TramChuanBi tram = orderItemRepository.timNhanDanhMuc(menuItemId)
+				.map(n -> TramChuanBi.cua(tachNhan(n.getNhan()), n.getMaDanhMuc()))
+				.orElse(TramChuanBi.BEP);
+
+		// Món LẤY SẴN không xếp hàng. Mở tủ lạnh lấy sáu chai bia là mở tủ MỘT lần, không phải sáu
+		// lần nối tiếp — mô hình hàng đợi không mô tả được việc đó, nên đừng áp nó vào.
 		//
-		// Đo trước khi sửa: bếp trống, một món khai 15 phút, ước lượng ra 13–22 phút. Phần thừa
-		// đúng bằng 15/6 = 2,5 phút của chính nó. Sai nhỏ lúc vắng, nhưng nó là loại sai khiến
-		// người đọc mất tin vào cả công thức.
-		double viecXepTruoc = Math.max(0, tai.tongViecTrongBep() - prep);
-		double cho = viecXepTruoc / capacity.parallelDishes();
+		// Đo trên thực đơn thật, ca tối 31 món: một hàng đợi cho cả quán báo ly bia 30–49 phút; tách
+		// hai trạm vẫn còn 14–24 phút; chỉ khi bỏ hẳn hàng đợi cho lớp này mới ra 2–4 phút.
+		double cho;
+		if (tram.coHangDoi()) {
+			// TRỪ chính món này ra khỏi tải trạm: nó cũng đang Pending nên nằm trong tổng, nhưng
+			// khách không phải chờ chính món mình nấu xong rồi mới bắt đầu nấu nó.
+			double viecXepTruoc = Math.max(0, tai.viecCua(tram) - prep);
+			cho = viecXepTruoc / soLamSongSong(tram);
+		} else {
+			cho = 0;
+		}
 
 		// Phần bếp tự khai (#142). Hàng đợi ở trên chỉ đo được thứ đã đi qua ứng dụng; đầu bếp
 		// nghỉ ốm, hỏng lò, đoàn đặt trước đang làm ở trong thì không nằm trong bất kỳ đơn nào.
 		// Đây là chỗ duy nhất con người nói ra được phần máy không thấy.
-		int treBepKhai = tai.treBepKhai();
+		// CHỈ áp cho món của BẾP. Nút này nằm ở màn bếp và người bấm là người đứng bếp — đầu bếp
+		// nghỉ ốm, hỏng lò, đoàn đặt trước đang làm ở trong. Không việc nào trong số đó làm chậm ly
+		// bia hay ly cà phê.
+		//
+		// Suýt bỏ sót: bản đầu của chính lượt tách trạm này vẫn cộng độ trễ cho mọi món, nên bếp bấm
+		// "+20 phút" là ly bia đọc ra 21–24 phút KÈM câu "bếp đang đông" — đúng cái vô lý mà cả
+		// việc tách trạm sinh ra để dẹp.
+		int treBepKhai = tram == TramChuanBi.BEP ? tai.treBepKhai() : 0;
 
 		// Biên độ ±25% CHỈ áp lên phần máy tự tính, rồi mới cộng phần bếp khai vào cả hai đầu.
 		//
@@ -150,6 +187,16 @@ public class OrderItemEstimationService {
 		// sẽ kết luận ứng dụng hỏng chứ không kết luận quán đang đông.
 		boolean bepDong = treBepKhai > 0 || cho > prep * NGUONG_BEP_DONG;
 		return Optional.of(new Estimate(low, high, bepDong));
+	}
+
+	/**
+	 * Số món một trạm làm được cùng lúc.
+	 *
+	 * <p>Hai con số này là CẤU HÌNH, không phải hằng số của nghiệp vụ — quán tự đo rồi chỉnh. Quầy
+	 * nhỏ hơn bếp nhiều: một người pha chế làm được vài ly cùng lúc, không phải sáu.
+	 */
+	private int soLamSongSong(TramChuanBi tram) {
+		return tram == TramChuanBi.QUAY ? capacity.parallelBarItems() : capacity.parallelDishes();
 	}
 
 	/** Tải bếp lúc này, để màn hình bếp và báo cáo dùng chung một con số với ước lượng. */

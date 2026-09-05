@@ -13,6 +13,11 @@ import { updateOrderItemStatus, updateOrderStatus } from "../../services/orderSe
 import {
   canDropKitchenOrder,
   getItemTapAdvanceStatus,
+  itemActionLabel,
+  labelKitchenColumn,
+  labelKitchenItemStatus,
+  labelKitchenOrderStatus,
+  moTaChipMon,
   getKitchenBoardAdvancePlan,
   getKitchenBoardColumn,
   getKitchenPrimaryAction,
@@ -37,13 +42,6 @@ function formatVnd(v: number) {
 
 function statusBadgeClass(status: string): string {
   return `ops-badge ops-badge--${status.toLowerCase()}`;
-}
-
-function itemActionLabel(current: OrderItemStatus): string {
-  const next = getItemTapAdvanceStatus(current);
-  if (next === "Preparing") return "Bắt đầu nấu";
-  if (next === "Ready") return "Xong món";
-  return "";
 }
 
 /* ---------- types ---------- */
@@ -177,25 +175,31 @@ function OrderCard({
         {order.items.map((item) => {
           if (item.status === "Cancelled") return null;
           const next = getItemTapAdvanceStatus(item.status);
-          const isDone = item.status === "Ready" || item.status === "Served";
+          // TÁCH Ready khỏi Served. Gộp hai cái làm một là lý do món xong rồi vẫn trông y hệt món
+          // đã đưa đi, và người trực bếp không biết còn phải bưng cái nào.
+          const daXong = item.status === "Ready";
+          const daDuaDi = item.status === "Served";
           const isItemPending = pendingItemId === item.orderItemId;
           return (
             <button
               key={item.orderItemId}
               type="button"
               className={
-                isDone
+                daDuaDi
                   ? "ops-card-item-chip ops-card-item-chip--done kitchen-item-chip"
-                  : item.status === "Preparing"
-                    ? "ops-card-item-chip ops-card-item-chip--active kitchen-item-chip"
-                    : "ops-card-item-chip kitchen-item-chip"
+                  : daXong
+                    ? "ops-card-item-chip ops-card-item-chip--ready kitchen-item-chip"
+                    : item.status === "Preparing"
+                      ? "ops-card-item-chip ops-card-item-chip--active kitchen-item-chip"
+                      : "ops-card-item-chip kitchen-item-chip"
               }
               disabled={!next || isPending || isItemPending}
               onClick={(event) => {
                 event.stopPropagation();
                 if (next) onItemTap(order, item.orderItemId, next);
               }}
-              title={next ? (next === "Preparing" ? "Chạm để bắt đầu nấu" : "Chạm để xong món") : undefined}
+              aria-label={moTaChipMon(item.quantity, item.name, item.status)}
+              title={moTaChipMon(item.quantity, item.name, item.status)}
             >
               {isItemPending ? "..." : `${item.quantity}× ${item.name}`}
             </button>
@@ -241,7 +245,7 @@ function OrderDetailModal({
           <div>
             <h2 id="kitchen-order-title">{order.orderCode}</h2>
             <div className="ops-card-meta" style={{ marginTop: 4 }}>
-              <span className={statusBadgeClass(order.status)}>{order.status}</span>
+              <span className={statusBadgeClass(order.status)}>{labelKitchenOrderStatus(order.status)}</span>
               {order.tableCode ? <span>Bàn {order.tableCode}</span> : null}
               <span>{formatVnd(order.totalAmount)}</span>
             </div>
@@ -258,7 +262,7 @@ function OrderDetailModal({
                   <div className="ops-item-info">
                     <div className="ops-item-name">
                       <span>{item.quantity}× {item.name}</span>
-                      <span className={statusBadgeClass(item.status)}>{item.status}</span>
+                      <span className={statusBadgeClass(item.status)}>{labelKitchenItemStatus(item.status)}</span>
                     </div>
                     <span className="ops-item-qty">{formatVnd(item.lineTotal)}</span>
                   </div>
@@ -550,7 +554,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
 
       <div className="ops-board ops-board--kitchen">
         <KitchenColumn
-          title="Đơn mới"
+          title={labelKitchenColumn("confirmed")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="confirmed"
           orders={confirmed}
@@ -563,7 +567,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "confirmed"}
         />
         <KitchenColumn
-          title="Đang nấu"
+          title={labelKitchenColumn("preparing")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="preparing"
           orders={preparing}
@@ -576,7 +580,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "preparing"}
         />
         <KitchenColumn
-          title="Sẵn sàng"
+          title={labelKitchenColumn("ready")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="ready"
           orders={ready}
@@ -589,7 +593,7 @@ export function KitchenBoard({ orders, onRefresh }: KitchenBoardProps) {
           isDropTarget={dropTargetColumn === "ready"}
         />
         <KitchenColumn
-          title="Đã phục vụ"
+          title={labelKitchenColumn("served")}
           icon={<Circle aria-hidden="true" fill="currentColor" size={12} />}
           column="served"
           orders={served}

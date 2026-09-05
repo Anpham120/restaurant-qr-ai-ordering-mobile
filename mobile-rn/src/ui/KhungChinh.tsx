@@ -1,10 +1,10 @@
 import { type ReactElement, useMemo, useState } from 'react';
+import { type GuiMaOtp } from '../core/auth/phoneOtp';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { type AuthSession } from '../core/auth/authSession';
 import { type CartApi } from '../core/cart/cartApi';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
-import { type ChatApi } from '../core/chat/chatApi';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
 import { type MenuApi } from '../core/menu/menuApi';
 import { type CreateOrderApi } from '../core/orders/createOrderApi';
@@ -17,13 +17,18 @@ import { type PromotionApi } from '../core/promotions/promotionApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { AccountTab } from './AccountTab';
 import { CartScreen } from './CartScreen';
-import { ChatScreen } from './ChatScreen';
 import { MenuScreen } from './MenuScreen';
 import { OrdersScreen } from './OrdersScreen';
 import { PromotionsScreen } from './PromotionsScreen';
 import { MauQuan } from './theme';
 
 export interface KhungChinhProps {
+  /**
+   * Gửi mã OTP, chuyển thẳng xuống chỗ liên kết số ở tab Tài khoản.
+   *
+   * `undefined` khi thư viện native vắng mặt (Expo Go).
+   */
+  guiMaOtp: GuiMaOtp | undefined;
   cauHinh: CauHinhMayChu;
   phienBan: TableSession;
   dangNhap: AuthSession | null;
@@ -32,7 +37,6 @@ export interface KhungChinhProps {
   cartApi: CartApi;
   createOrderApi: CreateOrderApi;
   orderApi: OrderApi;
-  chatApi: ChatApi;
   promotionApi: PromotionApi;
   invoiceApi: InvoiceApi;
   historyApi: OrderHistoryApi;
@@ -44,6 +48,7 @@ export interface KhungChinhProps {
   onDangNhap: () => void;
   onDangXuat: () => void;
   onBaoTin?: ((tin: string) => void) | undefined;
+  onNoiSoXong?: ((soMoi: string | null) => void) | undefined;
 }
 
 /** Một tab: nhãn và màn hình đi liền nhau trong CÙNG một phần tử. */
@@ -64,7 +69,7 @@ export interface Tab {
  *
  *     bấm "Đơn"        → hiện Giỏ hàng
  *     bấm "Khuyến mãi" → hiện Đơn bàn T01
- *     bấm "Tài khoản"  → hiện Trợ lý
+ *     bấm "Tài khoản"  → hiện Khuyến mãi
  *
  * Nó lên tới máy thật và chỉ bị phát hiện bằng mắt qua ảnh chụp. 198 ca kiểm lúc đó đều xanh, vì
  * không ca nào đếm hai danh sách.
@@ -80,7 +85,7 @@ export interface Tab {
 export function KhungChinh(p: KhungChinhProps) {
   const [khoaTab, setKhoaTab] = useState('thucDon');
 
-  /** Thêm món vào giỏ, dùng chung cho trợ lý và cho "đặt lại đơn cũ". */
+  /** Thêm món vào giỏ, dùng chung cho thực đơn và cho "đặt lại đơn cũ". */
   const themVaoGio = useMemo(
     () => (menuItemId: string, quantity: number) =>
       p.cartApi
@@ -131,20 +136,6 @@ export function KhungChinh(p: KhungChinhProps) {
         ),
       },
       {
-        khoa: 'troLy',
-        nhan: 'Trợ lý',
-        man: () => (
-          <ChatScreen
-            api={p.chatApi}
-            onBaoTin={p.onBaoTin}
-            // Trợ lý KHÔNG tự thêm gì. Nó chỉ gọi lại hàm này khi khách bấm "Thêm", và hàm này đi
-            // qua đúng API giỏ hàng như khi khách tự chọn món.
-            onThemVaoGio={themVaoGio}
-            phienBan={p.phienBan}
-          />
-        ),
-      },
-      {
         khoa: 'khuyenMai',
         nhan: 'Khuyến mãi',
         man: () => <PromotionsScreen api={p.promotionApi} />,
@@ -154,6 +145,10 @@ export function KhungChinh(p: KhungChinhProps) {
         nhan: 'Tài khoản',
         man: () => (
           <AccountTab
+            guiMaOtp={p.guiMaOtp}
+            onNoiSoXong={p.onNoiSoXong}
+            promotionApi={p.promotionApi}
+            orderApi={p.orderApi}
             cauHinh={p.cauHinh}
             dangNhap={p.dangNhap}
             favouriteApi={p.favouriteApi}

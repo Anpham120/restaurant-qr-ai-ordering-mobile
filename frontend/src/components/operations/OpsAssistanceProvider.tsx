@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { daDieuPhoi, themYeuCau } from "./opsAssistanceQueue";
 
 export type OpsAssistanceAlert = {
   id: string;
@@ -11,29 +12,31 @@ export type OpsAssistanceAlert = {
 type OpsAssistanceContextValue = {
   recentAssistance: OpsAssistanceAlert[];
   recordAssistance: (alert: Omit<OpsAssistanceAlert, "id">) => void;
+  /** Quầy đã bấm bộ đàm cử người tới bàn — bỏ yêu cầu khỏi hàng chờ điều phối. */
+  daDieuPhoiYeuCau: (id: string) => void;
 };
 
 const OpsAssistanceContext = createContext<OpsAssistanceContextValue>({
   recentAssistance: [],
   recordAssistance: () => {},
+  daDieuPhoiYeuCau: () => {},
 });
-
-const MAX_ASSISTANCE_ITEMS = 5;
 
 export function OpsAssistanceProvider({ children }: { children: ReactNode }) {
   const [recentAssistance, setRecentAssistance] = useState<OpsAssistanceAlert[]>([]);
 
   const recordAssistance = useCallback((alert: Omit<OpsAssistanceAlert, "id">) => {
     const id = `${alert.tableCode}-${alert.requestedAt}`;
-    setRecentAssistance((current) => [
-      { ...alert, id },
-      ...current.filter((item) => item.id !== id),
-    ].slice(0, MAX_ASSISTANCE_ITEMS));
+    setRecentAssistance((current) => themYeuCau(current, { ...alert, id }));
+  }, []);
+
+  const daDieuPhoiYeuCau = useCallback((id: string) => {
+    setRecentAssistance((current) => daDieuPhoi(current, id));
   }, []);
 
   const value = useMemo(
-    () => ({ recentAssistance, recordAssistance }),
-    [recentAssistance, recordAssistance],
+    () => ({ recentAssistance, recordAssistance, daDieuPhoiYeuCau }),
+    [recentAssistance, recordAssistance, daDieuPhoiYeuCau],
   );
 
   return (

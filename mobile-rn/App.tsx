@@ -1,6 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
+// SafeAreaView của react-native là NO-OP trên Android: nó chỉ chừa lề trên iOS. Trên máy Android
+// thật, tiêu đề mọi màn hình bị thanh trạng thái đè lên — và jest render vào cây ảo nên không có
+// thanh nào để đè, phép kiểm nào cũng xanh. Bản của react-native-safe-area-context đọc lề thật từ
+// hệ điều hành ở cả hai nền tảng, và là thứ Expo khuyến nghị.
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { HttpAuthApi } from './src/core/auth/authApi';
 import { AuthRepository } from './src/core/auth/authRepository';
@@ -9,7 +14,7 @@ import { SecureTokenStore } from './src/core/auth/tokenStore';
 import { HttpCartApi } from './src/core/cart/cartApi';
 import { type CauHinhMayChu } from './src/core/cauHinh/cauHinh';
 import { CauHinhStore } from './src/core/cauHinh/cauHinhStore';
-import { HttpChatApi } from './src/core/chat/chatApi';
+import { dongBoTaiKhoan } from './src/core/loyalty/dongBoTaiKhoan';
 import { HttpLoyaltyApi } from './src/core/loyalty/loyaltyApi';
 import { HttpMenuApi } from './src/core/menu/menuApi';
 import { HttpCreateOrderApi } from './src/core/orders/createOrderApi';
@@ -24,7 +29,12 @@ import { HttpTableSessionApi } from './src/core/tables/tableSessionApi';
 import { TableSessionRepository } from './src/core/tables/tableSessionRepository';
 import { SecureTableSessionStore } from './src/core/tables/tableSessionStore';
 import { KhungChinh } from './src/ui/KhungChinh';
+import { layTokenGoogleThat } from './src/core/auth/googleSignIn';
+import { layGuiMaOtpThat } from './src/core/auth/phoneOtp';
+import { HoSoTaiKhoan } from './src/ui/HoSoTaiKhoan';
+import { DangKySoDienThoai } from './src/ui/DangKySoDienThoai';
 import { LoginScreen } from './src/ui/LoginScreen';
+import { ManCoNutVe } from './src/ui/ManCoNutVe';
 import { OpenTableScreen } from './src/ui/OpenTableScreen';
 import { ServerSettingsScreen } from './src/ui/ServerSettingsScreen';
 import { MauQuan, kieuChung } from './src/ui/theme';
@@ -35,7 +45,7 @@ const banStore = new SecureTableSessionStore();
 const orderTokenStore = new OrderTokenStore();
 
 /** Màn hình đang mở ở tầng ngoài cùng. */
-type ManNgoai = 'caiDat' | 'dangNhap' | null;
+type ManNgoai = 'caiDat' | 'dangNhap' | 'dangKy' | 'hoSo' | null;
 
 /**
  * Dựng lại TOÀN BỘ client theo địa chỉ hiện tại.
@@ -54,7 +64,6 @@ function dungClient(cauHinh: CauHinhMayChu) {
     cartApi: new HttpCartApi(api),
     createOrderApi: new HttpCreateOrderApi(api),
     orderApi: new HttpOrderApi(api),
-    chatApi: new HttpChatApi(api),
     promotionApi: new HttpPromotionApi(api),
     invoiceApi: new HttpInvoiceApi(api),
     historyApi: new HttpOrderHistoryApi(api),
@@ -63,7 +72,26 @@ function dungClient(cauHinh: CauHinhMayChu) {
   };
 }
 
+/**
+ * Tính MỘT lần lúc nạp module, không tính lại mỗi lần vẽ lại.
+ *
+ * Hàm này chạm vào require của thư viện native; gọi nó trong thân component nghĩa là mỗi lần vẽ
+ * lại đều dựng một hàm mới, và LoginScreen sẽ thấy prop đổi liên tục.
+ */
+const LAY_TOKEN_GOOGLE = layTokenGoogleThat();
+
+/** Cùng lý do như {@link LAY_TOKEN_GOOGLE}: chạm vào require của thư viện native, tính một lần. */
+const GUI_MA_OTP = layGuiMaOtpThat();
+
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <NoiDungApp />
+    </SafeAreaProvider>
+  );
+}
+
+function NoiDungApp() {
   const [cauHinh, setCauHinh] = useState<CauHinhMayChu | null>(null);
   const [dangNhap, setDangNhap] = useState<AuthSession | null>(null);
   const [phienBan, setPhienBan] = useState<TableSession | null>(null);
@@ -73,6 +101,22 @@ export default function App() {
   const [dangKhoiPhuc, setDangKhoiPhuc] = useState(true);
 
   const client = useMemo(() => (cauHinh === null ? null : dungClient(cauHinh)), [cauHinh]);
+
+  /**
+   * Gọi luật ở {@link dongBoTaiKhoan} rồi đổ kết quả vào state.
+   *
+   * Luật nằm ở core chứ không ở đây, vì `App.tsx` không có phép kiểm nào — và đó chính là chỗ lỗi
+   * "đơn không mang số điện thoại" đã sống suốt nhiều lượt xây tính năng mà không ai thấy.
+   */
+  const dongBo = useCallback(
+    async (ses: AuthSession | null, ban: TableSession | null) => {
+      if (client === null) return;
+      const kq = await dongBoTaiKhoan(client.loyaltyApi, client.ban, ses?.accessToken ?? null, ban);
+      setSoDienThoai(kq.soDienThoai);
+      if (kq.phienBan !== null) setPhienBan(kq.phienBan);
+    },
+    [client],
+  );
 
   // Khôi phục cấu hình, phiên đăng nhập và phiên bàn — theo đúng thứ tự đó, vì hai thứ sau cần
   // địa chỉ máy chủ mới đọc được.
@@ -96,11 +140,15 @@ export default function App() {
       if (huy) return;
       setDangNhap(ses);
       setPhienBan(ban);
+      // Mở lại app cũng phải đồng bộ: số điện thoại KHÔNG được cất xuống máy, nên không khôi phục
+      // được cùng hai thứ kia.
+      void dongBo(ses, ban);
     });
     return () => {
       huy = true;
     };
-  }, [client]);
+    // `dongBo` chỉ đổi khi `client` đổi, nên thêm nó vào đây không làm effect chạy thêm lần nào.
+  }, [client, dongBo]);
 
   const luuCauHinh = useCallback(async (moi: CauHinhMayChu) => {
     await cauHinhStore.luu(moi);
@@ -159,9 +207,57 @@ export default function App() {
           onDangNhapXong={(ses) => {
             setDangNhap(ses);
             setManNgoai(null);
+            // Đăng nhập GIỮA chừng phiên bàn là đường đi thường gặp nhất, vì app không cho đăng
+            // nhập trước khi vào bàn.
+            void dongBo(ses, phienBan);
           }}
+          layTokenGoogle={LAY_TOKEN_GOOGLE}
+          // Không có thư viện OTP thì KHÔNG hiện đường tạo tài khoản bằng số. Cùng luật với nút
+          // Google: một nút bấm vào chỉ để nhận lỗi còn tệ hơn không có nút.
+          onTaoTaiKhoan={GUI_MA_OTP === undefined ? undefined : () => setManNgoai('dangKy')}
           repository={client.auth}
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (manNgoai === 'dangKy' && GUI_MA_OTP !== undefined) {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <DangKySoDienThoai
+          guiMaOtp={GUI_MA_OTP}
+          onDangKyXong={(ses) => {
+            // Vào thẳng app, y như đăng nhập: `dangKy` đã gọi tiếp `/login` và trả về phiên thật.
+            setDangNhap(ses);
+            setManNgoai(null);
+            void dongBo(ses, phienBan);
+          }}
+          onQuayLai={() => setManNgoai('dangNhap')}
+          repository={client.auth}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Hồ sơ mở được NGOÀI phiên bàn. Tab Tài khoản nằm trong KhungChinh, thứ chỉ tồn tại khi đã
+  // mở bàn — nếu hồ sơ chỉ sống ở đó thì khách tạo tài khoản ở nhà không liên kết được số cho
+  // tới khi quét QR ngồi vào bàn, trong khi liên kết chẳng dính gì tới bàn nào.
+  if (manNgoai === 'hoSo' && dangNhap !== null) {
+    return (
+      <SafeAreaView style={kieuChung.man}>
+        <StatusBar style="dark" />
+        <ManCoNutVe onVe={() => setManNgoai(null)}>
+          <HoSoTaiKhoan
+            api={client.loyaltyApi}
+            dangNhap={dangNhap}
+            guiMaOtp={GUI_MA_OTP}
+            onBaoTin={setTin}
+            onNoiSoXong={setSoDienThoai}
+            onXong={() => setManNgoai(null)}
+            soDienThoai={soDienThoai}
+          />
+        </ManCoNutVe>
       </SafeAreaView>
     );
   }
@@ -174,16 +270,14 @@ export default function App() {
         <StatusBar style="dark" />
         <OpenTableScreen
           dangNhapVoi={dangNhap}
+          onDangNhap={() => setManNgoai('dangNhap')}
+          onMoHoSo={() => setManNgoai('hoSo')}
+          soDienThoai={soDienThoai}
           onMoPhienXong={(ban) => {
             setPhienBan(ban);
-            // Số điện thoại đã liên kết đọc được ngay sau khi có phiên — nó quyết định đơn có
-            // tích điểm hay không (§9.7), và phải có TRƯỚC khi khách bấm đặt món.
-            if (dangNhap !== null) {
-              void client.loyaltyApi
-                .cuaToi(dangNhap.accessToken)
-                .then((d) => setSoDienThoai(d.linked ? d.phoneNumber : null))
-                .catch(() => setSoDienThoai(null));
-            }
+            // Phiên vừa mở đã kèm token nếu khách đã đăng nhập, nên chỉ cần đọc số điện thoại —
+            // nhưng vẫn đi qua cùng một hàm để không có nhánh nào lệch luật với nhánh khác.
+            void dongBo(dangNhap, null);
           }}
           repository={client.ban}
         />
@@ -196,8 +290,8 @@ export default function App() {
       <StatusBar style="dark" />
       <KhungChinh
         cartApi={client.cartApi}
+        guiMaOtp={GUI_MA_OTP}
         cauHinh={cauHinh}
-        chatApi={client.chatApi}
         createOrderApi={client.createOrderApi}
         dangNhap={dangNhap}
         favouriteApi={client.favouriteApi}
@@ -213,6 +307,7 @@ export default function App() {
         orderApi={client.orderApi}
         phienBan={phienBan}
         promotionApi={client.promotionApi}
+        onNoiSoXong={setSoDienThoai}
         soDienThoai={soDienThoai}
         tokenStore={orderTokenStore}
       />

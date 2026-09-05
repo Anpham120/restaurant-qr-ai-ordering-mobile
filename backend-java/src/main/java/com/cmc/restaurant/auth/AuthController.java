@@ -2,6 +2,7 @@ package com.cmc.restaurant.auth;
 
 import com.cmc.restaurant.auth.AuthDtos.AuthUserResponse;
 import com.cmc.restaurant.auth.AuthDtos.ChangePasswordRequest;
+import com.cmc.restaurant.auth.AuthDtos.GoogleLoginRequest;
 import com.cmc.restaurant.auth.AuthDtos.LoginRequest;
 import com.cmc.restaurant.auth.AuthDtos.LoginResponse;
 import com.cmc.restaurant.auth.AuthDtos.RegisterRequest;
@@ -26,40 +27,92 @@ public class AuthController {
 
 	private final UserService userService;
 	private final JwtService jwtService;
+	private final GoogleTokenVerifier googleVerifier;
+	private final PhoneTokenVerifier phoneVerifier;
 
-	public AuthController(UserService userService, JwtService jwtService) {
+	public AuthController(UserService userService, JwtService jwtService,
+			GoogleTokenVerifier googleVerifier, PhoneTokenVerifier phoneVerifier) {
 		this.userService = userService;
 		this.jwtService = jwtService;
+		this.googleVerifier = googleVerifier;
+		this.phoneVerifier = phoneVerifier;
 	}
 
+	/**
+	 * Khách tự tạo tài khoản bằng số điện thoại đã xác minh bằng OTP.
+	 *
+	 * <p>Chỉ app di động dùng cổng này. Web không có đường tạo tài khoản khách: bước thanh toán
+	 * chỉ nhận số để tính điểm, và sau thanh toán chỉ mời tải app.
+	 *
+	 * <p>Số điện thoại lấy TỪ TOKEN, không lấy từ thân request. Điểm thưởng tính theo số, nên nhận
+	 * một số chưa xác minh nghĩa là cho người lạ chiếm hồ sơ điểm của khách quen và khoá luôn chủ
+	 * thật ra ngoài — đúng thứ OTP sinh ra để bịt.
+	 */
 	@PostMapping("/register")
 	public ResponseEntity<RegisterResponse> register(@RequestBody RegisterRequest request) {
 		if (request == null || isBlank(request.fullName())) {
 			throw ApiException.badRequest("FULL_NAME_REQUIRED", "Full name is required.");
 		}
-		if (!isValidEmail(request.email())) {
-			throw ApiException.badRequest("EMAIL_INVALID", "Email is invalid.");
+		if (isBlank(request.phoneIdToken())) {
+			throw ApiException.badRequest("PHONE_TOKEN_REQUIRED", "Thiếu token xác minh số điện thoại.");
 		}
 		if (isBlank(request.password()) || request.password().length() < 8) {
 			throw ApiException.badRequest("PASSWORD_TOO_SHORT", "Password must be at least 8 characters.");
 		}
 
-		UserEntity user = userService.registerCustomer(request.fullName(), request.email(), request.password());
+		String soDaXacMinh = phoneVerifier.xacMinh(request.phoneIdToken());
+		UserEntity user = userService.registerCustomerByPhone(
+				request.fullName(), soDaXacMinh, request.password());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(
 				new RegisterResponse(user.getId(), user.getFullName(), user.getEmail(), user.getRole()));
 	}
 
+	/**
+	 * Đăng nhập bằng Google — tạo tài khoản ngay lần đầu, không có bước đăng ký riêng.
+	 *
+	 * <p>Trả về ĐÚNG dạng của {@code /login}. App không cần biết khách vào bằng đường nào, và mọi
+	 * thứ phía sau (tích điểm, nối số) chỉ làm việc với JWT.
+	 *
+	 * <p>Cổng này KHÔNG thay thế bước nối số điện thoại. Google chứng minh khách sở hữu một tài
+	 * khoản Google, nó không nói gì về số điện thoại — nên luật LOYALTY_PHONE_ALREADY_MEMBER và
+	 * mã nối tại quầy giữ nguyên vai trò.
+	 */
+	@PostMapping("/google")
+	public LoginResponse loginWithGoogle(@RequestBody(required = false) GoogleLoginRequest request) {
+		if (request == null || isBlank(request.idToken())) {
+			throw ApiException.badRequest("GOOGLE_TOKEN_REQUIRED", "Thiếu token Google.");
+		}
+
+		GoogleIdentity danhTinh = googleVerifier.xacMinh(request.idToken());
+		UserEntity user = userService.signInWithGoogle(
+				danhTinh.sub(), danhTinh.email(), danhTinh.fullName());
+
+		JwtService.IssuedToken token = jwtService.issueToken(user);
+
+		return new LoginResponse(
+				token.accessToken(),
+				token.expiresAt(),
+				new AuthUserResponse(user.getId(), user.getFullName(), user.getEmail(), user.getRole()));
+	}
+
+	/**
+	 * Một ô nhập cho cả hai loại người dùng: khách gõ số điện thoại, nhân viên gõ email.
+	 *
+	 * <p>Không bắt chọn "đăng nhập bằng gì" trước — đó là câu hỏi người dùng không có lý do gì để
+	 * quan tâm, và trả lời sai chỉ tổ nhận một lỗi khó hiểu.
+	 */
 	@PostMapping("/login")
 	public LoginResponse login(@RequestBody LoginRequest request) {
-		if (!isValidEmail(request == null ? null : request.email())) {
-			throw ApiException.badRequest("EMAIL_INVALID", "Email is invalid.");
+		if (request == null || isBlank(request.identifier())) {
+			throw ApiException.badRequest("IDENTIFIER_REQUIRED",
+					"Nhập số điện thoại hoặc email.");
 		}
 		if (isBlank(request.password())) {
 			throw ApiException.badRequest("PASSWORD_REQUIRED", "Password is required.");
 		}
 
-		UserEntity user = userService.validateCredentials(request.email(), request.password())
+		UserEntity user = userService.validateCredentials(request.identifier(), request.password())
 				.orElseThrow(() -> ApiException.unauthorized("INVALID_CREDENTIALS", "Email or password is incorrect."));
 
 		JwtService.IssuedToken token = jwtService.issueToken(user);
@@ -93,9 +146,5 @@ public class AuthController {
 
 	private static boolean isBlank(String value) {
 		return value == null || value.isBlank();
-	}
-
-	private static boolean isValidEmail(String email) {
-		return EmailRule.isValid(email);
 	}
 }

@@ -3,6 +3,7 @@ package com.cmc.restaurant.auth;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -32,13 +33,20 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
+				// PHẢI có, và phải đứng trong chuỗi này chứ không chỉ khai ở tầng MVC.
+				//
+				// Thiếu dòng này thì bộ lọc CORS của Spring Security không tồn tại, và preflight
+				// OPTIONS tới đường cần đăng nhập rơi vào `anyRequest().authenticated()` -> 401 kèm
+				// không header CORS nào. Trình duyệt chặn, app trắng trơn sau khi đăng nhập.
+				// Xem WebCorsConfig.corsConfigurationSource để biết vì sao curl không phát hiện ra.
+				.cors(Customizer.withDefaults())
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.exceptionHandling(exceptions -> exceptions
 						.authenticationEntryPoint(authenticationEntryPoint)
 						.accessDeniedHandler(accessDeniedHandler))
 				.authorizeHttpRequests(authorize -> authorize
-						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/error").permitAll()
+						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/api/auth/google", "/error").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/tables/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
@@ -59,7 +67,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.POST, "/api/orders/*/payment/request").permitAll()
 						// Casso authenticates with its own Secure-Token header, verified inside the
 						// handler before the payload is touched — not with a JWT.
-						.requestMatchers(HttpMethod.POST, "/api/payments/webhooks/casso").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/payments/webhooks/sepay").permitAll()
 						// The WebSocket handshake carries no JWT; authorization happens per-SUBSCRIBE
 						// in StompSubscriptionGuard, mirroring the .NET hub's Watch* guards.
 						.requestMatchers("/hub/orders/**").permitAll()

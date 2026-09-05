@@ -41,16 +41,38 @@ public class LoyaltyMember {
 	 * the opposite of what a loyalty scheme is for.
 	 */
 	public static int pointsFor(BigDecimal totalAmount) {
+		return pointsFor(totalAmount, MemberTier.BAC);
+	}
+
+	/**
+	 * Points earned by one bill at a given tier.
+	 *
+	 * <p>Hệ số nhân TRƯỚC khi chia, không phải sau. Nhân sau thì mỗi lần chia đã làm tròn xuống
+	 * một lần rồi mới nhân, nên hoá đơn 330.000đ ở hạng Vàng cho 33×1,25 = 41,25 → 41 điểm ở cách
+	 * đúng, nhưng chỉ 33 rồi mới nhân ở cách sai — mất phần lẻ hai lần.
+	 *
+	 * <p>Vẫn làm tròn XUỐNG ở bước cuối, giữ nguyên tính chất đã ghi ở trên: chia nhỏ hoá đơn
+	 * không bao giờ lợi hơn trả một lần.
+	 */
+	public static int pointsFor(BigDecimal totalAmount, MemberTier tier) {
 		if (totalAmount == null || totalAmount.signum() <= 0) {
 			return 0;
 		}
-		return totalAmount.divide(VND_PER_POINT, 0, RoundingMode.DOWN).intValue();
+		MemberTier hang = tier == null ? MemberTier.BAC : tier;
+		return totalAmount.multiply(hang.heSo())
+				.divide(VND_PER_POINT, 0, RoundingMode.DOWN)
+				.intValue();
 	}
 
 	/** Adds the points for one settled bill. Returns how many were added, so the caller can tell
 	 * "nothing to add" from "added zero". */
 	public int accrue(BigDecimal totalAmount, OffsetDateTime now) {
-		int earned = pointsFor(totalAmount);
+		return accrue(totalAmount, now, MemberTier.BAC);
+	}
+
+	/** Adds the points for one settled bill, at the member current tier. */
+	public int accrue(BigDecimal totalAmount, OffsetDateTime now, MemberTier tier) {
+		int earned = pointsFor(totalAmount, tier);
 		if (earned <= 0) {
 			return 0;
 		}

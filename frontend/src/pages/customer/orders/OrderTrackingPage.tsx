@@ -22,7 +22,6 @@ import {
   requestOrderPayment,
 } from "../../../services/orderService";
 import type {
-  OrderItemStatus,
   OrderRealtimeEvent,
   OrderStatusEvent,
   OrderTrackingItem,
@@ -30,45 +29,35 @@ import type {
   RequestedPaymentMethod,
   VietQrPaymentResponse,
 } from "../../../types";
-import { orderingPath } from "../../../ordering/orderingRoutes";
+import { orderingPath } from "../../../ordering/orderingRoutes";
+import { moTaBepDong, moTaUocLuong } from "../../../ordering/uocLuongLenMon";
+import { demTienDoMon } from "../../../ordering/tienDoMonKhach";
+import { labelGuestItemStatus, labelGuestOrderStatus } from "../../../utils/opsStatusLabels";
 import { ArrowLeft, Banknote, CreditCard, QrCode } from "lucide-react";
 
 /* ========================================================================
    Labels & Helpers
    ======================================================================== */
 
-const itemStatusLabels: Record<OrderItemStatus, string> = {
-  Pending: "Chờ xử lý",
-  Preparing: "Đang chế biến",
-  Ready: "Sẵn sàng",
-  Served: "Đã phục vụ",
-  Cancelled: "Đã hủy",
-};
+/*
+  Màn này TỪNG giữ hai bộ chữ riêng cho trạng thái món (`itemStatusLabels` và
+  `itemStatusDescriptions`) thay vì dùng `labelGuestItemStatus`. Cùng một món `Ready`, khách đọc
+  "Món xong, đang mang ra bàn" ở danh sách rồi bấm vào chi tiết thì thành "Sẵn sàng" — chữ đổi
+  dưới tay khách, giữa hai màn của cùng một người, cách nhau một cú chạm.
 
-const itemStatusDescriptions: Record<OrderItemStatus, string> = {
-  Pending: "Bếp đã nhận món và đang xếp hàng xử lý.",
-  Preparing: "Đầu bếp đang chế biến món này.",
-  Ready: "Món đã sẵn sàng để phục vụ.",
-  Served: "Món đã được phục vụ.",
-  Cancelled: "Món đã hủy.",
-};
+  Đó là lần thứ NĂM một bộ chữ bị nhân bản trong dự án này. Bộ chữ dùng chung nằm ở
+  `utils/opsStatusLabels.ts`, và bản sinh đôi bên app ở `mobile-rn/src/core/orders/order.ts`.
+*/
 
-const timelineLabels: Record<string, string> = {
-  Placed: "Đã ghi nhận",
-  Preparing: "Đang chế biến",
-  Ready: "Sẵn sàng",
-  Served: "Đã phục vụ",
-};
+/*
+  Trạng thái ĐƠN cũng đi qua `labelGuestOrderStatus`. Hai bảng chữ riêng ở đây từng nói "Sẵn sàng"
+  và "Đã phục vụ" — ngôn ngữ của QUẦY — ở BA chỗ trên cùng một trang, ngay cạnh dòng món vừa được
+  đổi sang lời của khách. Cùng trạng thái `Ready`, khách đọc bốn cách nói khác nhau mà không rời
+  màn hình.
 
-const eventStatusLabels: Record<string, string> = {
-  Draft: "Nháp",
-  Placed: "Đã đặt",
-  Confirmed: "Đã xác nhận",
-  Preparing: "Đang chế biến",
-  Ready: "Sẵn sàng",
-  Served: "Đã phục vụ",
-  Completed: "Hoàn tất",
-  Cancelled: "Đã hủy",
+  Bảng dưới chỉ còn giữ trạng thái THANH TOÁN — thứ `labelGuestOrderStatus` không nói tới.
+*/
+const paymentEventLabels: Record<string, string> = {
   Unpaid: "Chưa thanh toán",
   NotRequested: "Chưa yêu cầu thanh toán",
   Pending: "Chờ thanh toán",
@@ -95,13 +84,22 @@ function eventTone(event: OrderStatusEvent): TimelineItem["tone"] {
   }
 }
 
+/**
+ * Một dòng lịch sử có thể là biến động của ĐƠN hoặc của THANH TOÁN, và hai họ trạng thái này có
+ * tên trùng nhau (`Pending` vừa là món chờ nấu, vừa là hoá đơn chờ tiền). Ưu tiên bảng thanh toán
+ * vì chỉ những dòng nguồn thanh toán mới mang các tên đó.
+ */
+function nhanSuKien(status: string): string {
+  return paymentEventLabels[status] ?? labelGuestOrderStatus(status);
+}
+
 function toTimelineItems(
   events: OrderStatusEvent[],
   t: (source: string, params?: TranslationParams) => string,
   formatDateTime: (value: string | number | Date) => string,
 ): TimelineItem[] {
   return events.map((event) => ({
-    label: t(eventStatusLabels[event.status] ?? event.status),
+    label: t(nhanSuKien(event.status)),
     sublabel: event.source === "Payment" ? t("Thanh toán") : t("Trạng thái đơn"),
     timestamp: formatDateTime(event.createdAt),
     tone: eventTone(event),
@@ -109,16 +107,23 @@ function toTimelineItems(
   }));
 }
 
+/**
+ * Câu mô tả từng bước.
+ *
+ * <p>Bước cuối TỪNG ghi "Nhân viên xác nhận phục vụ." — sai người. Nút chuyển đơn sang `Served`
+ * nằm ở màn BẾP và người bấm là người đứng bếp; nhân viên phục vụ không cầm máy, họ nhận lệnh qua
+ * bộ đàm. Đúng lớp sai như câu "Gửi thông báo cho quầy / phục vụ" đã gỡ khỏi nút bếp.
+ */
 function getTimelineCopy(status: string) {
   switch (status) {
     case "Placed":
-      return "Đơn đã được ghi nhận.";
+      return "Đơn đã tới bếp.";
     case "Preparing":
-      return "Bếp đang xử lý các món.";
+      return "Bếp đang làm các món.";
     case "Ready":
-      return "Món sẵn sàng để mang ra.";
+      return "Món đã xong, đang được mang ra.";
     default:
-      return "Nhân viên xác nhận phục vụ.";
+      return "Bếp đã đưa hết món ra bàn.";
   }
 }
 
@@ -289,9 +294,7 @@ export function OrderTrackingPage() {
     const items = order?.items ?? [];
 
     return {
-      statusLabel: t(eventStatusLabels[order?.status ?? ""] ?? "Đang tải"),
-      preparing: items.filter((item) => item.status === "Preparing").length,
-      ready: items.filter((item) => item.status === "Ready").length,
+      statusLabel: order ? t(labelGuestOrderStatus(order.status)) : t("Đang tải"),
       allServed: items.length > 0 && items.every((item) => item.status === "Served" || item.status === "Cancelled"),
     };
   }, [order, t]);
@@ -320,14 +323,12 @@ export function OrderTrackingPage() {
             <strong>{stats.statusLabel}</strong>
             <span>{t("Trạng thái đơn")}</span>
           </article>
-          <article className="cmc-ot-stat">
-            <strong>{stats.preparing}</strong>
-            <span>{t("Đang chế biến")}</span>
-          </article>
-          <article className="cmc-ot-stat">
-            <strong>{stats.ready}</strong>
-            <span>{t("Sẵn sàng")}</span>
-          </article>
+          {/*
+            Hai ô đếm "Đang chế biến" và "Sẵn sàng" từng đứng ở đây, ngay trên một thẻ tóm tắt cũng
+            đếm đúng những món đó. Bốn con số cho cùng một sự thật, và khách phải tự ghép chúng lại.
+
+            Giờ chia việc: đầu trang nói ĐƠN đang ở đâu, thẻ dưới nói ĐƯỢC MẤY MÓN rồi.
+          */}
         </div>
       </header>
 
@@ -426,7 +427,9 @@ function OrderTrackingPanel({
   vietQrAvailable: boolean;
 }) {
   const { formatDateTime, locale, t } = useI18n();
-  const readyCount = order.items.filter((item) => item.status === "Ready").length;
+  // Con số này TỪNG là `readyCount/tổng số món` với nhãn "món sẵn sàng" — gộp hai việc khác hẳn
+  // nhau với người đang ngồi ăn, và đếm cả món đã huỷ vào mẫu số.
+  const tienDo = demTienDoMon(order.items);
   const canRequestPayment =
     order.status !== "Cancelled" &&
     (order.paymentStatus === "NotRequested" ||
@@ -444,13 +447,17 @@ function OrderTrackingPanel({
           <p className="cmc-ot-kicker">{t("Theo dõi đơn")}</p>
           <h3>{order.orderCode}</h3>
           <span>
-            {order.tableCode ? t("Bàn {table}", { table: order.tableCode }) : t("Chưa có bàn")} -{" "}
-            {t(eventStatusLabels[order.status] ?? order.status)}
+            {order.tableCode ? t("Bàn {table}", { table: order.tableCode }) : t("Chưa có bàn")}
           </span>
         </div>
         <strong>
-          {readyCount}/{order.items.length}
-          <small>{t("món sẵn sàng")}</small>
+          {tienDo.daLen}/{tienDo.tong}
+          <small>{t("món đã lên bàn")}</small>
+          {tienDo.dangMangRa > 0 ? (
+            <small className="cmc-ot-dang-ra">
+              {t("{n} món đang mang ra", { n: tienDo.dangMangRa })}
+            </small>
+          ) : null}
         </strong>
       </div>
 
@@ -468,7 +475,7 @@ function OrderTrackingPanel({
             <div className={getTimelineClass(order.status, status)} key={status}>
               <span>{index + 1}</span>
               <div>
-                <h3>{t(timelineLabels[status])}</h3>
+                <h3>{t(labelGuestOrderStatus(status))}</h3>
                 <p>{t(getTimelineCopy(status))}</p>
               </div>
             </div>
@@ -491,14 +498,36 @@ function OrderTrackingPanel({
           <article className="cmc-ot-item" key={item.orderItemId}>
             <div>
               <strong>{localizeMenuItemName(item.menuItemId, item.name, locale)}</strong>
-              <p>
-                x{item.quantity} - {t(itemStatusDescriptions[item.status])}
-              </p>
+              <p>x{item.quantity}</p>
+              {/*
+                Ước lượng từng món CHỈ có ở màn danh sách. Khách bấm vào một đơn để xem KỸ HƠN thì
+                lại mất thông tin — màn chi tiết im lặng về thứ họ vào đây để hỏi: bao giờ có món.
+
+                Máy chủ gửi ba trường này từ lâu và kiểu `OrderTrackingItem` đã khai đủ; chỉ chỗ vẽ
+                là chưa có. Dùng chung `uocLuongLenMon` với màn danh sách để hai màn không tự nghĩ
+                ra hai cách nói về cùng một con số.
+              */}
+              {moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh) ? (
+                <p className="cmc-ot-uoc-luong">
+                  {t("Dự kiến {khoang}", {
+                    khoang: moTaUocLuong(
+                      item.estimatedReadyMinutesLow,
+                      item.estimatedReadyMinutesHigh,
+                    ) as string,
+                  })}
+                  {moTaBepDong(
+                    item.kitchenBusy,
+                    moTaUocLuong(item.estimatedReadyMinutesLow, item.estimatedReadyMinutesHigh),
+                  ) ? (
+                    <> · {t("Bếp đang đông nên món lâu hơn thường ngày.")}</>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
             <span
               className={`cmc-ot-item-pill cmc-ot-item-${item.status.toLowerCase()}`}
             >
-              {t(itemStatusLabels[item.status] ?? item.status)}
+              {t(labelGuestItemStatus(item.status, order.status))}
             </span>
           </article>
         ))}

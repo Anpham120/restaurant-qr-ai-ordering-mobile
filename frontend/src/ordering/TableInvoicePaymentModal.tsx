@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@cmc/i18n";
 import { localizeMenuItemName } from "@cmc/i18n/menu";
 import { Banknote, QrCode, ReceiptText, X } from "lucide-react";
+import type { Promotion } from "@cmc/shared-types";
+import { api } from "../services/apiClient";
 import { validatePromotion } from "../services/orderService";
 import type {
   RequestedPaymentMethod,
@@ -25,6 +27,24 @@ export function TableInvoicePaymentModal({ invoice, onClose, onRequest }: Props)
   const [method, setMethod] = useState<RequestedPaymentMethod>("COD");
   const [promotionCode, setPromotionCode] = useState("");
   const [customerPhoneNumber, setCustomerPhoneNumber] = useState("");
+  const [loyaltyCode, setLoyaltyCode] = useState("");
+  const [maDangChay, setMaDangChay] = useState<Promotion[]>([]);
+
+  // Nạp mã đang chạy để khách CHỌN thay vì phải biết trước. Endpoint này có từ trước nhưng chỉ
+  // app di động gọi — web có ô nhập mà không có đường nào cho khách biết mã nào đang có.
+  useEffect(() => {
+    let huy = false;
+    void api.promotions
+      .listActive()
+      .then((r) => {
+        if (!huy) setMaDangChay(r.items ?? []);
+      })
+      // Không có mã nào cũng không sao, và lỗi ở đây không được chặn việc trả tiền.
+      .catch(() => undefined);
+    return () => {
+      huy = true;
+    };
+  }, []);
   const [promotionPreview, setPromotionPreview] = useState<PromotionPreview | null>(null);
   const [isApplyingPromotion, setIsApplyingPromotion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +98,9 @@ export function TableInvoicePaymentModal({ invoice, onClose, onRequest }: Props)
         method,
         promotionCode: normalizedPromotionCode || null,
         customerPhoneNumber: customerPhoneNumber.trim() || null,
+        // Chuẩn hoá giống hệt phía máy chủ: khách đọc mã theo cụm nên hay gõ kèm gạch nối, và
+        // từ chối vì một dấu gạch là bắt họ sửa thứ đáng lẽ hệ thống tự hiểu.
+        loyaltyCode: loyaltyCode.trim().toUpperCase().replace(/[-\s]/g, "") || null,
       });
     } catch (caughtError) {
       setError(t(caughtError instanceof Error ? caughtError.message : "Không gửi được yêu cầu thanh toán."));
@@ -137,6 +160,28 @@ export function TableInvoicePaymentModal({ invoice, onClose, onRequest }: Props)
                   {isApplyingPromotion ? t("Đang kiểm tra") : t("Áp dụng")}
                 </button>
               </div>
+              {maDangChay.length === 0 ? null : (
+                <div className="table-invoice-promotion-chips">
+                  {maDangChay.map((km) => (
+                    <button
+                      key={km.code}
+                      onClick={() => { setPromotionCode(km.code); setPromotionPreview(null); }}
+                      type="button"
+                    >
+                      {km.code}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </label>
+            <label>
+              <span>{t("Mã đổi điểm")} <small>{t("(tùy chọn)")}</small></span>
+              <input
+                autoComplete="off"
+                onChange={(event) => setLoyaltyCode(event.target.value)}
+                placeholder={t("Mã bạn đổi bằng điểm trong ứng dụng")}
+                value={loyaltyCode}
+              />
             </label>
             <label>
               <span>{t("Số điện thoại tích điểm")} <small>{t("(tùy chọn)")}</small></span>

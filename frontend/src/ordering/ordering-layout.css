@@ -191,6 +191,8 @@
 .table-invoice-pay-button { font-weight: 800; width: 100%; }
 .table-invoice-status { background: rgba(255, 255, 255, .72); border-radius: .8rem; flex-wrap: wrap; margin-top: .8rem; padding: .8rem; }
 .table-e-receipt-open { background: var(--brand-chestnut); border: none; border-radius: .65rem; color: #fff; font-weight: 700; margin-left: auto; padding: .5rem .75rem; }
+/* Lời mời tải app: nhạt hơn nút hoá đơn điện tử. Hoá đơn là thứ khách CẦN ngay, tải app thì không. */
+.table-app-invite { border: 1px solid var(--brand-clay-line); border-radius: .65rem; color: var(--brand-chestnut); flex-basis: 100%; font-weight: 600; padding: .5rem .75rem; text-align: center; text-decoration: none; }
 .table-e-receipt-overlay { align-items: center; padding: 1rem; }
 .table-e-receipt-modal { border-radius: 1.35rem; max-height: 90dvh; }
 .table-e-receipt-header .table-e-receipt-kicker { align-items: center; color: #287554; display: inline-flex; font: 800 .78rem/1 var(--brand-font-utility); gap: .35rem; letter-spacing: .04em; text-transform: none; }
@@ -297,4 +299,81 @@
 @media (max-width: 350px) {
   .ordering-header .brand-wordmark-copy { display: none; }
   .ordering-table span { display: none; }
+}
+
+/* Mã đang chạy, chạm là điền — khách không phải biết trước mã nào đang có. */
+.table-invoice-promotion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.table-invoice-promotion-chips button {
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ordering-line, #e3d7cd);
+  background: transparent;
+  color: var(--ordering-accent, #6f3d2c);
+  cursor: pointer;
+}
+
+.table-invoice-promotion-chips button:hover,
+.table-invoice-promotion-chips button:focus-visible {
+  border-color: var(--ordering-accent, #6f3d2c);
+}
+
+/*
+  Dải báo "món vừa xong". Đây là thứ DUY NHẤT trên màn khách tự lên tiếng — mọi thứ khác chỉ đổi
+  chữ tại chỗ và người đang ngồi nói chuyện sẽ không thấy.
+
+  Dùng brass (vàng đồng) của bộ nhận diện chứ không phải xanh lá "thành công": đây không phải báo
+  một việc đã hoàn thành, mà là gọi khách nhìn lên vì món đang được bưng tới.
+
+  `aria-live="polite"` nằm ở phần tử, còn ở đây chỉ lo phần nhìn.
+*/
+.ordering-mon-vua-xong {
+  align-items: center;
+  background: var(--brand-paper);
+  border: 1px solid var(--brand-brass);
+  border-left: 4px solid var(--brand-brass);
+  border-radius: var(--brand-radius-card, .8rem);
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+}
+
+.ordering-mon-vua-xong p {
+  color: var(--brand-ink);
+  font: 700 .95rem/1.4 var(--brand-font-utility);
+  margin: 0;
+}
+
+/* Nút phụ: khách đã đọc rồi thì dẹp đi, không phải một hành động quan trọng. */
+.ordering-mon-vua-xong button {
+  background: transparent;
+  border: 1px solid var(--brand-clay-line);
+  color: var(--brand-muted);
+  flex: 0 0 auto;
+  font: 700 .8rem/1 var(--brand-font-utility);
+}
+
+/* Vế "đang mang ra" ở con số đầu màn chi tiết — phụ hơn con số chính. */
+.cmc-ot-dang-ra {
+  color: var(--brand-muted, #6b7280);
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ordering-mon-vua-xong { animation: ordering-mon-vua-xong-vao .24s ease-out; }
+}
+
+@keyframes ordering-mon-vua-xong-vao {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
 }

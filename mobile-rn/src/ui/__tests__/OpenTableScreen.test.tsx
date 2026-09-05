@@ -62,7 +62,13 @@ class AuthStoreTrong implements TokenStore {
 }
 
 const authApi: AuthApi = {
+  dangNhapGoogle: async () => {
+    throw new Error('khong dung toi');
+  },
   dangNhap: async () => {
+    throw new Error('không dùng');
+  },
+  dangKy: async () => {
     throw new Error('không dùng');
   },
 };
@@ -109,7 +115,9 @@ describe('vào bàn bằng cách nhập tay', () => {
     };
     await render(<OpenTableScreen onMoPhienXong={xong} repository={repoVoi(api)} />);
 
-    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'sai');
+    // Phải dài từ 4 ký tự thì mới qua được bộ phân tích phía app và tới được máy chủ — phép
+    // kiểm này nói về câu trả lời CỦA MÁY CHỦ, không phải về việc app tự chặn.
+    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'cmc-table-sai');
     await fireEvent.press(screen.getByLabelText('Vào bàn'));
 
     await screen.findByText('Mã QR không đúng hoặc bàn đã ngừng phục vụ.');
@@ -180,5 +188,130 @@ describe('nói rõ đơn có được gắn tài khoản không', () => {
 
     expect(screen.getByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeTruthy();
     expect(screen.getByText('a@example.com')).toBeTruthy();
+  });
+
+  it('chưa đăng nhập thì hộp kia BẤM ĐƯỢC, dẫn tới màn đăng nhập', async () => {
+    // Hộp đó khuyên "đăng nhập trước khi vào bàn nếu muốn tích điểm". Trước đây nó là chữ chết:
+    // đăng nhập chỉ mở được từ tab Tài khoản, tức SAU khi đã vào bàn — quá muộn để làm theo lời
+    // khuyên của chính nó.
+    const moDangNhap = jest.fn();
+    await render(
+      <OpenTableScreen
+        onDangNhap={moDangNhap}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Đăng nhập để tích điểm'));
+
+    expect(moDangNhap).toHaveBeenCalledTimes(1);
+  });
+
+  it('ĐÃ đăng nhập thì không còn nút đó, chỉ còn dòng báo tài khoản', async () => {
+    const moDangNhap = jest.fn();
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onDangNhap={moDangNhap}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Đăng nhập để tích điểm')).toBeNull();
+    expect(screen.getByText(/sẽ được cộng vào tài khoản/)).toBeTruthy();
+  });
+
+  it('DÁN NGUYÊN URL trên tem cũng vào được bàn', async () => {
+    // Tem QR chứa một URL. Ai đọc tem bằng app khác rồi dán vào đây — thứ tự nhiên nhất để làm —
+    // trước đây luôn nhận "Mã QR không đúng", vì ô này gửi thẳng cả chuỗi lên máy chủ trong khi
+    // đường QUÉT thì bóc `?qr=` ra. Hai đường vào cùng một ô, hai luật khác nhau.
+    const api = new ApiTot();
+    const xong = jest.fn();
+    await render(<OpenTableScreen onMoPhienXong={xong} repository={repoVoi(api)} />);
+
+    await fireEvent.changeText(
+      screen.getByLabelText('Mã QR của bàn'),
+      'http://192.168.1.9:8080/table/T01?qr=cmc-table-t01-qr',
+    );
+    await fireEvent.press(screen.getByLabelText('Vào bàn'));
+
+    expect(api.qrDaNhan).toBe('cmc-table-t01-qr');
+    expect(xong).toHaveBeenCalled();
+  });
+
+  it('chuỗi không phải mã cũng không phải URL thì chặn NGAY, không gọi máy chủ', async () => {
+    // Quét nhầm mã wifi hay danh thiếp là chuyện thường. Gửi lên máy chủ rồi nhận lỗi khó hiểu
+    // tệ hơn nói thẳng tại chỗ.
+    let daGoi = false;
+    const api: TableSessionApi = {
+      moPhien: async () => {
+        daGoi = true;
+        return PHIEN;
+      },
+    };
+    await render(<OpenTableScreen onMoPhienXong={jest.fn()} repository={repoVoi(api)} />);
+
+    await fireEvent.changeText(screen.getByLabelText('Mã QR của bàn'), 'a b c');
+    await fireEvent.press(screen.getByLabelText('Vào bàn'));
+
+    expect(daGoi).toBe(false);
+    expect(screen.getByText(/Mã không đọc được/)).toBeTruthy();
+  });
+});
+
+describe('liên kết số điện thoại ngay ở màn vào bàn', () => {
+  it('đã đăng nhập nhưng CHƯA liên kết: không nói câu SAI về việc cộng điểm', async () => {
+    // "Đơn của bàn này sẽ được cộng vào tài khoản của bạn" là câu sai khi chưa liên kết số —
+    // điểm tính theo số điện thoại, chưa có số thì không cộng đi đâu cả. Nói sai ở đây tệ hơn
+    // im lặng: khách yên tâm ăn xong rồi mới phát hiện không có điểm.
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={jest.fn()}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai={null}
+      />,
+    );
+
+    expect(screen.queryByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeNull();
+    expect(screen.getByText('Chưa liên kết số điện thoại')).toBeTruthy();
+  });
+
+  it('hộp đó BẤM ĐƯỢC, dẫn thẳng tới hồ sơ', async () => {
+    // Cùng lý lẽ đã dùng cho hộp "khách vãng lai": khuyên một việc rồi không cho làm là bỏ dở.
+    // Trước đây hồ sơ chỉ mở được từ tab Tài khoản, tức SAU khi đã vào bàn — quá muộn.
+    const moHoSo = jest.fn();
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={moHoSo}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai={null}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Liên kết số điện thoại để tích điểm'));
+
+    expect(moHoSo).toHaveBeenCalled();
+  });
+
+  it('đã liên kết rồi thì KHÔNG mời liên kết nữa', async () => {
+    // Mời làm một việc đã xong là làm khách nghi ngờ mình chưa làm.
+    await render(
+      <OpenTableScreen
+        dangNhapVoi={NGUOI}
+        onMoHoSo={jest.fn()}
+        onMoPhienXong={jest.fn()}
+        repository={repoVoi(new ApiTot())}
+        soDienThoai="0901234567"
+      />,
+    );
+
+    expect(screen.queryByText('Chưa liên kết số điện thoại')).toBeNull();
+    expect(screen.getByText('Đơn của bàn này sẽ được cộng vào tài khoản của bạn')).toBeTruthy();
   });
 });

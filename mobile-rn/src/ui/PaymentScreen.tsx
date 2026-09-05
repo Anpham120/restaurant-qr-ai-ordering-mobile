@@ -1,17 +1,39 @@
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { AuthException } from '../core/auth/authApi';
 import { KhoaDatDon } from '../core/orders/khoaDatDon';
-import { type Invoice, huongDanChoXacNhan, nhanTrangThaiHoaDon } from '../core/payment/invoice';
+import {
+  type Invoice,
+  daTraXong,
+  huongDanChoXacNhan,
+  nhanTrangThaiHoaDon,
+} from '../core/payment/invoice';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
+import { type Promotion } from '../core/promotions/promotion';
+import { type PromotionApi } from '../core/promotions/promotionApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { tienVnd } from '../core/tien';
 import { MauQuan, kieuChung } from './theme';
 
 export interface PaymentScreenProps {
   api: InvoiceApi;
+  /**
+   * Để liệt kê mã đang chạy ngay cạnh ô nhập.
+   *
+   * Không có nó thì khách chỉ gõ được mã họ đã biết từ nơi khác — tờ rơi, biển trong quán. Bản
+   * thân hệ thống không cho họ biết mã nào đang có, dù backend vẫn trả lời được câu đó.
+   */
+  promotionApi?: PromotionApi | undefined;
   phienBan: TableSession;
   soDienThoai?: string | null | undefined;
   /** Báo tin ra ngoài (đã chép nội dung…). Tách khỏi màn để test đọc được. */
@@ -31,6 +53,7 @@ export function PaymentScreen({
   api,
   phienBan,
   soDienThoai = null,
+  promotionApi,
   onBaoTin,
   chepVaoBoNho = (s) => Clipboard.setStringAsync(s).then(() => undefined),
 }: PaymentScreenProps) {
@@ -85,6 +108,25 @@ export function PaymentScreen({
     };
   }, [apDung, nap]);
 
+  const [maKhuyenMai, setMaKhuyenMai] = useState('');
+  const [maDoiDiem, setMaDoiDiem] = useState('');
+  const [maDangChay, setMaDangChay] = useState<readonly Promotion[]>([]);
+
+  useEffect(() => {
+    if (promotionApi === undefined) return;
+    let huy = false;
+    void promotionApi
+      .dangChay()
+      .then((ds) => {
+        if (!huy) setMaDangChay(ds);
+      })
+      // Không có mã nào cũng không sao, và lỗi mạng ở đây không được chặn việc trả tiền.
+      .catch(() => undefined);
+    return () => {
+      huy = true;
+    };
+  }, [promotionApi]);
+
   const yeuCau = useCallback(
     async (method: string) => {
       if (dangGui) return;
@@ -100,6 +142,8 @@ export function PaymentScreen({
             // COD sang VietQR là yêu cầu khác và phải có khoá khác.
             khoa.khoaCho(method),
             soDienThoai,
+            maKhuyenMai,
+            maDoiDiem,
           ),
         );
       } catch (e) {
@@ -114,7 +158,7 @@ export function PaymentScreen({
         setDangGui(false);
       }
     },
-    [api, dangGui, khoa, phienBan, soDienThoai, taiGiuLoi],
+    [api, dangGui, khoa, phienBan, soDienThoai, taiGiuLoi, maKhuyenMai, maDoiDiem],
   );
 
   if (loiNang !== null) throw loiNang;
@@ -180,6 +224,58 @@ export function PaymentScreen({
               <Text style={kieuChung.chu}>
                 Sau khi yêu cầu, bàn không gọi thêm món được nữa (vẫn bớt được món đã chọn).
               </Text>
+
+              {/*
+                Hai ô mã đứng cạnh nhau vì với khách chúng là CÙNG một loại vật: một mã, gõ vào,
+                được giảm tiền. Khác nhau ở nguồn gốc — mã của quán ai cũng dùng, mã đổi điểm là
+                thứ khách đã mua bằng điểm. Cả hai cộng dồn, và trần tổng do máy chủ cắt.
+              */}
+              <View>
+                <Text style={kieuChung.nhan}>Mã ưu đãi của quán</Text>
+                <TextInput
+                  accessibilityLabel="Mã ưu đãi của quán"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  onChangeText={setMaKhuyenMai}
+                  placeholder="Ví dụ: GIAM10"
+                  style={kieuChung.oNhap}
+                  value={maKhuyenMai}
+                />
+              </View>
+
+              {/*
+                Chạm là điền. Trước đây tab Khuyến mãi liệt kê mã còn màn này không có ô nào —
+                khách thấy ưu đãi, chép mã, rồi không có chỗ dán. Bắt gõ lại một mã đang hiện ngay
+                trên màn hình là bắt làm một việc máy làm được.
+              */}
+              {maDangChay.length === 0 ? null : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {maDangChay.map((km) => (
+                    <TouchableOpacity
+                      accessibilityLabel={`Dùng mã ${km.code}`}
+                      accessibilityRole="button"
+                      key={km.code}
+                      onPress={() => setMaKhuyenMai(km.code)}
+                      style={[kieuChung.nutVien, { paddingHorizontal: 14, paddingVertical: 8 }]}
+                    >
+                      <Text style={kieuChung.chuNutVien}>{km.code}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View>
+                <Text style={kieuChung.nhan}>Mã đổi bằng điểm</Text>
+                <TextInput
+                  accessibilityLabel="Mã đổi bằng điểm"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  onChangeText={setMaDoiDiem}
+                  placeholder="Mã bạn đổi ở mục Điểm thưởng"
+                  style={kieuChung.oNhap}
+                  value={maDoiDiem}
+                />
+              </View>
               <TouchableOpacity
                 accessibilityRole="button"
                 disabled={dangGui}
@@ -208,7 +304,12 @@ export function PaymentScreen({
             />
           ) : null}
 
-          {hd.status === 'Paid' ? (
+          {/*
+            Hoá đơn BÀN tất toán bằng `Confirmed`; `Paid` còn lại từ đường thanh toán theo ĐƠN.
+            Chỉ kiểm một cái nghĩa là khách vừa chuyển khoản xong không thấy lời cảm ơn nào, và
+            màn hình đứng im như chưa có gì xảy ra.
+          */}
+          {daTraXong(hd.status) ? (
             <Text style={[kieuChung.chu, { textAlign: 'center', marginTop: 12 }]}>
               Cảm ơn bạn. Hẹn gặp lại!
             </Text>

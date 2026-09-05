@@ -9,6 +9,13 @@ export type AdminMenuItemPayload = {
   imageUrl?: string | null;
   isAvailable: boolean;
   tags: string[];
+  /**
+   * Phút từ lúc bếp nhận món tới lúc món sẵn sàng.
+   *
+   * `null` khi SỬA nghĩa là GIỮ NGUYÊN, không phải xoá — máy chủ cố ý làm vậy để một client chưa
+   * biết tới trường này không thổi bay con số bếp đã khai chỉ vì sửa cái tên.
+   */
+  prepMinutes: number | null;
 };
 
 function enrichMenuItem(item: AdminMenuItem): AdminMenuItem {

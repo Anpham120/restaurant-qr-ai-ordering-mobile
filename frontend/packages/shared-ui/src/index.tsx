@@ -383,7 +383,9 @@ export function LoginPage({
     setBusy(true);
     setError("");
     try {
-      const user = await login({ email, password });
+      // Ô này nhân viên gõ email, nhưng trường gửi lên tên là `identifier` — backend dùng chung
+      // một ô cho cả khách (số điện thoại) lẫn nhân viên (email).
+      const user = await login({ identifier: email, password });
       if (!allowedRoles.includes(user.role)) {
         setError(`Tài khoản ${user.role} không được truy cập ${portalName}.`);
         return;

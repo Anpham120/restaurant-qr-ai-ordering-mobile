@@ -48,6 +48,31 @@ public class PaymentTransactionEntity {
 	@Column(name = "request_fingerprint")
 	private String requestFingerprint;
 
+	/**
+	 * Tiền khách đưa và tiền thối — CHỈ có với thanh toán tiền mặt tại quầy.
+	 *
+	 * <p>Để {@code null} thay vì 0 khi không áp dụng: chuyển khoản không có khái niệm "khách đưa",
+	 * và trộn hai thứ đó là mất khả năng đối chiếu quỹ cuối ca.
+	 */
+	@Column(name = "amount_tendered")
+	private BigDecimal amountTendered;
+
+	@Column(name = "change_due")
+	private BigDecimal changeDue;
+
+	public BigDecimal getAmountTendered() {
+		return amountTendered;
+	}
+
+	public BigDecimal getChangeDue() {
+		return changeDue;
+	}
+
+	public void ghiTienMat(BigDecimal amountTendered, BigDecimal changeDue) {
+		this.amountTendered = amountTendered;
+		this.changeDue = changeDue;
+	}
+
 	protected PaymentTransactionEntity() {
 		// JPA
 	}

@@ -87,6 +87,17 @@ export type OrderTrackingItem = {
   status: OrderItemStatus;
   lineTotal: number;
   updatedAt: string;
+
+  /**
+   * Ước lượng thời gian lên món, do máy chủ tính (gộp tải bếp + độ trễ bếp tự khai).
+   *
+   * `null` khi món không còn chờ nữa. Ba trường này máy chủ ĐÃ gửi từ lâu — đo thật: một món
+   * `Pending` trả về 24–41 phút — nhưng kiểu của web không khai nên web vứt đi, và khách quét QR
+   * bằng trình duyệt không thấy ước lượng nào, trong khi app di động thì có.
+   */
+  estimatedReadyMinutesLow?: number | null;
+  estimatedReadyMinutesHigh?: number | null;
+  kitchenBusy?: boolean;
 };
 
 export type OrderTrackingOrder = {
@@ -169,7 +180,10 @@ export type TableInvoice = {
   tableCode: TableCode | null;
   status: PaymentStatus;
   subtotalAmount: number;
+  /** TỔNG mọi khoản giảm — mã của quán cộng ưu đãi đổi điểm, đã cắt theo trần. */
   discountAmount: number;
+  /** Phần do đổi điểm, tách ra để biên nhận giải thích được con số tổng. */
+  loyaltyDiscountAmount: number | null;
   totalAmount: number;
   promotionCode: string | null;
   customerPhoneNumber: string | null;
@@ -191,6 +205,8 @@ export type TableInvoicePaymentRequest = {
   method: RequestedPaymentMethod;
   promotionCode?: string | null;
   customerPhoneNumber?: string | null;
+  /** Mã đổi bằng điểm — cùng ô nhập với promotionCode, cộng dồn rồi cắt theo trần tổng. */
+  loyaltyCode?: string | null;
 };
 
 export type TableInvoicePaymentRequestResponse = {

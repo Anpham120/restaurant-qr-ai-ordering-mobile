@@ -48,6 +48,7 @@ const EMPTY_FORM: AdminMenuItemPayload = {
   imageUrl: "",
   isAvailable: true,
   tags: [],
+  prepMinutes: null,
 };
 
 export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
@@ -122,6 +123,7 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
       imageUrl: item.imageUrl ?? "",
       isAvailable: item.isAvailable,
       tags: item.tags ?? [],
+      prepMinutes: item.prepMinutes ?? null,
     });
     setTagsInput((item.tags ?? []).join(", "));
     setShowForm(true);
@@ -346,6 +348,24 @@ export function AdminMenuManager({ embedded = false }: { embedded?: boolean }) {
                 />
                 <div className="ops-form-hint" style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
                   Ảnh bộ menu chuẩn nằm trong /menu-images/ (91 ảnh theo tên món). Xem trước sau khi lưu trong lưới thẻ bên dưới.
+                </div>
+              </div>
+              <div className="ops-form-group">
+                <label className="ops-form-label" htmlFor="amm-prep-minutes">Thời gian lên món (phút)</label>
+                <input
+                  className="ops-form-input"
+                  id="amm-prep-minutes"
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={form.prepMinutes ?? ""}
+                  onChange={(e) => setForm({ ...form, prepMinutes: e.target.value === "" ? null : Number(e.target.value) })}
+                  placeholder="Chưa khai"
+                />
+                <div className="ops-form-hint" style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
+                  Tính từ lúc bếp nhận món tới lúc món sẵn sàng — KHÔNG phải tổng thời gian nấu. Phở ninh
+                  nước dùng cả đêm nhưng múc ra bát chỉ vài phút. Để trống thì món này không hiện ước lượng
+                  cho khách, và đó là đúng: một con số bịa còn tệ hơn không có.
                 </div>
               </div>
               <div className="ops-form-group">

@@ -1,19 +1,31 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { type GuiMaOtp } from '../core/auth/phoneOtp';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-import { type AuthSession } from '../core/auth/authSession';
+import { type AuthSession, danhTinh } from '../core/auth/authSession';
 import { type CauHinhMayChu } from '../core/cauHinh/cauHinh';
 import { type LoyaltyApi } from '../core/loyalty/loyaltyApi';
+import { type PromotionApi } from '../core/promotions/promotionApi';
+import { maDonDangMo } from '../core/orders/order';
+import { type OrderApi } from '../core/orders/orderApi';
 import { type FavouriteApi } from '../core/orders/favouriteApi';
 import { type OrderHistoryApi } from '../core/orders/orderHistoryApi';
 import { type InvoiceApi } from '../core/payment/invoiceApi';
 import { type TableSession } from '../core/tables/tableSession';
 import { HistoryScreen } from './HistoryScreen';
+import { HoSoTaiKhoan } from './HoSoTaiKhoan';
+import { ManCoNutVe } from './ManCoNutVe';
 import { LoyaltyScreen } from './LoyaltyScreen';
 import { PaymentScreen } from './PaymentScreen';
 import { MauQuan, kieuChung } from './theme';
 
 export interface AccountTabProps {
+  /**
+   * Gửi mã OTP, chuyển thẳng xuống chỗ liên kết số.
+   *
+   * `undefined` khi thư viện native vắng mặt (Expo Go).
+   */
+  guiMaOtp: GuiMaOtp | undefined;
   phienBan: TableSession;
   dangNhap: AuthSession | null;
   cauHinh: CauHinhMayChu;
@@ -22,16 +34,26 @@ export interface AccountTabProps {
   historyApi: OrderHistoryApi;
   favouriteApi: FavouriteApi;
   loyaltyApi: LoyaltyApi;
+  promotionApi: PromotionApi;
+  orderApi: OrderApi;
   themVaoGio: (menuItemId: string, quantity: number) => Promise<void>;
   onMoCaiDat: () => void;
   onRoiBan: () => void;
   onDangNhap: () => void;
   onDangXuat: () => void;
   onBaoTin?: ((tin: string) => void) | undefined;
+  /**
+   * Báo lên khi khách vừa nối số ở hồ sơ.
+   *
+   * Cần thiết chứ không thừa: `soDienThoai` còn dùng để điền sẵn ô số lúc thanh toán. Không báo
+   * lên thì khách nối số xong, sang trả tiền vẫn thấy ô trống, và lần thanh toán đó KHÔNG tích
+   * được điểm — đúng thứ họ vừa bỏ công liên kết để có.
+   */
+  onNoiSoXong?: ((soMoi: string | null) => void) | undefined;
 }
 
 /** Màn con mở từ tab tài khoản. `null` là đang ở danh sách gốc. */
-type ManCon = 'thanhToan' | 'lichSu' | 'diem' | null;
+type ManCon = 'thanhToan' | 'lichSu' | 'diem' | 'hoSo' | null;
 
 function Dong({ tieuDe, phu, onPress }: { tieuDe: string; phu?: string; onPress: () => void }) {
   return (
@@ -52,22 +74,31 @@ export function AccountTab(p: AccountTabProps) {
   const [manCon, setManCon] = useState<ManCon>(null);
   const ses = p.dangNhap;
 
+  // Hỏi lúc bấm chứ không nạp sẵn: đơn mở ra và đóng lại trong lúc tab này đang hiện.
+  const { orderApi, phienBan } = p;
+  const timDonDangMo = useCallback(
+    async () =>
+      maDonDangMo(await orderApi.donCuaPhien(phienBan.sessionId, phienBan.tableSessionToken)),
+    [orderApi, phienBan],
+  );
+
   if (manCon === 'thanhToan') {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
+      <ManCoNutVe onVe={() => setManCon(null)}>
         <PaymentScreen
+          promotionApi={p.promotionApi}
           api={p.invoiceApi}
           onBaoTin={p.onBaoTin}
           phienBan={p.phienBan}
           soDienThoai={p.soDienThoai}
         />
-      </ManConCoNutVe>
+      </ManCoNutVe>
     );
   }
 
   if (manCon === 'lichSu' && ses !== null) {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
+      <ManCoNutVe onVe={() => setManCon(null)}>
         <HistoryScreen
           accessToken={ses.accessToken}
           favouriteApi={p.favouriteApi}
@@ -75,15 +106,37 @@ export function AccountTab(p: AccountTabProps) {
           onBaoTin={p.onBaoTin}
           themVaoGio={p.themVaoGio}
         />
-      </ManConCoNutVe>
+      </ManCoNutVe>
+    );
+  }
+
+  if (manCon === 'hoSo' && ses !== null) {
+    return (
+      <ManCoNutVe onVe={() => setManCon(null)}>
+        <HoSoTaiKhoan
+          api={p.loyaltyApi}
+          dangNhap={ses}
+          guiMaOtp={p.guiMaOtp}
+          onBaoTin={p.onBaoTin}
+          onNoiSoXong={(so) => p.onNoiSoXong?.(so)}
+          onXong={() => setManCon(null)}
+          soDienThoai={p.soDienThoai}
+        />
+      </ManCoNutVe>
     );
   }
 
   if (manCon === 'diem' && ses !== null) {
     return (
-      <ManConCoNutVe onVe={() => setManCon(null)}>
-        <LoyaltyScreen accessToken={ses.accessToken} api={p.loyaltyApi} onBaoTin={p.onBaoTin} />
-      </ManConCoNutVe>
+      <ManCoNutVe onVe={() => setManCon(null)}>
+        <LoyaltyScreen
+          accessToken={ses.accessToken}
+          api={p.loyaltyApi}
+          guiMaOtp={p.guiMaOtp}
+          onBaoTin={p.onBaoTin}
+          timDonDangMo={timDonDangMo}
+        />
+      </ManCoNutVe>
     );
   }
 
@@ -134,7 +187,7 @@ export function AccountTab(p: AccountTabProps) {
             <Text style={{ fontSize: 15, fontWeight: '600', color: MauQuan.ink }}>
               {ses.user.fullName}
             </Text>
-            <Text style={kieuChung.chuPhu}>{ses.user.email}</Text>
+            <Text style={kieuChung.chuPhu}>{danhTinh(ses.user)}</Text>
             <TouchableOpacity
               accessibilityLabel="Đăng xuất"
               accessibilityRole="button"
@@ -144,6 +197,19 @@ export function AccountTab(p: AccountTabProps) {
               <Text style={kieuChung.chuNutVien}>Đăng xuất</Text>
             </TouchableOpacity>
           </View>
+          {/*
+            Hồ sơ đứng TRƯỚC lịch sử và điểm. Liên kết số là việc khách làm ngay sau khi tạo tài
+            khoản, một lần duy nhất; hai mục kia là thứ họ quay lại xem nhiều lần về sau.
+          */}
+          <Dong
+            onPress={() => setManCon('hoSo')}
+            phu={
+              p.soDienThoai === null
+                ? 'Chưa liên kết số điện thoại'
+                : `Số điện thoại: ${p.soDienThoai}`
+            }
+            tieuDe="Hồ sơ tài khoản"
+          />
           <Dong
             onPress={() => setManCon('lichSu')}
             phu="Đơn của những lần ghé trước"
@@ -157,23 +223,5 @@ export function AccountTab(p: AccountTabProps) {
         </>
       )}
     </ScrollView>
-  );
-}
-
-function ManConCoNutVe({ children, onVe }: { children: React.ReactNode; onVe: () => void }) {
-  return (
-    <View style={kieuChung.man}>
-      <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: MauQuan.clayLine }}>
-        <TouchableOpacity
-          accessibilityLabel="Quay lại"
-          accessibilityRole="button"
-          onPress={onVe}
-          style={{ alignSelf: 'flex-start' }}
-        >
-          <Text style={kieuChung.chuNutVien}>‹ Quay lại</Text>
-        </TouchableOpacity>
-      </View>
-      {children}
-    </View>
   );
 }

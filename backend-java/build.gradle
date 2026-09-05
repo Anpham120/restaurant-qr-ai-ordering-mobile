@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.PathSensitivity
+
 plugins {
 	id 'java'
 	id 'checkstyle'
@@ -7,6 +9,15 @@ plugins {
 
 group = 'com.cmc'
 version = '0.1.0'
+
+// Ghi đè phiên bản Testcontainers do BOM của Spring Boot 3.3.4 quản (1.19.8).
+//
+// Không ghi đè ở đây thì khai báo '...:1.21.3' dưới phần dependencies bị kéo ngược về 1.19.8 —
+// Gradle vẫn in ra "1.21.3 -> 1.19.8" nên rất dễ tưởng là đã nâng. Bản 1.19.8 kèm docker-java
+// 3.3.6, và docker-java 3.3.x thương lượng API Docker dưới mức 1.40 trong khi Docker Engine 29
+// đặt MinAPIVersion = 1.40 rồi trả HTTP 400. Triệu chứng là "Could not find a valid Docker
+// environment" — nghe như máy không cài Docker, dù Docker đang chạy bình thường.
+ext['testcontainers.version'] = '1.21.3'
 
 java {
 	toolchain {
@@ -36,8 +47,13 @@ dependencies {
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	testImplementation 'org.testcontainers:junit-jupiter:1.20.2'
-	testImplementation 'org.testcontainers:postgresql:1.20.2'
+	// 1.21.3 chứ không phải 1.20.2: docker-java kèm trong 1.20.x thương lượng API Docker ở mức
+	// dưới 1.40, mà Docker Engine 29 đặt MinAPIVersion = 1.40 và trả thẳng HTTP 400 cho /info.
+	// Triệu chứng là "Could not find a valid Docker environment" — nghe như máy không có Docker,
+	// trong khi Docker vẫn chạy bình thường. Biến DOCKER_API_VERSION không cứu được vì client tự
+	// kẹp lại theo mức nó hỗ trợ.
+	testImplementation 'org.testcontainers:junit-jupiter:1.21.3'
+	testImplementation 'org.testcontainers:postgresql:1.21.3'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	// Giữ ranh giới tầng của §5.3 bằng test, thay vì bằng quy ước.
 	testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
@@ -55,8 +71,40 @@ checkstyle {
 	maxWarnings = 0
 }
 
+// Áp cho MỌI task test, không riêng `test`: `integrationTest` cũng dùng Testcontainers, và một
+// task thứ ba thêm về sau sẽ tự có mà không ai phải nhớ.
+//
+// Testcontainers ghim sẵn phiên bản Docker Engine API 1.32 để chạy được với Docker rất cũ. Docker
+// Engine 29 đặt MinAPIVersion = 1.40 và trả HTTP 400 cho mọi lượt gọi cũ hơn, nên trên máy dùng
+// Docker Desktop đời mới thì MỌI test Testcontainers chết ở bước dựng container — kèm thông báo
+// "Could not find a valid Docker environment", nghe hệt như máy chưa cài Docker. Muốn thấy đúng
+// nguyên nhân phải soi request thật: `GET /v1.32/info`.
+//
+// 1.40 ra đời cùng Docker 19.03 (2019) nên đặt cứng không loại bỏ máy nào còn dùng được, và nó
+// cũng chính là mức thấp nhất Docker 29 chấp nhận. docker-java đọc khoá này từ SYSTEM PROPERTY,
+// không đọc từ biến môi trường — thử DOCKER_API_VERSION hay API_VERSION đều công cốc.
+tasks.withType(Test).configureEach {
+	systemProperty 'api.version', '1.40'
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// DeploymentConfigTest đọc các tệp NGOÀI dự án Gradle. Không khai chúng làm đầu vào thì sửa
+	// cd.yml hay docker-compose mà không đụng mã Java sẽ để task ở trạng thái up-to-date: Gradle
+	// bỏ qua, báo lại kết quả cũ, và cái canh lặng lẽ thôi canh.
+	//
+	// Đo thật: bỏ một biến khỏi cd.yml rồi chạy `gradle test` -> BUILD SUCCESSFUL trong 11 giây.
+	// Chạy `cleanTest test` cùng đột biến đó -> đỏ đúng phép kiểm cần đỏ.
+	// Khai CẢ THƯ MỤC deploy chứ không liệt kê từng tệp. Liệt kê từng tệp đã hỏng một lần: thêm
+	// phép kiểm đọc deploy/env/*.env nhưng quên thêm chúng vào danh sách, và Gradle lại bỏ qua —
+	// cùng một lỗi, lần thứ hai. Khai cả thư mục thì tệp cấu hình thêm sau này tự động được tính.
+	inputs.files(
+			rootProject.fileTree('../deploy'),
+			rootProject.file('../.github/workflows/cd.yml'))
+			.withPropertyName('cauHinhTrienKhai')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
+
 	// Phần cần Docker tách sang `integrationTest`. Đây là lý do CI có thể chặn merge dựa trên
 	// `test`: khi hai loại còn chung một task, cờ `continue-on-error` đặt cho bộ Testcontainers
 	// (chưa từng chạy được ở sandbox) vô hiệu hoá luôn 82 test domain vốn không cần Docker.
