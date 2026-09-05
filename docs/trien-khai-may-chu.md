@@ -2,7 +2,7 @@
 
 Triển khai qua GitHub Actions (`.github/workflows/cd.yml`), bấm tay, không tự chạy theo push.
 
-Máy chủ: **`180.93.111.207`** — Debian 13, 8 nhân, 15GB RAM, CPU có `avx2`. Chạy CẢ HAI môi
+Máy chủ: **`180.93.111.207`** — Debian 13, 8 nhân, 15GB RAM. Chạy CẢ HAI môi
 trường trên cùng máy này: repo thiết kế sẵn cho việc đó, tách nhau bằng tên project Docker, cổng,
 và tệp cấu hình nginx riêng.
 
@@ -15,18 +15,17 @@ và tệp cấu hình nginx riêng.
 | Bếp | `kitchen.cmcrestaurant.app` | `kitchen-staging.cmcrestaurant.app` |
 | Quản trị | `admin.cmcrestaurant.app` | `admin-staging.cmcrestaurant.app` |
 | Tên project Docker | `cmc-restaurant-production` | `cmc-restaurant-staging` |
-| Cổng web / API / DB / AI | 8080 / 5000 / 5432 / 8001 | 8081 / 5001 / 5433 / **8002** |
+| Cổng web / API / DB | 8080 / 5000 / 5432 | 8081 / 5001 / 5433 |
 
-Bốn cặp cổng phải khác nhau hết. Tách project Docker **không** tách cổng: compose vẫn gắn cổng ra
+Ba cặp cổng phải khác nhau hết. Tách project Docker **không** tách cổng: compose vẫn gắn cổng ra
 máy chủ, nên trùng một số là môi trường lên sau chết với `port is already allocated`.
-`DeploymentConfigTest` canh việc này — lỗi có thật đã gặp: cả hai tệp cùng để `AI_SERVICE_PORT=8001`.
+`DeploymentConfigTest` canh việc này — lỗi có thật đã gặp: hai tệp cấu hình cùng ghi một số cổng.
 
 ---
 
 > **Lịch sử chuyển máy.** `167.172.83.59` → `221.121.2.60` → `221.121.2.108` → `180.93.111.207`
 > (04/09/2026). Lần cuối chuyển vì máy cũ hết hạn thuê; dữ liệu là dữ liệu thử nên không mang
-> theo, hệ thống dựng lại từ migration. Máy mới có `avx2` nên **dựng được dịch vụ AI** — máy
-> `221.121.2.60` trước đây thì không (CPU `qemu64`, torch chết với SIGILL lúc dựng ảnh).
+> theo, hệ thống dựng lại từ migration.
 
 ## 0. Đổi DNS sang máy mới
 
@@ -106,11 +105,9 @@ dùng được luôn trên production.
 | `SSH_KEY` | nội dung `~/.ssh/cmc-deploy` |
 | `POSTGRES_PASSWORD` | `openssl rand -base64 48` |
 | `JWT_SIGNING_KEY` | `openssl rand -base64 48` |
-| `AI_INTERNAL_TOKEN` | `openssl rand -base64 48` |
 | `ADMIN_BOOTSTRAP_PASSWORD` | mật khẩu quản trị viên đầu tiên, ít nhất 8 ký tự |
 | `PAYMENTS_SEPAY_APIKEY` | khoá webhook SePay |
 | `FIREBASE_API_KEY` | Web API Key của dự án Firebase |
-| `LLM_API_KEY` | khoá mô hình ngôn ngữ |
 
 > `JWT_SIGNING_KEY` mặc định trong mã là `dev-only-signing-key-change-me-before-any-real-deploy`.
 > Để nguyên chuỗi đó trên máy công khai nghĩa là **ai cũng ký được token giả** và vào bằng vai quản
@@ -140,9 +137,6 @@ PAYMENTS_VIETQR_ACCOUNTNAME   = <tên chủ tài khoản>
 FIREBASE_PROJECT_ID   = <project id>
 GOOGLE_CLIENT_ID      = <web client id>.apps.googleusercontent.com
 
-AI_SERVICE_URL        = http://ai-service:8001
-LLM_MODEL             = <tên mô hình>
-
 ADMIN_BOOTSTRAP_EMAIL     = <email đăng nhập của quản trị viên đầu tiên>
 ADMIN_BOOTSTRAP_FULL_NAME = <tên hiển thị>
 ```
@@ -165,7 +159,6 @@ COMPOSE_PROJECT_NAME  = cmc-restaurant-production
 FRONTEND_PORT         = 8080
 BACKEND_PORT          = 5000
 POSTGRES_PORT         = 5432
-AI_SERVICE_PORT       = 8001
 BACKEND_JAVA_BIND     = 127.0.0.1
 
 FRONTEND_SERVER_NAMES = cmcrestaurant.app order.cmcrestaurant.app admin.cmcrestaurant.app staff.cmcrestaurant.app kitchen.cmcrestaurant.app
@@ -173,9 +166,6 @@ API_SERVER_NAME       = api.cmcrestaurant.app
 PUBLIC_API_BASE_URL   = https://api.cmcrestaurant.app/api
 CORS_ALLOWED_ORIGINS  = https://cmcrestaurant.app,https://order.cmcrestaurant.app,https://admin.cmcrestaurant.app,https://staff.cmcrestaurant.app,https://kitchen.cmcrestaurant.app
 ```
-
-Bên `staging` nhớ thêm `AI_SERVICE_PORT = 8002` — bỏ trống thì cả hai cùng về mặc định 8001 và
-môi trường lên sau không khởi động được.
 
 `BACKEND_JAVA_BIND = 127.0.0.1` quan trọng hơn vẻ ngoài: mặc định compose mở cổng 8081 cho **mọi
 giao diện** vì máy phát triển cần điện thoại thật gọi vào qua IP LAN. Trên máy chủ công khai, để

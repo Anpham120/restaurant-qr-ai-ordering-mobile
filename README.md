@@ -96,20 +96,16 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph Clients["React 19 + TypeScript + Vite"]
-    Customer["Customer Web"]
-    Ordering["Ordering Web"]
-    Staff["Staff Web"]
-    Kitchen["Kitchen Web"]
-    Admin["Admin Web"]
+    Customer["Customer Web<br/>giới thiệu · thực đơn"]
+    Ordering["Ordering Web<br/>gọi món tại bàn"]
+    Ops["Ops Web<br/>quản trị · bếp · nhân viên · quầy"]
   end
 
   Mobile["App khách — Expo / React Native"]
 
   Customer --> API
   Ordering --> API
-  Staff --> API
-  Kitchen --> API
-  Admin --> API
+  Ops --> API
   Mobile --> API
 
   subgraph Backend["Java Spring Boot API"]
@@ -135,7 +131,7 @@ không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích �
 
 | Lớp | Công nghệ |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite — 5 ứng dụng, 7 gói dùng chung |
+| Frontend | React 19, TypeScript, Vite — 3 ứng dụng triển khai thật, 7 gói dùng chung |
 | App di động | Expo SDK 57, React Native |
 | Backend | Java 21, Spring Boot 3.3.4, Spring Data JPA, Flyway (28 migration), STOMP/WebSocket, JWT |
 | Dữ liệu | PostgreSQL 16 |
@@ -195,7 +191,10 @@ npm ci
 npm run dev
 ```
 
-Các workspace khác: `npm run dev:ordering`, `dev:admin`, `dev:kitchen`, `dev:staff`.
+Các workspace khác: `npm run dev:ordering`, `npm run dev:ops`.
+
+`dev:kitchen` và `dev:staff` chỉ dựng hai stub chuyển hướng sang ứng dụng vận hành — bếp và nhân
+viên dùng chung `ops-web`, không phải hai ứng dụng riêng.
 
 ### Backend
 
@@ -218,7 +217,7 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 
 ```text
 .
-├── frontend/      # 5 ứng dụng React/Vite, 7 gói dùng chung và test frontend
+├── frontend/      # 3 ứng dụng React/Vite (+2 stub chuyển hướng), 7 gói dùng chung, test
 ├── backend-java/  # API Spring Boot, 12 module nghiệp vụ và test
 ├── mobile-rn/     # App khách hàng thân thiết (Expo / React Native)
 ├── deploy/        # Docker Compose, cấu hình môi trường và script triển khai

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class TableSessionCapability {
 
+	// ĐỪNG đổi chuỗi này cho "hợp tên kho mã mới". Nó là nhãn tách miền của HMAC, tức nó nằm TRONG
+	// chữ ký của mọi token phiên bàn đã phát. Đổi một ký tự là mọi khách đang ngồi tại bàn mất phiên
+	// giữa bữa, và không có đường phát lại. Cùng lý do với `JWT_ISSUER` trong `application.yml`.
 	private static final String PURPOSE = "restaurant-qr-ai-ordering:table-session-capability:v2";
 	private static final String HEADER = "X-Table-Session-Token";
 

@@ -85,7 +85,7 @@ export interface Tab {
 export function KhungChinh(p: KhungChinhProps) {
   const [khoaTab, setKhoaTab] = useState('thucDon');
 
-  /** Thêm món vào giỏ, dùng chung cho trợ lý và cho "đặt lại đơn cũ". */
+  /** Thêm món vào giỏ, dùng chung cho thực đơn và cho "đặt lại đơn cũ". */
   const themVaoGio = useMemo(
     () => (menuItemId: string, quantity: number) =>
       p.cartApi

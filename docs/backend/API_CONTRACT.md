@@ -4,18 +4,18 @@
 > đối chiếu — nên nó không thể thiếu endpoint hay trỏ vào endpoint đã xoá.
 >
 > Các mục CÒN LẠI (payload, mã lỗi, phân quyền) do người viết và **chưa được kiểm tự động**. Kiểm
-> lần cuối 2026-07-16; mã sửa gần nhất 2026-08-02.
+> lần cuối 2026-09-05.
 
 
 <!-- SINH:api-inventory -->
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**97 endpoint** trong **12 module**, đọc trực tiếp từ
+**88 endpoint** trong **11 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/97 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/88 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
@@ -43,19 +43,6 @@
 | `GET` | `/api/table-sessions/{tableSessionId}/cart` | `cart/CartController.java` |
 | `POST` | `/api/table-sessions/{tableSessionId}/cart/items` | `cart/CartController.java` |
 
-### chat (8)
-
-| Động từ | Đường dẫn | Khai ở |
-|---|---|---|
-| `GET` | `/api/admin/chat/feedback` | `chat/AdminChatController.java` |
-| `POST` | `/api/chat/sessions` | `chat/ChatController.java` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/assistance` | `chat/ChatController.java` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/feedback` | `chat/ChatController.java` |
-| `GET` | `/api/chat/sessions/{chatSessionId}/messages` | `chat/ChatController.java` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/messages` | `chat/ChatController.java` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/messages/stream` | `chat/ChatController.java` |
-| `POST` | `/api/chat/sessions/{chatSessionId}/recommendations` | `chat/ChatController.java` |
-
 ### counter (4)
 
 | Động từ | Đường dẫn | Khai ở |
@@ -65,7 +52,7 @@
 | `POST` | `/api/counter/shifts/{shiftId}/adjustments` | `counter/CounterController.java` |
 | `POST` | `/api/counter/shifts/{shiftId}/close` | `counter/CounterController.java` |
 
-### loyalty (16)
+### loyalty (15)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -78,10 +65,9 @@
 | `POST` | `/api/admin/loyalty/rewards` | `loyalty/AdminLoyaltyController.java` |
 | `DELETE` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
 | `PUT` | `/api/admin/loyalty/rewards/{rewardId}` | `loyalty/AdminLoyaltyController.java` |
-| `POST` | `/api/loyalty/link` | `loyalty/LoyaltyController.java` |
+| `POST` | `/api/loyalty/counter/redeem` | `loyalty/LoyaltyController.java` |
 | `GET` | `/api/loyalty/lookup` | `loyalty/LoyaltyController.java` |
 | `GET` | `/api/loyalty/me` | `loyalty/LoyaltyController.java` |
-| `POST` | `/api/loyalty/me/link-code` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/me/phone` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/me/redeem` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/redemptions/{redemptionId}/honour` | `loyalty/LoyaltyController.java` |
@@ -178,9 +164,12 @@
 | `GET` | `/api/tables/{tableCode}` | `tables/TableController.java` |
 
 <!-- HET:api-inventory -->
-Tai lieu nay la contract chinh thuc giua Backend, Frontend, AI service va DevOps cho giai doan Week 5. Neu thay doi endpoint, field, enum, error code hoac event payload sau tai lieu nay, nguoi thuc hien phai tao breaking-change note trong issue/PR lien quan.
+Tai lieu nay la contract chinh thuc giua backend, frontend, app di dong va DevOps. Doi endpoint, field, enum, ma loi hoac payload su kien thi phai ghi breaking-change note trong issue/PR lien quan.
 
-> **Nguon chuan (single source of truth): [`docs/SYSTEM_ANALYSIS_DESIGN.md`](../archive/SYSTEM_ANALYSIS_DESIGN.md).** Tai lieu nay giu chi tiet request/response va da duoc dong bo voi code branch `develop`: chi `OrderType = DineIn` (QR tai ban), bo domain Delivery va Pickup, per-order access token (`X-Order-Token`), refund payment, optimistic concurrency (`CONFLICT_STALE`), login lockout.
+> **Nguon chuan ve kien truc va nghiep vu: [`ARCHITECTURE.md`](ARCHITECTURE.md).** Tai lieu nay giu
+> chi tiet request/response. Chi co `OrderType = DineIn` (QR tai ban) — khong co Delivery hay
+> Pickup; per-order access token (`X-Order-Token`); hoan tien; optimistic concurrency
+> (`CONFLICT_STALE`); khoa dang nhap sau nhieu lan sai.
 
 ## 1. Nguyen Tac Chung
 
@@ -320,7 +309,7 @@ Response `200 OK`:
 Endpoint này tồn tại ở bản .NET (`AuthEndpoints.cs`) và **không được port sang Java**.
 
 Lý do: không nơi nào gọi nó. Đã tìm khắp kho — `frontend/src`, `scripts/`, `.github/`,
-`docs/`, `ai/` — kết quả duy nhất ngoài định nghĩa .NET là một lớp CSS trùng tên
+`docs/` — kết quả duy nhất là một lớp CSS trùng tên
 (`.admin-check-row` trong `styles.css`), không liên quan. Frontend quyết định quyền quản trị
 bằng prop `isAdmin` truyền vào `OpsHubShell`, không hỏi máy chủ.
 
@@ -713,10 +702,23 @@ Kitchen/Staff khong co endpoint rieng ngoai order endpoints:
 - Kitchen board doc `GET /api/orders` va `PATCH /api/orders/{orderCode}/items/{orderItemId}/status`.
 - Payment counter doc `POST /api/orders/{orderCode}/payment/confirm`.
 
-SignalR:
+STOMP over WebSocket:
 
-- Hub path: `/hubs/orders`.
-- Event tu backend den client:
+- Điểm nối: `/hub/orders` (có cả biến thể SockJS cho trình duyệt cũ).
+- Broker: `/topic`. Tên sự kiện đi trong **header `event`**, không nằm trong thân tin.
+- Bốn đích:
+
+| Đích | Ai được đăng ký |
+|---|---|
+| `/topic/order.<orderCode>` | khách, bằng token của chính đơn đó |
+| `/topic/orders.operations` | Staff, Kitchen, Admin |
+| `/topic/table.<tableCode>` | Staff, Kitchen, Admin |
+| `/topic/menu` | mọi giao diện |
+
+Backend chặn ngay ở bước **SUBSCRIBE**, không phải lúc phát: khách không đăng ký được đích của bàn
+khác.
+
+- Thân tin từ backend tới client:
 
 ```json
 {
@@ -732,87 +734,29 @@ SignalR:
 }
 ```
 
-Event names:
+Tên sự kiện (đi trong header `event`):
 
 - `order.created`
 - `order.statusChanged`
 - `order.itemStatusChanged`
 - `payment.requested`
+- `menu.availabilityChanged`
 
-Customer goi `WatchOrder(orderCode, orderToken)`. `WatchTable` chi cho Staff/Kitchen/Admin. JWT WebSocket chi doc query `access_token` tren `/hubs/orders`.
+Khác biệt mô hình đáng nhớ: bản trước dùng SignalR, nơi client gọi RPC `WatchOrder(...)` và server
+tự thêm connection vào group. STOMP không có RPC ấy — client **SUBSCRIBE một đích**, và quyền được
+kiểm ngay tại bước đó. Ai chuyển mã cũ sang mà tìm `WatchOrder` sẽ không thấy, vì khái niệm đó
+không tồn tại ở đây.
 
-## 10. AI Chat Contract
-
-### POST `/api/chat/sessions`
-
-Auth: public.
-
-Response `201 Created`:
-
-```json
-{
-  "chatSessionId": "chat_abc123",
-  "createdAt": "2026-06-14T04:00:00Z"
-}
-```
-
-### POST `/api/chat/sessions/{chatSessionId}/messages`
-
-Auth: public. Backend goi AI provider qua service rieng; frontend khong goi Google Gemini API truc tiep.
-
-Request:
-
-```json
-{
-  "content": "Goi y mon cho 2 nguoi an trua",
-  "tableCode": "T05"
-}
-```
-
-Response:
-
-```json
-{
-  "message": {
-    "id": "msg_002",
-    "role": "assistant",
-    "content": "Minh goi y pho bo va tra dao...",
-    "createdAt": "2026-06-14T04:01:00Z"
-  },
-  "suggestedCartActions": [
-    {
-      "menuItemId": "m_001",
-      "name": "Pho bo dac biet",
-      "price": 65000,
-      "quantity": 1,
-      "reason": "Phu hop bua trua",
-      "requiresCustomerConfirmation": true
-    }
-  ],
-  "guardrailFlags": ["CUSTOMER_CONFIRMATION_REQUIRED"]
-}
-```
-
-### GET `/api/chat/sessions/{chatSessionId}/messages`
-
-Auth: public. Lay lich su session.
-
-Guardrail bat buoc:
-
-- AI chi de xuat, khong tu tao order.
-- AI khong tu them item vao cart neu khach chua bam xac nhan.
-- Neu menu item khong ton tai hoac unavailable, backend/frontend khong duoc bia mon/gia.
-- Frontend khong hien raw prompt, raw provider response, API key hoac debug payload.
-
-Loi chinh: `REQUEST_INVALID`, `CHAT_MESSAGE_EMPTY`, `CHAT_SESSION_NOT_FOUND`.
-
-## 11. Health, CORS Va Deployment Contract
+## 10. Health, CORS Va Deployment Contract
 
 | Method | Path | Auth | Ghi chu |
 | --- | --- | --- | --- |
-| GET | `/api/health` | Public | Health JSON cua app. |
-| GET | `/health/live` | Public | Liveness probe. |
-| GET | `/health/ready` | Public | Readiness probe, co PostgreSQL neu config connection string. |
+| GET | `/api/health` | Public | Health JSON cua app. Day la endpoint health DUY NHAT. |
+
+`/health/live` va `/health/ready` **khong ton tai**. Tai lieu nay tung khai ca hai, va cai gia da
+tra: `deploy/scripts/health-check.sh` goi `/health/ready` — Spring Security tra 401 cho moi duong
+khong khai, nen phep kiem suc khoe sau trien khai that bai vi mot endpoint chua bao gio co. Healthcheck
+cua container trong `docker-compose.java.yml` cung dung `/api/health`.
 
 CORS origins mac dinh:
 
@@ -829,7 +773,7 @@ CORS origins mac dinh:
 
 Production co the override bang `CORS_ALLOWED_ORIGINS`, ngan cach bang dau `;`.
 
-## 11b. Promotions, Loyalty & Reports
+## 11. Promotions, Loyalty & Reports
 
 ### Khuyen mai (Promotions)
 

@@ -440,7 +440,6 @@ export const EN_COPY: Record<string, string> = {
   "Có món nào hợp ăn trưa không?": "What would you recommend for lunch?",
   "Tôi muốn đồ uống thanh mát": "I would like a refreshing drink",
   "Có pizza hải sản không?": "Do you have seafood pizza?",
-  "Xin chào, mình là trợ lý AI của CMC Restaurant. Mình có thể gợi ý món và tạo thẻ đề xuất, nhưng chỉ thêm vào giỏ khi bạn xác nhận.": "Hello, I’m CMC Restaurant’s AI guide. I can suggest dishes and create recommendation cards, but items are added to your cart only after you confirm.",
   "Phiên bàn đã hết hạn. Vui lòng quét lại QR tại bàn.": "The table session has expired. Scan the table QR code again.",
   "Phiên bàn không còn hợp lệ. Vui lòng quét lại QR tại bàn.": "The table session is no longer valid. Scan the table QR code again.",
   "Không thể gửi đơn lúc này.": "The order cannot be sent right now.",

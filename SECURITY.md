@@ -10,7 +10,7 @@
 
 Vui lòng **không** mở issue công khai cho lỗ hổng bảo mật.
 
-- Gửi báo cáo riêng tư qua [GitHub Security Advisories](https://github.com/Anpham120/restaurant-qr-ai-ordering/security/advisories/new), hoặc
+- Gửi báo cáo riêng tư qua [GitHub Security Advisories](https://github.com/Anpham120/restaurant-qr-ordering-mobile/security/advisories/new), hoặc
 - Liên hệ trưởng nhóm dự án.
 
 Khi báo cáo, mô tả bước tái hiện, phạm vi ảnh hưởng và phiên bản/commit liên quan.
@@ -31,7 +31,7 @@ Chúng tôi sẽ phản hồi trong thời gian sớm nhất.
 - Role trong frontend chỉ phục vụ UX. Backend JWT + `RequireAuthorization` là
   nguồn quyền duy nhất; sửa localStorage/DevTools không cấp API access.
 - Frontend không có database client. PostgreSQL chỉ mở loopback/container network
-  cho ASP.NET API, nên RLS không thay thế authorization của API single-tenant này.
+  ở tầng ứng dụng, nên RLS không thay thế authorization của API single-tenant này.
 - Password lưu PBKDF2-HMAC-SHA256 có salt; API không trả password hash.
 - Admin table QR, management API, payment confirm/refund đều có server-side role
   check. Customer order/session dùng capability token riêng.

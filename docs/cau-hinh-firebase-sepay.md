@@ -240,7 +240,7 @@ Với SePay điều này quan trọng nhất: không có khoá thì không phân
 giả, mà nhận nhầm một cái giả nghĩa là **đánh dấu đơn đã trả tiền khi không có đồng nào vào tài
 khoản**.
 
-Cùng luật đã đặt cho `AI_INTERNAL_TOKEN` và `GOOGLE_CLIENT_ID`.
+Cùng luật đã đặt cho `GOOGLE_CLIENT_ID` và khoá webhook SePay.
 
 ---
 

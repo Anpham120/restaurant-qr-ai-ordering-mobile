@@ -114,6 +114,19 @@ jobs:
       - name: Kiểm chỉ mục tài liệu khớp thư mục
         run: python docs/build_docs_index.py --check
 
+      # Hai cổng dưới đây TỪNG chạy rồi biến mất cùng lượt dọn AI, và hậu quả đo được ngay:
+      # kiểm kê endpoint trôi mất `POST /api/loyalty/counter/redeem` — một endpoint CÓ THẬT trong
+      # mã mà tài liệu chưa bao giờ có — đồng thời vẫn liệt kê 8 endpoint chat đã xoá. Bảng module
+      # thì khai 13 module / 97 endpoint / 23 migration trong khi mã có 12 / 88 / 28.
+      #
+      # Đó đúng là lớp lỗi mà hai bộ sinh này được viết ra để chặn; bỏ cổng đi thì bộ sinh chỉ còn
+      # là một script không ai chạy.
+      - name: Kiểm kê endpoint khớp mã
+        run: python docs/build_api_inventory.py --check
+
+      - name: Kiểm bảng module và workflow khớp mã
+        run: python docs/build_system_facts.py --check
+
   realtime-e2e:
     name: realtime-e2e
     runs-on: ubuntu-latest

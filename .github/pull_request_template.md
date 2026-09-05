@@ -17,7 +17,6 @@
 - [ ] Backend (Java / Spring Boot)
 - [ ] Frontend (React apps)
 - [ ] Mobile (React Native / Expo)
-- [ ] AI service (Python RAG)
 - [ ] Hạ tầng / CI-CD
 - [ ] Database (có migration?)
 

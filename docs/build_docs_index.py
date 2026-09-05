@@ -34,8 +34,6 @@ OUT = DOCS / "README.md"
 # (tên nhóm, hàm nhận đường dẫn tương đối -> bool). Thứ tự quyết định thứ tự mục trong chỉ mục.
 NHOM: list[tuple[str, str]] = [
     ("Bắt đầu ở đây", "start"),
-    ("Hệ thống AI — cách xây", "ai_build"),
-    ("Hệ thống AI — vận hành và quyết định", "ai_ops"),
     ("Kiến trúc và hợp đồng", "arch"),
     ("Vận hành, triển khai, CI/CD", "ops"),
     ("Quy trình nhóm", "process"),
@@ -49,14 +47,8 @@ def nhom_cua(rel: str) -> str:
     ten = Path(rel).name
     if rel.startswith("docs/archive/"):
         return "archive"
-    if rel.startswith("ai/docs/"):
-        return "ai_build"
-    if rel.startswith("docs/ai/"):
-        return "ai_ops"
     if ten in ("README.md", "SPEC.md", "CONTEXT.md", "CHANGELOG.md"):
         return "start"
-    if ten.startswith("AI_"):
-        return "ai_ops"
     if ten.startswith(("BACKEND_", "API_", "BA_SA_", "QR_")):
         return "arch"
     if ten.startswith(("DEPLOY", "PRODUCTION_", "CICD", "DEVOPS", "OPERATIONS", "COUNTER_",
@@ -84,7 +76,6 @@ def thu_thap() -> dict[str, list[tuple[str, str]]]:
     goc = [REPO / "README.md", REPO / "SPEC.md", REPO / "CONTEXT.md", REPO / "CHANGELOG.md"]
     tep = [p for p in goc if p.exists()]
     tep += sorted(DOCS.glob("**/*.md"))
-    tep += sorted((REPO / "ai" / "docs").glob("*.md"))
     for p in tep:
         if p.resolve() == OUT.resolve():
             continue
