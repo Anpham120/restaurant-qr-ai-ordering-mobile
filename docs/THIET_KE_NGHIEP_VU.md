@@ -1,0 +1,618 @@
+# Thiết kế nghiệp vụ — CMC Restaurant
+
+> **Bản gộp, lập 2026-09-05.** Đây là tài liệu **duy nhất** mô tả nghiệp vụ của dự án. Nó thay cho
+> `PHAN_TICH_NGHIEP_VU.md` và `THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md` — hai tệp đó đã xoá, vì ba tài
+> liệu chồng nhau chính là cái bẫy "hai nơi cùng mô tả một sự thật" mà dự án này đã sập bốn lần
+> (§21).
+>
+> **Cách đọc:**
+> - Phần chữ thường mô tả **luật đang chạy**, rút từ mã chứ không từ trí nhớ.
+> - Khối `ĐỀ XUẤT` là **thay đổi chờ bạn duyệt**, chưa cài đặt.
+> - §22 là bảng duyệt — đọc phần đó trước nếu bạn chỉ có 5 phút.
+
+---
+
+# PHẦN I — NỀN TẢNG
+
+## 1. Bài toán
+
+Khách ngồi vào bàn, quét mã QR dán sẵn, gọi món trên điện thoại của chính mình, theo dõi từng món,
+rồi trả tiền một lần cho cả bàn. Không cài ứng dụng, không phải chờ gọi nhân viên để gọi món.
+
+Ba ràng buộc định hình toàn bộ thiết kế:
+
+1. **Một bàn có nhiều điện thoại.** Bốn người cùng bàn cùng quét một mã. Họ phải thấy cùng một giỏ
+   và cùng một hoá đơn, không phải bốn phiên riêng.
+2. **Một bữa ăn có nhiều lượt gọi.** Món chính, rồi đồ uống, rồi tráng miệng. Ba lượt gọi, một lần
+   trả tiền.
+3. **Món không xong cùng lúc.** Bàn gọi 4 món thì 4 món ra ở 4 thời điểm khác nhau, từ những chỗ
+   làm khác nhau trong quán.
+
+Ràng buộc 3 là thứ tách hệ thống này khỏi một máy bán hàng thông thường, và nó lan ra khắp thiết
+kế: trạng thái, ước lượng thời gian, màn hình bếp, và cả cách nói với khách.
+
+### Phạm vi
+
+| Trong phạm vi | Ngoài phạm vi |
+|---|---|
+| Ăn tại bàn (`DineIn`) | Giao hàng, mang về |
+| Một nhà hàng | Nhiều chi nhánh, multi-tenant |
+| Tiền mặt và VietQR | Thẻ, ví điện tử khác |
+| Tiếng Việt và tiếng Anh | Ngôn ngữ khác |
+
+## 2. Từ vựng
+
+Dùng đúng những từ này trong mã, tài liệu và giao diện. Từ trong cột "tránh dùng" đã gây nhầm lẫn
+thật.
+
+| Từ | Nghĩa | Tránh dùng |
+|---|---|---|
+| **Phiên bàn** | Một lượt khách ngồi tại một bàn, từ lúc quét QR tới lúc chốt tiền | phiên đặt món, phiên giỏ |
+| **Lượt đặt món** | Một lần gửi các món đã chọn xuống bếp. Một phiên bàn có nhiều lượt | đơn hàng, hoá đơn |
+| **Hoá đơn bàn** | Bản tổng kết tiền duy nhất cho **mọi** lượt trong một phiên bàn | thanh toán đơn, tổng giỏ |
+| **Món trong đơn** | Một dòng món của một lượt, có trạng thái riêng | — |
+| **Trạm** | Chỗ làm ra món: bếp, quầy pha chế, hoặc lấy sẵn | — |
+
+## 3. Tác nhân
+
+Hệ thống có **bốn** vai: một phía khách, ba phía vận hành.
+
+| Tác nhân | Xác thực bằng | Làm được gì |
+|---|---|---|
+| **Khách tại bàn** | token phiên bàn (`X-Table-Session-Token`), **không cần tài khoản** | Xem thực đơn, sửa giỏ, gửi đơn, theo dõi món, huỷ món chưa nấu, xem hoá đơn, chọn cách trả tiền, gọi nhân viên |
+| **Khách có tài khoản** (`Customer`) | JWT | Thêm: xem điểm, đổi ưu đãi, lịch sử đơn, đặt lại món cũ |
+| **Nhân viên quầy** (`CounterStaff`) | JWT | Ca quầy, thu tiền, phiếu tặng món, điều phối gọi nhân viên |
+| **Nhân viên bếp** (`Kitchen`) | JWT | Trạng thái từng món, báo hết món, khai độ trễ |
+| **Quản lý** (`Admin`) | JWT | Thực đơn, bàn, người dùng, khuyến mãi, ưu đãi, báo cáo; **giám sát** quầy |
+
+> **ĐỀ XUẤT 1 — bỏ vai `Staff`.**
+>
+> Hệ thống hiện còn vai thứ năm là `Staff`, **đang chết dở**: `AdminUserService` chỉ cho gán
+> `Admin`/`CounterStaff`/`Kitchen` nên **không tạo mới được** tài khoản `Staff`, nhưng quyền của nó
+> vẫn rải khắp backend và tài khoản cũ vẫn đăng nhập được.
+>
+> Hậu quả có thật: `CounterController` (toàn bộ ca quầy) yêu cầu `CounterStaff` hoặc `Admin`, trong
+> khi frontend cấp cho `Staff` **đúng bộ tab của nhân viên quầy, gồm cả tab "Ca làm việc"**. Tài
+> khoản `Staff` mở tab đó nhận 403 ở mọi thao tác — màn hình mời họ làm một việc mà máy chủ từ chối.
+>
+> Quy mô: **12 chỗ ở backend** (10 tệp), **2 chỗ ở frontend**, không có tài khoản `Staff` nào trong
+> dữ liệu mẫu. Cần một migration đổi tài khoản `Staff` đang tồn tại sang `CounterStaff` — **không
+> xoá tài khoản**, vì người đó vẫn đang đi làm.
+
+---
+
+# PHẦN II — NGHIỆP VỤ PHÍA KHÁCH
+
+## 4. Bản đồ một bữa ăn
+
+```mermaid
+flowchart TD
+  QR["Khách quét QR"] --> S{"Bàn có phiên<br/>đang mở?"}
+  S -->|có| J["Vào chung phiên đó"]
+  S -->|không| N["Mở phiên mới"]
+  J --> R["Đưa tới đúng chỗ đang dở"]
+  N --> R
+  R --> M["Thực đơn"] --> G["Giỏ dùng chung của bàn"]
+  G --> D["Gửi một LƯỢT đặt món"]
+  D --> K["Bếp / quầy pha chế nhận từng món"]
+  K --> T["Khách theo dõi TỪNG món"]
+  T -.->|"gọi thêm lượt nữa"| M
+  T --> H["Hoá đơn bàn — gộp mọi lượt"]
+  H --> P["Trả tiền: tiền mặt hoặc VietQR"]
+  P --> C["Chốt phiên · cộng điểm"]
+```
+
+## 5. Phiên bàn
+
+- Mã QR dán ở bàn **không đổi theo lượt khách**. Đổi mã mỗi lượt nghĩa là phải in lại, mà một tờ
+  giấy dán bàn thì không in lại được giữa ca.
+- Mỗi bàn **tối đa một phiên `Open`**. Ép bằng chỉ mục duy nhất có điều kiện ở cơ sở dữ liệu, không
+  bằng kiểm tra trong mã — hai request cùng lúc thì cơ sở dữ liệu chặn, và API đọc lại phiên mà
+  request kia vừa tạo thay vì báo lỗi cho khách.
+- Vòng đời: `Open → Closed` (quầy chốt) hoặc `Open → Expired` (quá **4 giờ**).
+- Mở phiên luôn chuyển các phiên quá hạn của bàn đó sang `Expired` **trước**, rồi mới tìm phiên còn
+  sống.
+
+### Quay lại đúng chỗ đang dở
+
+Khách khoá màn hình giữa bữa rồi mở lại. Nếu quay về đầu thì họ phải tự nhớ đang làm dở gì.
+
+| Trạng thái | Đưa tới |
+|---|---|
+| `New` | thực đơn |
+| `CartPending` | giỏ hàng |
+| `OrderInProgress` | theo dõi đơn |
+| `ReadyForPayment` · `PaymentPending` · `Paid` | hoá đơn bàn |
+
+Hai đầu phải nói cùng một chuyện: `TableSessionResumeStateResolver` (backend) và
+`getSessionResumeDestination` (frontend). **Đây là chỗ dễ trôi nhất của hệ thống** — hai bản cài
+đặt độc lập của cùng một luật, viết bằng hai ngôn ngữ, và không có gì tự động bắt lệch.
+
+## 6. Giỏ và lượt đặt món
+
+Giỏ thuộc **phiên bàn**, không thuộc thiết bị. Bốn điện thoại cùng bàn sửa cùng một giỏ.
+
+Gửi một lượt đặt món làm hai việc **trong cùng một giao dịch**: ghi đơn, và xoá giỏ. Tách ra thì có
+khoảnh khắc đơn đã tạo mà giỏ vẫn còn — người thứ hai bấm gửi sẽ đặt lại đúng những món đó.
+
+Chống trùng bằng **khoá idempotency**: cùng khoá + cùng nội dung thì trả về đơn cũ; cùng khoá +
+khác nội dung thì báo lỗi. Vế thứ hai quan trọng — nó bắt lỗi client dùng lại khoá cho một yêu cầu
+khác, thứ mà im lặng bỏ qua sẽ làm mất một đơn thật.
+
+## 7. Trạng thái: sống ở MÓN, không ở ĐƠN
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> Pending: lượt đặt gửi đi
+  Pending --> Preparing: bếp bắt đầu làm
+  Preparing --> Ready: làm xong
+  Ready --> Served: đã bưng ra bàn
+  Pending --> Cancelled: khách huỷ
+  Preparing --> Cancelled: quầy huỷ
+  Served --> [*]
+  Cancelled --> [*]
+```
+
+Trạng thái đơn (`Draft`, `Placed`, `Confirmed`, `Preparing`, `Ready`, `Served`, `Completed`,
+`Cancelled`) là **kết quả suy ra** từ các món, không phải một công tắc riêng.
+
+**Vì sao không làm ngược lại.** Bàn gọi 4 món, xong 1. Nếu trạng thái sống ở đơn thì khách thấy
+"đang chuẩn bị" suốt và không biết món nào đã lên; bếp cũng không có chỗ ghi rằng ba món kia vẫn
+đang làm.
+
+**Luật huỷ món.** Khách chỉ huỷ được món còn `Pending`. Khoá **theo từng món**, không theo đơn —
+khách huỷ được món chưa ai đụng tới ngay cả khi món khác cùng đơn đang nấu dở.
+
+**Luật `Ready → Served`.** Bếp bắt buộc đi qua bước này trước khi chốt phiên. Nhảy thẳng
+`Ready → Completed` bị từ chối. Không phải để làm khó: **"đã bưng ra bàn" là sự kiện duy nhất chứng
+minh khách thật sự nhận được món.**
+
+## 8. Ước lượng thời gian lên món
+
+Một quán **không có một hàng đợi**. Nó có mấy chỗ làm việc song song, và chúng không chờ nhau.
+
+| Trạm | Món | Hàng đợi | Việc song song |
+|---|---|---|---|
+| `BEP` | món nấu (có nhãn `method:`) | có | mặc định **6** |
+| `QUAY` | đồ uống, nước ép | có | mặc định **2** |
+| `SAN` | rượu, trái cây, tráng miệng — lấy sẵn | không | — |
+
+```
+chờ = (tải của TRẠM ĐÓ − chính món này) ÷ số việc song song của trạm
+```
+
+Ly bia không chậm đi vì bếp đang đông.
+
+**Độ trễ bếp tự khai.** Hàng đợi chỉ đo được thứ đã đi qua ứng dụng. Đầu bếp nghỉ ốm, hỏng lò, đoàn
+đặt trước — không việc nào nằm trong bất kỳ đơn nào. Bếp nhập số phút cộng thêm (tối đa 60), và nó
+**chỉ áp cho món của trạm `BEP`**.
+
+> **Lỗi đã sập một lần:** truy vấn tải bếp cộng `prep_minutes` mà quên nhân `quantity`. 30 phần của
+> một món bị đếm như 1. Không tập kiểm nào bắt được vì mọi ca kiểm đều dùng `quantity: 1`.
+
+## 9. Hoá đơn bàn và ba tầng trần giảm giá
+
+Hoá đơn **tính lại từ dòng món**, không cộng dồn tổng của từng đơn. Các dòng gộp theo
+`(món, đơn giá)` — gọi phở ba lượt khác nhau thì lên hoá đơn là một dòng ×3.
+
+```
+tạm tính = Σ (đơn giá × số lượng)
+tổng     = tạm tính − giảm giá        (không âm)
+```
+
+**Không có VAT, không phí phục vụ, không tip** — xem §22, quyết định C.
+
+### Ba tầng trần
+
+| Tầng | Trần | Chặn điều gì |
+|---|---|---|
+| Khuyến mãi của quán | `maxDiscount` của từng mã | một mã tự nó giảm quá sâu |
+| Đổi điểm | `min(30% hoá đơn, 200.000đ)` | khách gom điểm cả năm đổi gần hết một bữa |
+| **Tổng mọi nguồn** | **50% hoá đơn** | hai khoản hợp lệ cộng lại vẫn ăn quá sâu vào giá vốn |
+
+Tầng thứ ba không thừa. Ví dụ đã tính: hoá đơn 760.000đ, mã quán giảm 20% (152.000đ) cộng ưu đãi
+đổi điểm 200.000đ = 352.000đ — **gần một nửa hoá đơn, trong khi từng khoản đều hợp lệ**.
+
+Trần tổng **cắt phần vượt chứ không từ chối hoá đơn**. Khách đã đứng ở quầy chờ trả tiền; bắt họ bỏ
+bớt một mã ở khoảnh khắc đó là đổi một khoản lãi nhỏ lấy một trải nghiệm tệ.
+
+> **Lỗi đã sập một lần:** ưu đãi đổi điểm từng trừ ở cấp **đơn**, trong khi hoá đơn bàn tính lại
+> tạm tính từ dòng món rồi chỉ trừ ở cấp **hoá đơn**. Kết quả: **khách mất điểm và vẫn trả đủ
+> tiền.** Bài học: nơi tính tiền và nơi ghi khoản giảm phải cùng một cấp.
+
+## 10. Thanh toán và đối soát
+
+`PaymentMethod`: `Unselected` (trạng thái đầu, không ai chọn được), `COD` (tiền mặt), `VietQR`.
+
+`PaymentStatus`: `NotRequested → Pending → Confirmed`/`Paid`, hoặc rẽ sang `Failed`, `Cancelled`,
+`Refunded`.
+
+### Đối soát VietQR — ba luật
+
+1. **Chỉ nhận giao dịch tiền VÀO.** Không lọc thì một khoản chuyển đi, tình cờ mang mã đơn trong
+   nội dung, cũng đánh dấu đơn đó đã trả tiền.
+2. **Không có khoá thì TỪ CHỐI tất cả.** Không phân biệt được webhook thật với giả, mà nhận nhầm
+   một cái giả nghĩa là đánh dấu đã trả cho một bàn chưa trả đồng nào.
+3. **Chỉ `confirmed` mới nghĩa là tiền đã ghi vào hoá đơn.** Mọi kết quả khác là tiền vào tài khoản
+   mà không hoá đơn nào được chốt — phải ghi lại, không nuốt đi.
+
+Mã QR **chỉ dựng khi hoá đơn thật sự chọn VietQR**. Dựng vô điều kiện sẽ trả mã quét được cho một
+hoá đơn đang trả tiền mặt — khách quét rồi chuyển khoản thành hai lần thu.
+
+## 11. Tích điểm
+
+Khách **tự tải app, tự tạo tài khoản, tự gắn số điện thoại**. Không có bước nhân viên nối hộ.
+
+| Luật | Giá trị |
+|---|---|
+| Tỷ lệ | 10.000đ = 1 điểm, **làm tròn xuống** |
+| Hạng | Bạc ×1,0 · Vàng ×1,25 (chi tiêu tích luỹ ≥ 5tr) · Kim cương ×1,5 (≥ 15tr) |
+| Hạn dùng | 12 tháng kể từ ngày tích |
+
+**Làm tròn xuống là có chủ ý**: nó bảo đảm chia nhỏ hoá đơn không bao giờ lợi hơn trả một lần —
+điều ngược lại chính là thứ một chương trình khách quen phải tránh.
+
+**Nhân hệ số hạng TRƯỚC khi chia, không phải sau.** Hoá đơn 330.000đ ở hạng Vàng: đúng cách cho
+33 × 1,25 = 41,25 → **41 điểm**; nhân sau cho 33 → mất phần lẻ hai lần.
+
+**Điểm hết hạn tính bằng số học, không theo từng lô.** Gắn cho mỗi lô một cột "còn lại" sẽ tạo
+nguồn sự thật thứ hai bên cạnh `loyalty_members.points`, và hai nguồn thì sẽ có ngày lệch nhau.
+Khách luôn tiêu điểm cũ trước — đó là *định nghĩa* của FIFO. Nên chỉ cần hai tổng chạy trên sổ:
+
+```
+hết hạn = (tổng ACCRUE quá 12 tháng) − (tổng REDEEM + EXPIRE từ trước tới nay)
+```
+
+**Đổi ưu đãi phải quầy xác nhận.** Điểm chỉ trừ khi ưu đãi thật sự được giao.
+
+---
+
+# PHẦN III — NGHIỆP VỤ VẬN HÀNH
+
+## 12. Ba vai và ranh giới
+
+### Nguyên tắc phân vai
+
+**Người gần việc nhất là người có quyền.** Không phải người cấp cao nhất.
+
+Người mở tủ lạnh mới biết hết cá, nên bếp tự tắt món. Người đếm ngăn kéo mới biết thiếu tiền, nên
+quầy chốt ca. Quản lý đặt luật và đọc kết quả.
+
+### Ai sở hữu cái gì
+
+| | Quản lý | Quầy | Bếp |
+|---|---|---|---|
+| **Câu hỏi họ trả lời** | "Quán chạy thế nào, và luật là gì?" | "Bàn nào cần gì bây giờ?" | "Nấu gì tiếp?" |
+| **Nhịp làm việc** | vài lần/ngày, phiên dài | liên tục, bị cắt ngang | liên tục, liếc 1–2 giây |
+| Thực đơn, giá, thời gian lên món | **sở hữu** | — | tắt/bật còn hàng |
+| Bàn, mã QR | **sở hữu** | xem sơ đồ | — |
+| Khuyến mãi, ưu đãi, hạng | **sở hữu** | áp dụng, xác nhận đã giao | — |
+| Tài khoản và vai | **sở hữu** | — | — |
+| Ca quầy và tiền mặt | **giám sát** | **sở hữu** | — |
+| Thu tiền, chốt hoá đơn | — | **sở hữu** | — |
+| Điều phối gọi nhân viên | — | **sở hữu** | — |
+| Trạng thái từng món | — | — | **sở hữu** |
+| Độ trễ bếp | — | — | **sở hữu** |
+| Báo cáo | **sở hữu** | xem ca của mình | — |
+
+### Cố ý KHÔNG cho làm
+
+Phần này quan trọng hơn bảng trên. **Một vai được định nghĩa bằng thứ nó không làm.**
+
+| Vai | Không được | Vì sao |
+|---|---|---|
+| **Quản lý** | Mở ca, chốt ca, thu tiền | Người chịu trách nhiệm về con số lệch quỹ không được là người tạo ra nó |
+| **Quản lý** | Đổi trạng thái món ở bảng bếp | Chỉ người đứng bếp biết món đã ra chưa. Bấm hộ là ghi một sự kiện chưa xảy ra |
+| **Quầy** | Sửa giá, sửa thời gian lên món | Giá là luật của quán, không phải quyết định lúc thu tiền |
+| **Quầy** | Đẩy trạng thái món | Cùng lý do với quản lý |
+| **Bếp** | Đổi trạng thái ĐƠN, trừ `Ready → Served` | Bếp biết món xong, không biết bàn đã trả tiền chưa |
+| **Bếp** | Xem tiền, xem hoá đơn | Không cần cho việc của họ, và ít quyền hơn thì ít rủi ro hơn |
+
+### Mỗi vai vào thẳng chỗ làm việc
+
+Đăng nhập xong là ở đúng nơi cần đứng, không có menu chọn:
+
+| Vai | Vào đâu |
+|---|---|
+| Bếp | Bảng bếp |
+| Quầy | Quầy thu ngân — và **nếu đang có hoá đơn chờ thu thì mở thẳng tab đó** |
+| Quản lý | Trung tâm điều hành |
+
+Chi tiết thứ hai là luật nghiệp vụ, không phải tiện ích: người ở quầy mở máy lên là vì có việc.
+
+## 13. Bếp
+
+| Việc | Chi tiết |
+|---|---|
+| Nhìn hàng đợi | Bốn cột: `Đơn mới → Đang nấu → Chờ ra món → Đã ra món` |
+| Đẩy từng món | Một chạm đẩy đúng một bước. Không kéo thả |
+| Báo hết món | Tắt còn hàng ngay tại bếp; thực đơn khách đổi lập tức |
+| Khai độ trễ | Số phút cộng thêm, tối đa 60, chỉ áp cho món trạm `BEP` |
+| Thấy mức gấp | Chờ ≥ **12 phút** cảnh báo, ≥ **20 phút** gấp |
+
+## 14. Quầy
+
+| Việc | Chi tiết |
+|---|---|
+| Ca làm việc | Mở ca với tiền đầu ca → ghi thu chi → chốt ca |
+| Thu tiền | Hoá đơn bàn: tiền mặt hoặc VietQR |
+| Phiếu tặng món | Xác nhận khách đã nhận ưu đãi đổi điểm |
+| Điều phối | Nhận yêu cầu gọi nhân viên, bấm bộ đàm, đánh dấu đã điều phối |
+| Tra cứu | Lịch sử hoá đơn đã chốt |
+
+**Chốt ca.** `lệch = tiền đếm được − tiền hệ thống ghi`. **Dấu có nghĩa và không được lấy trị tuyệt
+đối**: âm là thiếu tiền, dương là ngăn kéo nhiều hơn hệ thống biết — hai vấn đề khác nhau. Chốt ca
+không mở lại được.
+
+**Dải điều phối nằm NGOÀI mọi tab.** Người phục vụ bàn không cầm điện thoại, họ nhận lệnh qua bộ
+đàm; quầy là điểm điều phối. Thông báo nổi tự tắt sau 5 giây — đủ cho một tin báo, quá ngắn cho
+**một việc phải làm**. Người đang đếm tiền chưa kịp ngẩng lên thì yêu cầu đã rơi vào một tab không
+ai mở. Nên dải này chỉ mất khi có người bấm "Đã điều phối", và hiện **số phút đã chờ** vì đó là thứ
+quyết định bàn nào đi trước.
+
+> Nguyên tắc rút ra, áp cho cả hệ thống: **thông báo có thể tự tắt, việc phải làm thì không.**
+
+## 15. Quản lý
+
+**Trung tâm điều hành** — bốn khối, tất cả đều trả lời "cái gì đang cần tôi": việc cần xử lý, sơ đồ
+bàn, trạng thái ca quầy, doanh thu hôm nay.
+
+| Màn | Nghiệp vụ |
+|---|---|
+| **Thực đơn** | Món và danh mục. Món có tên, giá, mô tả, ảnh, nhãn, **thời gian lên món (phút)** và công tắc còn/hết hàng. Trường thời gian lên món là đầu vào của toàn bộ mô hình §8 — sửa nó là sửa con số hiện cho khách |
+| **Bàn** | Sơ đồ / phiên, QR & link để in, quản lý bàn |
+| **Đơn** | Xác nhận, từ chối, phục vụ, hoàn tất, huỷ, xác nhận thu, hoàn tiền |
+| **Khuyến mãi** | Mã, loại (`Phần trăm`/`Số tiền cố định`), giảm tối đa, đơn tối thiểu, khoảng ngày, flash sale |
+| **Hội viên & ưu đãi** | Hội viên (họ tên, SĐT, hạng); phần thưởng (`Món tặng`/`Giảm tiền`, điểm cần, hạng tối thiểu) |
+| **Người dùng** | Tài khoản và vai. Hai chốt an toàn: không tự xoá mình, không tự gỡ vai Admin của mình |
+| **Báo cáo** | Khoảng ngày → doanh thu gộp, tổng giảm giá, doanh thu thực, số đơn / đã trả, món bán chạy, doanh thu theo ngày |
+| **Giám sát quầy** | Xem tiền theo ca và lịch sử hoá đơn — **không thao tác** |
+
+---
+
+# PHẦN IV — TRẢI NGHIỆM
+
+## 16. Bối cảnh vận hành quyết định giao diện
+
+Ba vai không khác nhau ở màu thương hiệu mà khác nhau ở **điều kiện vật lý lúc họ chạm vào màn
+hình**.
+
+| Trục | Bếp | Quầy | Quản lý |
+|---|---|---|---|
+| **Khoảng cách nhìn** | 1,5–2 m, màn treo | 40–60 cm | 40–60 cm |
+| **Tay** | dính dầu, ướt, có thể đeo găng | một tay bận (tiền, máy POS) | rảnh, có chuột |
+| **Sự tập trung** | ở cái chảo — liếc 1–2 giây | bị cắt ngang liên tục | liên tục, phiên dài |
+| **Giá của một lần bấm nhầm** | món không bao giờ ra bàn | sai tiền, có sổ sách | sai giá cho **mọi** đơn về sau |
+| **Môi trường** | hơi nước, nóng, chói, ồn | ồn, có khách đang nhìn | yên |
+
+Năm trục này quyết định gần như mọi lựa chọn giao diện bên dưới.
+
+## 17. Bếp — nguyên tắc trải nghiệm
+
+**a. Đọc được từ 2 mét.** Chữ nhìn từ 2m cần lớn gấp 3–4 lần chữ nhìn từ 50cm để cùng một góc nhìn.
+
+| Thành phần | Đang là | ĐỀ XUẤT |
+|---|---|---|
+| Tên món | ~14px | **28–32px**, đậm |
+| Số lượng | ~14px | **32px**, to nhất trên thẻ |
+| Mã bàn | ~14px | **24px** |
+| Nhãn phụ (thời gian chờ) | 12px | **18px** |
+| Chữ trang trí | 12px | **bỏ hẳn** |
+
+Phép thử thay cho bảng số: **đứng cách màn 2m mà phải nheo mắt là chưa xong.**
+
+**b. Chạm bằng khớp ngón tay.** Chuẩn 44×44px là cho ngón tay trần cầm điện thoại. Bếp không có
+điều kiện đó — tay dính dầu, có thể đeo găng, và người ta hay chạm bằng khớp ngón để khỏi bôi bẩn
+màn hình.
+
+- Nút đẩy trạng thái: **tối thiểu 72px cao**, rộng hết thẻ.
+- Khoảng cách giữa hai vùng chạm: **tối thiểu 16px**.
+- **Không** thao tác cần chính xác: không kéo thả, không nhấn giữ, không vuốt để xoá.
+
+**c. Màu không bao giờ là tín hiệu duy nhất.** Hơi nước, ánh chói, người mù màu — cả ba đều làm màu
+mất tác dụng. Mức gấp mã hoá bằng **ba** thứ: màu, **vị trí**, và **chữ** ("chờ 22 phút").
+
+**d. Bảng không được nhảy dưới ngón tay.** Đơn mới chèn ở **cuối cột**. Một thẻ dịch chỗ đúng lúc
+ngón tay đang hạ xuống là một lần bấm nhầm — và ở đây bấm nhầm nghĩa là món không ra bàn. Ngoại lệ:
+thẻ chuyển sang mức **gấp** được lên đầu, nhưng phải có chuyển động ~200ms để mắt bám theo.
+
+**e. Không hỏi lại, nhưng hoàn tác được.** Hộp thoại tốn một giây và một lần chạm nữa, ở đúng lúc
+tay bận nhất. Thay bằng: hành động xảy ra ngay, có **nút hoàn tác 5 giây** tại thẻ. Ngoại lệ: **huỷ
+món** vẫn hỏi lại, vì không hoàn tác được về phía khách.
+
+**f. Âm thanh là phụ.** Bếp ồn. Mọi thông tin phải đọc được bằng mắt.
+
+### Hiện trạng bếp
+
+| Vấn đề | Hệ quả |
+|---|---|
+| Thang chữ 12–14px, đệm 12px | Không đọc được và không chạm chắc ở khoảng cách làm việc thật |
+| Bốn cột cùng một hàng ở màn rộng | Cột hẹp, chữ càng nhỏ. Bếp thường chỉ cần **hai** cột đầu |
+| Ô nhập độ trễ chỉ có bàn phím | Tay bẩn gõ số. Nên có **cả** ô nhập **và** 2–3 mức nhanh — không quay lại bỏ ô nhập |
+
+## 18. Quầy — nguyên tắc trải nghiệm
+
+**a. Bị cắt ngang là trạng thái mặc định, không phải ngoại lệ.** Người ở quầy gần như không bao giờ
+làm xong một việc trong một mạch.
+
+- **Không mất dữ liệu đang gõ khi đổi tab.**
+- **Không có hộp thoại chặn toàn màn hình** cho việc dài.
+- Việc đang dở phải **thấy được từ tab khác**.
+
+**b. Việc phải làm thì không tự tắt.** (§14)
+
+**c. Tiền hiện theo luật của tiền.** Chữ số đều bề ngang, căn phải, số phải trả to nhất màn, tiền
+thối tính ngay khi gõ, lệch quỹ giữ dấu và có nhãn chữ ("thiếu 50.000đ").
+
+**d. Việc đụng tiền thì hỏi lại; việc khác thì không.** Ngược với bếp — ở quầy tiền đã ra khỏi ngăn
+kéo thì không hoàn tác được. Hộp hỏi lại phải **nhắc lại con số**, không hỏi chung chung.
+
+**e. Một tay.** Tay kia đang cầm tiền hoặc máy POS.
+
+**f. Có khách đang nhìn.** Không hiện thông tin bàn khác, không hiện số điện thoại đầy đủ của hội
+viên khác.
+
+### Hiện trạng quầy — hai mục ĐÃ đạt
+
+| Nguyên tắc | Hiện trạng |
+|---|---|
+| **c. Tiền** | **Đã đạt.** `tabular-nums`, cỡ `clamp(20px, 3vw, 28px)`, đậm 800 |
+| **d. Hỏi lại** | **Đã đạt, và đúng cách.** Chốt ca hỏi: *"Thực đếm 4.850.000đ. Thiếu 50.000đ so với hệ thống. Ca đã chốt thì không mở lại được."* — nêu đúng con số cần cân nhắc, tự tính chênh lệch thay vì bắt thu ngân đang mệt nhẩm, bật cờ `danger` khi lệch khác 0 |
+
+Còn đúng một chỗ chưa đạt:
+
+| Vấn đề | Hệ quả |
+|---|---|
+| **a.** Mất dữ liệu đang gõ khi đổi tab | `CounterHubPage` dựng tab theo điều kiện nên đổi tab là **huỷ component**. Đang gõ số tiền khách đưa, có bàn gọi, bấm sang tab điều phối rồi quay lại — **số đã gõ biến mất** |
+
+Sửa nhỏ hơn vẻ ngoài: dựng cả tab rồi ẩn bằng `hidden`, hoặc nâng trạng thái đang gõ lên
+`CounterHubPage`. Không đụng nghiệp vụ.
+
+## 19. Quản lý — nguyên tắc trải nghiệm
+
+**a. Dày là được, nhưng phải trả lời một câu hỏi.** "Doanh thu hôm nay: 12.400.000đ" một mình không
+nói được gì. Phải kèm **mốc so** — so hôm qua, so cùng thứ tuần trước.
+
+**b. Sửa cấu hình phải nói trước nó ảnh hưởng tới đâu.** Đây là ranh giới lớn nhất giữa quản lý và
+hai vai kia: **lỗi ở đây im lặng và lan rộng**. Bếp bấm nhầm thì hỏng một món; quản lý gõ nhầm giá
+thì sai mọi đơn từ đó về sau, và không ai báo.
+
+**c. Trung tâm điều hành trả lời "cái gì cần tôi", không phải "hệ thống thế nào".** Đã đúng hướng.
+
+**d. Giám sát nhìn thấy, không chạm được.** Nút thao tác **không hiện**, kèm một dòng giải thích.
+Nút bị vô hiệu mà không nói lý do là cách tệ nhất — người dùng tưởng hệ thống hỏng.
+
+### Hiện trạng quản lý
+
+Nguyên tắc (b) **đã đạt một nửa**: tắt bán hàng loạt có hỏi lại và nói hệ quả bằng lời — *"Ngừng
+bán 3 món? Những món này biến khỏi thực đơn khách đang xem ngay lập tức."* Xoá món và xoá danh mục
+cũng hỏi lại.
+
+| Vấn đề | Hệ quả |
+|---|---|
+| Cảnh báo nói **hệ quả** nhưng chưa nói **số lượng** | Thiếu vế "và **3 phần đang trong hàng đợi bếp**" — đó mới là thứ quyết định có nên tắt lúc này |
+| **Sửa giá** không cảnh báo gì | Thay đổi lan rộng nhất mà quản lý làm được, hiện lặng lẽ hơn cả tắt một món |
+| Số liệu không có mốc so | Không biết 12,4 triệu là tốt hay tệ |
+
+## 20. Luật giao diện dùng chung
+
+1. **Nhãn nói bằng ngôn ngữ người dùng, không bằng tên trạng thái trong mã.** Bếp thấy "Bắt đầu
+   nấu", không thấy `Preparing`.
+2. **Mỗi vai một màu nhấn** (đã có trong `tokens.css`). Màu nhấn chỉ để định vị "tôi đang ở đâu",
+   **không** mang nghĩa trạng thái.
+3. **Màu ngữ nghĩa tách khỏi màu vai.**
+4. **Tiêu điểm bàn phím luôn thấy được.**
+5. **Trạng thái kết nối realtime luôn hiện** — mất kết nối mà im lặng là để người ta quyết định
+   trên dữ liệu cũ.
+6. **Mọi màn có đường lùi thủ công** (nút làm mới).
+7. **Tôn trọng `prefers-reduced-motion`.**
+
+---
+
+# PHẦN V — DUYỆT VÀ THỰC HIỆN
+
+## 21. Bốn lỗi đã xảy ra, một hình dạng
+
+Không phải để kể tội, mà vì cả bốn đều giống nhau: **hai nơi cùng mô tả một sự thật, và không có gì
+bắt chúng lệch nhau.**
+
+| Đã sai | Hình dạng |
+|---|---|
+| Ưu đãi đổi điểm trừ ở cấp đơn, hoá đơn tính ở cấp hoá đơn | hai cấp cùng nói về "khoản giảm" |
+| Tải bếp cộng `prep_minutes` mà quên `× quantity` | mọi ca kiểm đều dùng `quantity: 1` |
+| Frontend dùng SignalR khi backend đã sang STOMP | mỗi bên tự kiểm bằng client của chính mình |
+| Tài liệu khai 13 module/97 endpoint khi mã có 12/88 | văn xuôi kể lại trạng thái mã |
+
+Cách chống đã áp: **sinh ra thay vì viết lại** (kiểm kê endpoint, bảng module, chỉ mục tài liệu —
+đều có cổng CI), và **nối hai đầu thật lại** (`realtime-e2e` chạy mã client thật với backend thật).
+
+Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở" (§5) vẫn là hai bản cài đặt độc lập
+ở backend và frontend.
+
+## 22. Bảng duyệt
+
+Đánh dấu từng dòng rồi tôi làm. Cột "Khuyến nghị" là ý kiến của tôi, không phải quyết định.
+
+### Nghiệp vụ
+
+| # | Quyết định | Khuyến nghị | Ảnh hưởng |
+|---|---|---|---|
+| **A** | Bỏ vai `Staff`, di trú tài khoản sang `CounterStaff` | **Làm** | 12 chỗ backend, 2 frontend, 1 migration. Đang có lỗi thật |
+| **B** | Sáu hằng số nghiệp vụ ra bảng `business_rule` có hiệu lực theo thời gian | **Làm**, nhưng xem B1 | Bảng mới + đóng băng giá trị vào sổ điểm |
+| **B1** | Có màn hình quản trị cho `business_rule` không? | **Chưa làm màn hình.** Sửa bằng migration có review | Màn hình mở ra đường đổi luật tiền mà không qua review |
+| **C** | Thêm VAT / phí phục vụ / tip? | **Chờ bạn trả lời** — tôi không biết quán có xuất hoá đơn đỏ không | Đụng công thức tính tiền và hoá đơn đã lưu |
+| **D** | Báo cáo mở rộng sang thời gian phục vụ, tỷ lệ huỷ món, giờ cao điểm? | **Làm sau A và E** — cần số đo thật trước | Endpoint mới + màn hình |
+
+### Trải nghiệm
+
+| # | Quyết định | Khuyến nghị | Ảnh hưởng |
+|---|---|---|---|
+| **E** | Thang chữ và vùng chạm riêng cho bảng bếp | **Làm** | Chỉ CSS, không đụng nghiệp vụ |
+| **F** | Giữ dữ liệu đang gõ khi đổi tab ở quầy | **Làm** | Đổi cách dựng tab |
+| **G** | Cảnh báo phạm vi khi **sửa giá**; thêm số lượng vào cảnh báo tắt món | **Làm** | Cần một endpoint đếm "đang trong hàng đợi" |
+| **H** | Mốc so sánh cho số liệu quản lý | **Làm cùng D** | Mở rộng endpoint báo cáo |
+
+### Chi tiết ĐỀ XUẤT B — bảng cấu hình
+
+Sáu hằng số đang chôn trong mã:
+
+| Hằng số | Giá trị | Ở đâu |
+|---|---|---|
+| Tỷ lệ tích điểm | 10.000đ/điểm | `LoyaltyMember.VND_PER_POINT` |
+| Hệ số và ngưỡng hạng | 1,0/1,25/1,5 tại 0/5tr/15tr | `MemberTier` |
+| Trần đổi điểm | `min(30%, 200.000đ)` | `TranDoiDiem` |
+| Trần tổng giảm giá | 50% | `TranGiamGiaHoaDon` |
+| Hạn dùng điểm | 12 tháng | `HetHanDiem` |
+| Hạn phiên bàn | 4 giờ | `TableSessionService` |
+
+Chúng là **chính sách kinh doanh**, không phải hằng số kỹ thuật. Chủ quán muốn chạy "cuối tuần nhân
+đôi điểm" phải sửa mã và triển khai lại.
+
+**Không đưa ra biến môi trường.** Biến môi trường sửa được nhưng vẫn phải triển khai lại, và không
+để lại dấu vết ai đổi, đổi lúc nào — với luật đụng tới tiền thì đó là thứ thiếu quan trọng nhất.
+
+```
+business_rule(
+  rule_key,        -- 'loyalty.vnd_per_point', 'discount.total_cap_ratio', ...
+  value,
+  effective_from,  -- có hiệu lực TỪ lúc nào
+  created_at, created_by, note
+)
+```
+
+Ba tính chất bắt buộc, mỗi cái ứng một cách hỏng cụ thể:
+
+1. **Có hiệu lực theo thời gian, không ghi đè.** Đổi tỷ lệ hôm nay **không được** làm thay đổi số
+   điểm của một hoá đơn tháng trước.
+2. **Đóng băng giá trị đã dùng vào chứng từ.** Hoá đơn đã lưu khoản giảm — tốt. Nhưng
+   `loyalty_point_ledger` cần lưu thêm **tỷ lệ và hệ số hạng đã dùng** lúc tích, nếu không thì
+   không ai đối chiếu lại được một dòng sổ cũ.
+3. **Hạn dùng điểm là ca đặc biệt.** Rút cửa sổ 12 tháng xuống 6 sẽ làm **điểm biến mất ngược về
+   quá khứ** ngay lúc lưu. Phải chặn riêng: chỉ cho nới dài, hoặc chỉ áp cho điểm tích **sau**
+   `effective_from`.
+
+## 23. Thứ tự làm
+
+| # | Việc | Vì sao thứ tự này |
+|---|---|---|
+| 1 | **A** — bỏ vai `Staff` | Đang có lỗi thật; và mọi việc phân quyền sau đó đều dựa trên mô hình ba vai |
+| 2 | **E** — thang chữ và vùng chạm cho bếp | Ảnh hưởng mọi món của mọi bàn; chỉ CSS, rủi ro thấp nhất |
+| 3 | **F** — giữ dữ liệu đang gõ ở quầy | Lỗi mất dữ liệu, gặp mỗi lần bị cắt ngang |
+| 4 | **B** — bảng `business_rule` | Việc lớn nhất, đụng tiền, nên làm khi ba việc trên đã ổn định |
+| 5 | **G** — cảnh báo phạm vi khi sửa giá | Cần endpoint đếm mới |
+| 6 | **D + H** — báo cáo và mốc so | Cần số đo thật, tức cần quan trắc trước |
+
+## 24. Phép thử nghiệm thu
+
+Bốn phép thử làm được trong 10 phút, không cần công cụ:
+
+| Phép thử | Vai | Đạt khi |
+|---|---|---|
+| **Đứng lùi 2 mét** | Bếp | Đọc được tên món và số lượng mà không nheo mắt |
+| **Đeo găng cao su chạm 20 lần** | Bếp | Không lần nào trúng nút bên cạnh |
+| **Cắt ngang giữa chừng** | Quầy | Gõ dở số tiền → đổi tab → quay lại: số còn nguyên |
+| **Đọc một con số** | Quản lý | Nói được ngay nó tốt hay tệ so với hôm qua |
+
+Chúng bắt được thứ mà không phép kiểm tự động nào bắt được, vì vấn đề nằm ở khoảng cách giữa màn
+hình và con người, không nằm trong mã.

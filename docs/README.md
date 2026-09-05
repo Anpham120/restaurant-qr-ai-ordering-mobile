@@ -1,6 +1,6 @@
 # CMC Restaurant — chỉ mục tài liệu
 
-**16 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
+**15 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
 `docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không
 tồn tại, và không thể bỏ sót tệp mới.
 
@@ -23,8 +23,7 @@ Thêm tài liệu mới: đặt đúng thư mục rồi chạy `python docs/buil
 
 | Tài liệu | Nội dung |
 |---|---|
-| [PHAN_TICH_NGHIEP_VU.md](PHAN_TICH_NGHIEP_VU.md) | Phân tích nghiệp vụ — CMC Restaurant |
-| [THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md](THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md) | Thiết kế ba vai vận hành — nghiệp vụ và trải nghiệm |
+| [THIET_KE_NGHIEP_VU.md](THIET_KE_NGHIEP_VU.md) | Thiết kế nghiệp vụ — CMC Restaurant |
 | [API_CONTRACT.md](backend/API_CONTRACT.md) | Hop Dong API - CMC Restaurant |
 | [ARCHITECTURE.md](backend/ARCHITECTURE.md) | Kiến trúc backend |
 | [DATABASE.md](backend/DATABASE.md) | Database Setup Guide |
