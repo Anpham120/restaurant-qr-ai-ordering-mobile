@@ -367,15 +367,27 @@ phiếu đổi điểm đã có — giới hạn lượt, dấu vết người d
 Mã QR **chỉ dựng khi hoá đơn thật sự chọn VietQR**. Dựng vô điều kiện sẽ trả mã quét được cho một
 hoá đơn đang trả tiền mặt — khách quét rồi chuyển khoản thành hai lần thu.
 
-## 12. Tích điểm
-
-Khách **tự tải app, tự tạo tài khoản, tự gắn số điện thoại**. Không có bước nhân viên nối hộ.
+## 12. Tích điểm và liên kết số điện thoại
 
 | Luật | Giá trị |
 |---|---|
 | Tỷ lệ | 10.000đ = 1 điểm, **làm tròn xuống** |
-| Hạng | Bạc ×1,0 · Vàng ×1,25 (chi tiêu tích luỹ ≥ 5tr) · Kim cương ×1,5 (≥ 15tr) |
-| Hạn dùng | 12 tháng kể từ ngày tích |
+| Hạng | Bạc ×1,0 · Vàng ×1,25 · Kim cương ×1,5 |
+| Ngưỡng hạng | Theo **chi tiêu 12 tháng gần nhất**: ≥ 5tr lên Vàng, ≥ 15tr lên Kim cương |
+| Xét lại hạng | Tác vụ chạy **03:00 ngày 1 hằng tháng** |
+| Hạn dùng điểm | 12 tháng kể từ ngày tích |
+
+### 12.1 Hạng tính theo cửa sổ trượt, không theo tích luỹ trọn đời
+
+`lifetime_spend` có sẵn trong dữ liệu nhưng **cố ý không dùng để xét hạng**: nó chỉ cộng dồn và
+không bao giờ giảm, nên hạng sẽ lên được mà không xuống được — tức không còn là hạng nữa. Nó được
+giữ lại chỉ để báo cáo.
+
+Hạng đọc từ `spend_12m`, và tác vụ hằng tháng **tính lại con số đó từ sổ điểm** chứ không trừ dần —
+nên sổ là nguồn có thẩm quyền, và một lần ghi sai được tự chữa ở kỳ sau.
+
+Chạy theo **tháng** chứ không theo ngày là có chủ ý: tụt hạng là chuyện khách cần đoán trước được;
+xét mỗi ngày sẽ khiến hạng rơi vào một buổi sáng bất kỳ không lý do.
 
 **Làm tròn xuống là có chủ ý**: nó bảo đảm chia nhỏ hoá đơn không bao giờ lợi hơn trả một lần —
 điều ngược lại chính là thứ một chương trình khách quen phải tránh.
@@ -392,6 +404,82 @@ hết hạn = (tổng ACCRUE quá 12 tháng) − (tổng REDEEM + EXPIRE từ tr
 ```
 
 **Đổi ưu đãi phải quầy xác nhận.** Điểm chỉ trừ khi ưu đãi thật sự được giao.
+
+### 12.2 Liên kết số điện thoại — hai đường vào, một hồ sơ
+
+Ý tưởng gốc, và nó gọn: **hồ sơ điểm khoá theo SỐ ĐIỆN THOẠI, không theo tài khoản.**
+
+Nhờ vậy hai đường vào dưới đây dẫn tới **cùng một hồ sơ**, không cần bước gộp nào:
+
+| | Đường 1 — gõ số lúc trả tiền | Đường 2 — nối số trong app |
+|---|---|---|
+| Cần tài khoản? | **Không** | Có, vai `Customer` |
+| Xác minh? | **Không** — chuỗi trần trong thân request | **Có, bắt buộc OTP** (Firebase) |
+| Chưa có hồ sơ thì? | **Tự tạo** hồ sơ cho số đó | — |
+| Endpoint | trường `customerPhoneNumber` khi yêu cầu thanh toán | `POST /api/loyalty/me/phone` |
+
+Tự tạo hồ sơ lúc tích điểm đầu tiên là có chủ ý: **khách gõ số lúc trả tiền, và đó là toàn bộ việc
+đăng ký.** Không có màn hình ghi danh nào.
+
+Kết quả: khách ăn ở quán nhiều lần qua web, tích điểm theo số, rồi mới tải app và xác minh số bằng
+OTP — **toàn bộ điểm cũ về đúng chủ ngay tại thời điểm đó**. Không có bước chuyển, không có yêu cầu
+gửi tới nhân viên.
+
+Một số chỉ nối được vào **một** tài khoản (`LOYALTY_PHONE_TAKEN`).
+
+### 12.3 Đường nối tại quầy đã bị gỡ — và vì sao
+
+Bản trước có `POST /api/loyalty/link` và mã nối một lần (`/me/link-code`), để nhân viên quầy nối
+hộ. Cả hai đã gỡ.
+
+Lý do ghi lại trong mã, và nó đúng: bản đó nhận **số trần** nên buộc phải **chặn số đã có hồ sơ
+điểm** — cho gõ một số đã có điểm là cho người lạ chiếm hồ sơ của khách quen. Nhưng cái chặn đó rơi
+đúng vào ca phổ biến nhất (ăn qua web trước, tải app sau), và đẩy khách ra quầy nhờ nối hộ.
+
+Mã nối chỉ chứng minh khách **sở hữu tài khoản**, không nói gì về việc họ **sở hữu số** — yếu hơn
+hẳn OTP, mà OTP thì hệ thống đã có sẵn cho luồng đăng ký. Nên đường vòng bị bỏ, và chỗ chặn cũng
+bỏ theo.
+
+### 12.4 Ba chỗ hở của đường gõ số lúc trả tiền
+
+> **ĐỀ XUẤT Q — số gõ lúc trả tiền không được xác minh và không sửa được.**
+>
+> Gõ nhầm một chữ số thì điểm về một hồ sơ hoàn toàn khác — có thể là hồ sơ của người lạ, có thể là
+> một hồ sơ mới toanh vừa được tự tạo. Khách không biết, quầy không biết, và **không có đường nào
+> chuyển điểm về đúng chỗ**: quản trị chỉ đặt được số điểm lúc tạo hội viên, không có thao tác
+> chuyển giữa hai hồ sơ.
+>
+> Không đề xuất bắt OTP ở quầy — làm thế là giết luôn ưu điểm lớn nhất của đường này. Ba việc nhỏ
+> hơn và đủ:
+> 1. **Hiện lại số vừa gõ để khách xác nhận** trước khi chốt, dạng `09xx xxx 789`, không phải chỉ
+>    một ô nhập rồi thôi.
+> 2. **Báo ngay kết quả tích điểm** — xem ĐỀ XUẤT R.
+> 3. **Cho quản trị chuyển điểm giữa hai hồ sơ**, ghi lại lý do. Đây là đường sửa sai duy nhất, và
+>    hiện không có.
+
+> **ĐỀ XUẤT R — khách không được báo là vừa tích được bao nhiêu điểm.**
+>
+> `TableInvoicePaymentService` gọi `loyaltyService.accrue(...)` và **bỏ luôn giá trị trả về**;
+> `InvoiceResponse` không có trường điểm nào. Khách gõ số, trả tiền, rồi không thấy gì cả — không
+> biết số mình gõ có đúng không, không biết được cộng bao nhiêu.
+>
+> Đây cũng là thứ khiến lỗi ở ĐỀ XUẤT Q không bao giờ bị phát hiện: gõ sai một chữ số trông y hệt
+> gõ đúng.
+>
+> Đề xuất: `InvoiceResponse` trả thêm `diemVuaTich` và `tongDiemHienCo`, màn hoá đơn hiện *"+41
+> điểm cho số 09xx xxx 789"*. Không được để việc này làm hỏng lệnh thanh toán — cùng nguyên tắc mã
+> đã áp cho chính việc cộng điểm.
+
+> **ĐỀ XUẤT S — không có luật nào cấm gõ số của nhân viên.**
+>
+> Hệ thống đã chặn email của nhân viên ở đường đăng ký khách (`EMAIL_BELONGS_TO_STAFF`), nhưng
+> không có luật tương đương cho số điện thoại ở đường tích điểm. Nhân viên quầy gõ số của chính
+> mình vào hoá đơn của khách là cách gian lận đơn giản nhất mà hệ thống này hiện không chặn và
+> không ghi lại.
+>
+> Đề xuất tối thiểu: **ghi lại ai là người thao tác** trên mỗi lần tích điểm (sổ điểm đã có cột cho
+> việc đó ở chiều đổi ưu đãi — `honoured_by`), rồi để báo cáo tự lộ ra nếu một số nhận điểm bất
+> thường nhiều lần trong cùng ca. Chặn cứng thì không nên: nhân viên cũng là khách hàng ngoài giờ.
 
 ---
 
@@ -716,11 +804,17 @@ Khách trả tiền → cộng điểm. Quầy hoàn tiền → `payment.refund(
 Hệ thống đã có sẵn cơ chế đảo ngược (`LoyaltyLedgerEntity` với lý do `REVERSE`), nhưng nó chỉ dùng
 cho việc **hoàn ưu đãi khi huỷ đơn** — tức chiều tiêu điểm. Chiều **tích** điểm không có đường lùi.
 
-Khoản rò nhỏ hơn L, nhưng nó là sai lệch sổ sách: `lifetimeSpend` cũng cộng theo, nên một khách
-hoàn tiền nhiều lần có thể **lên hạng bằng tiền chưa từng trả**.
+Khoản rò nhỏ hơn L, nhưng nó là sai lệch sổ sách. Cơ chế chính xác: hoàn tiền **không ghi gì vào
+sổ điểm**, nên dòng `ACCRUE` của hoá đơn đó vẫn nằm nguyên. Tác vụ hằng tháng tính lại
+`spend_12m` **từ sổ**, nên nó không những không sửa mà còn **xác nhận lại** con số sai — khách có
+thể **lên hạng bằng tiền chưa từng trả**.
 
-> **ĐỀ XUẤT O.** Khi hoàn tiền, ghi một dòng sổ `REVERSE` trừ đúng số điểm đã cộng cho hoá đơn đó,
-> và trừ lại `lifetimeSpend`. Dùng lại đúng cơ chế `REVERSE` đã có.
+(Không phải qua `lifetime_spend` như tôi viết ở bản trước: cột đó chỉ dùng để báo cáo, không xét
+hạng — xem §12.1.)
+
+> **ĐỀ XUẤT O.** Khi hoàn tiền, ghi một dòng sổ đảo ngược đúng số điểm và đúng số tiền của hoá đơn
+> đó. Vì tác vụ hằng tháng tính lại `spend_12m` từ sổ, một dòng đảo là đủ để hạng **tự chữa** ở kỳ
+> sau — không cần sửa tay cột nào.
 >
 > Lưu ý: **không** để việc trừ điểm làm hỏng lệnh hoàn tiền — cùng nguyên tắc mà mã đã áp cho chiều
 > cộng ("khách đã trả tiền không được thấy lỗi vì một dòng điểm không ghi được"). Ghi nhật ký và
@@ -772,6 +866,9 @@ Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở
 | **N** | Đóng phiên bằng tay không kiểm đã trả tiền (§22) | **Làm** | Chặn mặc định + cờ ép đóng kèm lý do bắt buộc |
 | **O** | Hoàn tiền không trừ lại điểm đã cộng (§22) | **Làm** | Dùng lại cơ chế `REVERSE` đã có; cũng phải trừ `lifetimeSpend` |
 | **P** | Đổi tên `TramChuanBi` → `Bep` trong mã cho khớp từ vựng §2 | **Làm cùng một việc khác đụng vùng đó** — đừng làm riêng | 41 chỗ, 6 tệp, thuần đổi tên. Để lệch là tự tạo lại đúng lỗi §23 |
+| **Q** | Số gõ lúc trả tiền: hiện lại để khách xác nhận + cho quản trị chuyển điểm giữa hai hồ sơ (§12.4) | **Làm** — hiện gõ sai một chữ số là mất điểm vĩnh viễn, không có đường sửa | Một màn xác nhận + một thao tác quản trị mới |
+| **R** | Báo ngay số điểm vừa tích trên màn hoá đơn (§12.4) | **Làm cùng Q** — không có nó thì lỗi ở Q không bao giờ lộ | Thêm 2 trường vào `InvoiceResponse` |
+| **S** | Ghi lại ai thao tác mỗi lần tích điểm, để báo cáo lộ bất thường (§12.4) | **Làm cùng D** — chặn cứng thì không nên, nhân viên cũng là khách ngoài giờ | Thêm cột vào sổ điểm |
 
 ### Trải nghiệm
 
