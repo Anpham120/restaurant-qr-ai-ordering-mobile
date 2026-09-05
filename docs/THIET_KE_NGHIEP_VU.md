@@ -3,12 +3,12 @@
 > **Bản gộp, lập 2026-09-05.** Đây là tài liệu **duy nhất** mô tả nghiệp vụ của dự án. Nó thay cho
 > `PHAN_TICH_NGHIEP_VU.md` và `THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md` — hai tệp đó đã xoá, vì ba tài
 > liệu chồng nhau chính là cái bẫy "hai nơi cùng mô tả một sự thật" mà dự án này đã sập bốn lần
-> (§21).
+> (§22).
 >
 > **Cách đọc:**
 > - Phần chữ thường mô tả **luật đang chạy**, rút từ mã chứ không từ trí nhớ.
 > - Khối `ĐỀ XUẤT` là **thay đổi chờ bạn duyệt**, chưa cài đặt.
-> - §22 là bảng duyệt — đọc phần đó trước nếu bạn chỉ có 5 phút.
+> - §23 là bảng duyệt — đọc phần đó trước nếu bạn chỉ có 5 phút.
 
 ---
 
@@ -201,7 +201,7 @@ tạm tính = Σ (đơn giá × số lượng)
 tổng     = tạm tính − giảm giá        (không âm)
 ```
 
-**Không có VAT, không phí phục vụ, không tip** — xem §22, quyết định C.
+**Không có VAT, không phí phục vụ, không tip** — xem §23, quyết định C.
 
 ### Ba tầng trần
 
@@ -221,7 +221,130 @@ bớt một mã ở khoảnh khắc đó là đổi một khoản lãi nhỏ l�
 > tạm tính từ dòng món rồi chỉ trừ ở cấp **hoá đơn**. Kết quả: **khách mất điểm và vẫn trả đủ
 > tiền.** Bài học: nơi tính tiền và nơi ghi khoản giảm phải cùng một cấp.
 
-## 10. Thanh toán và đối soát
+## 10. Khuyến mãi và ưu đãi — đặt và áp
+
+Hệ thống có **hai** cơ chế giảm giá, và chúng khác nhau về bản chất chứ không chỉ về tên.
+
+| | Mã khuyến mãi | Phiếu đổi điểm |
+|---|---|---|
+| Ai tạo | Quản lý đặt sẵn một mã | Khách đổi bằng điểm của mình |
+| Ai dùng được | **Bất kỳ ai biết mã** | Đúng người đã đổi |
+| Dùng được mấy lần | **Không giới hạn** | **Một lần** |
+| Truy được ai dùng | Chỉ qua từng hoá đơn | Có: mã riêng, ai xác nhận, lúc nào |
+| Đảo ngược | Không có khái niệm | Có |
+| Điều kiện | Đơn tối thiểu, khoảng ngày | Đủ điểm, đủ hạng |
+
+### 10.1 Đặt một mã khuyến mãi (quản lý)
+
+| Trường | Nghĩa | Bắt buộc |
+|---|---|---|
+| `code` | Mã khách gõ. **So khớp không phân biệt hoa thường**, lưu và đối chiếu ở dạng in hoa | có, **duy nhất** |
+| `name`, `description` | Tên và mô tả hiện cho khách | tên bắt buộc |
+| `type` | `Percentage` hoặc `FixedAmount` | có |
+| `discountValue` | Số phần trăm, hoặc số tiền | có |
+| `minOrderAmount` | Tạm tính phải đạt mức này | không |
+| `maxDiscountAmount` | Trần cho **riêng mã này** | không |
+| `startsAt`, `endsAt` | Khoảng hiệu lực | không |
+| `active` | Công tắc bật/tắt ngay | có |
+| `flashSale` | Cờ — xem cảnh báo dưới | không |
+
+### 10.2 Áp mã lúc thanh toán — thứ tự kiểm
+
+Kiểm theo đúng thứ tự này, dừng ở lỗi đầu tiên:
+
+```
+1. Mã rỗng            → bỏ qua, không giảm gì (không phải lỗi)
+2. Không tìm thấy mã  → PROMOTION_NOT_FOUND
+3. active = false     → PROMOTION_INACTIVE
+4. Chưa tới startsAt  → PROMOTION_NOT_STARTED
+5. Đã qua endsAt      → PROMOTION_EXPIRED
+6. Tạm tính < minOrder→ PROMOTION_MIN_ORDER_NOT_MET  (kèm luôn số tiền còn thiếu)
+7. Tính giảm:
+     Percentage  → tạm tính × % , làm tròn HALF_UP
+     FixedAmount → đúng số tiền
+8. Cắt về maxDiscountAmount (nếu có)
+9. Cắt về tạm tính — khoản giảm không bao giờ vượt hoá đơn
+```
+
+Bước 7 làm tròn **HALF_UP**, tức nửa đồng làm tròn **có lợi cho khách**. Cố ý — đây là lựa chọn
+kinh doanh, không phải mặc định của thư viện.
+
+Bước 9 là chốt cuối ở cấp một mã. Sau đó khoản giảm này còn đi qua **trần tổng 50%** ở §9 khi cộng
+với ưu đãi đổi điểm.
+
+### 10.3 Ai nhìn thấy và ai nhập mã
+
+`GET /api/promotions/active` và `POST /api/promotions/validate` đều **công khai, không cần đăng
+nhập**. Có lý do được ghi lại trong mã: mã khuyến mãi là thứ quán in lên tờ rơi, và khách vãng lai
+trên web cũng phải xem được — bắt đăng nhập mới thấy khuyến mãi sẽ biến app di động thành cửa duy
+nhất, điều không ai quyết định.
+
+Khách nhập mã ở bước chọn cách trả tiền. Mã được lưu vào hoá đơn (`promotionCode`), nên tra ngược
+được một hoá đơn đã dùng mã nào.
+
+### 10.4 Ba lỗ hổng trong nghiệp vụ mã khuyến mãi
+
+Đây là phần chưa từng được viết ra, và là lý do mục này tồn tại.
+
+> **ĐỀ XUẤT 2 — giới hạn số lượt dùng của một mã.**
+>
+> Hiện **không có** `usageLimit`, không có `usedCount`, không có giới hạn theo khách. Một mã lọt ra
+> ngoài — ảnh chụp màn hình lên nhóm chat, một người khoe trên mạng — thì **ai cũng dùng được, bao
+> nhiêu lần cũng được**, cho tới khi có người vào tắt `active`.
+>
+> Thiệt hại bị chặn bởi ba tầng trần ở §9, nên không phải vô hạn. Nhưng "mỗi hoá đơn giảm tối đa
+> 50%" áp cho **mọi** hoá đơn thì vẫn là một khoản lớn, và không ai biết cho tới khi đọc báo cáo.
+>
+> Đề xuất tối thiểu: `usage_limit` (tổng số lượt, `null` = không giới hạn) và `used_count` tăng
+> nguyên tử lúc áp mã thành công. Bước sau nếu cần: giới hạn theo hội viên.
+>
+> Lưu ý cài đặt: tăng `used_count` phải nằm **trong cùng giao dịch** với việc ghi hoá đơn. Tách ra
+> là mở đúng cửa mà hai người bấm cùng lúc đi qua được.
+
+> **ĐỀ XUẤT 3 — `flashSale` hiện không có nghĩa nghiệp vụ nào.**
+>
+> Cờ này được lưu, được trả về API, được hiện trên giao diện — nhưng `Promotion.applyTo` **không
+> bao giờ đọc nó**. Nó chỉ là một cái nhãn.
+>
+> Một trường trông như luật mà không phải luật là thứ nguy hiểm: người quản lý bật "flash sale"
+> tưởng mình vừa đặt một quy tắc. Hai đường đi, chọn một:
+>
+> - **Bỏ cờ**, dùng `startsAt`/`endsAt` cho mọi khuyến mãi có hạn — đơn giản nhất, và đủ.
+> - **Cho nó nghĩa thật**: ví dụ chỉ hiệu lực trong khung giờ hằng ngày, không phải một khoảng ngày
+>   liên tục. Nhưng đó là một trường mới (`daily_from`, `daily_to`), không phải một cờ boolean.
+>
+> Khuyến nghị: **bỏ cờ**. Chưa ai cần nghĩa thứ hai.
+
+> **ĐỀ XUẤT 4 — mã hết hạn giữa bữa ăn.**
+>
+> Khách xem thực đơn lúc 19:50, thấy mã giảm 20% hết hạn 20:00. Ăn xong, ra trả tiền lúc 20:15 →
+> `PROMOTION_EXPIRED`, và người chịu là nhân viên quầy đứng giải thích.
+>
+> Hiện luật là **kiểm lúc trả tiền**. Đó là luật đúng về mặt kế toán nhưng tệ về mặt trải nghiệm ở
+> đúng khoảnh khắc khó chịu nhất.
+>
+> Ba lựa chọn, cần bạn quyết:
+> 1. **Giữ nguyên** — mã hết hạn là hết hạn. Đơn giản, nhưng khách cãi tại quầy.
+> 2. **Chốt theo lúc mở phiên bàn** — mã còn hiệu lực lúc khách ngồi xuống thì áp được suốt bữa.
+>    Công bằng với khách, và giải thích được.
+> 3. **Chốt theo lúc gửi lượt đặt món đầu tiên** — chặt hơn (2), vẫn giải thích được.
+>
+> Khuyến nghị: **(2)**. Nó khớp với cách khách hiểu — "lúc tôi vào quán thì đang có khuyến mãi".
+> Cài đặt: hoá đơn lưu thêm mốc thời gian dùng để kiểm, mặc định là `openedAt` của phiên bàn.
+
+### 10.5 Ưu đãi đổi điểm — đặt và giao
+
+Quản lý đặt danh mục phần thưởng: loại (`FREE_ITEM` món tặng / `DISCOUNT` giảm tiền), số điểm cần,
+**hạng tối thiểu**, và bật/tắt.
+
+Khách đổi điểm → hệ thống sinh một **phiếu có mã riêng**. Phiếu chỉ thành hiện thực khi **quầy xác
+nhận đã giao** — điểm trừ tại đó, không trừ lúc đổi. Phiếu ghi lại ai xác nhận và lúc nào; đã dùng
+thì không dùng lại được.
+
+Đây là mô hình đúng, và là mẫu để §10.4 hướng tới: mã khuyến mãi hiện **thiếu** đúng ba thứ mà
+phiếu đổi điểm đã có — giới hạn lượt, dấu vết người dùng, và đường đảo ngược.
+
+## 11. Thanh toán và đối soát
 
 `PaymentMethod`: `Unselected` (trạng thái đầu, không ai chọn được), `COD` (tiền mặt), `VietQR`.
 
@@ -240,7 +363,7 @@ bớt một mã ở khoảnh khắc đó là đổi một khoản lãi nhỏ l�
 Mã QR **chỉ dựng khi hoá đơn thật sự chọn VietQR**. Dựng vô điều kiện sẽ trả mã quét được cho một
 hoá đơn đang trả tiền mặt — khách quét rồi chuyển khoản thành hai lần thu.
 
-## 11. Tích điểm
+## 12. Tích điểm
 
 Khách **tự tải app, tự tạo tài khoản, tự gắn số điện thoại**. Không có bước nhân viên nối hộ.
 
@@ -270,7 +393,7 @@ hết hạn = (tổng ACCRUE quá 12 tháng) − (tổng REDEEM + EXPIRE từ tr
 
 # PHẦN III — NGHIỆP VỤ VẬN HÀNH
 
-## 12. Ba vai và ranh giới
+## 13. Ba vai và ranh giới
 
 ### Nguyên tắc phân vai
 
@@ -321,7 +444,7 @@ Phần này quan trọng hơn bảng trên. **Một vai được định nghĩa 
 
 Chi tiết thứ hai là luật nghiệp vụ, không phải tiện ích: người ở quầy mở máy lên là vì có việc.
 
-## 13. Bếp
+## 14. Bếp
 
 | Việc | Chi tiết |
 |---|---|
@@ -331,7 +454,7 @@ Chi tiết thứ hai là luật nghiệp vụ, không phải tiện ích: ngư�
 | Khai độ trễ | Số phút cộng thêm, tối đa 60, chỉ áp cho món trạm `BEP` |
 | Thấy mức gấp | Chờ ≥ **12 phút** cảnh báo, ≥ **20 phút** gấp |
 
-## 14. Quầy
+## 15. Quầy
 
 | Việc | Chi tiết |
 |---|---|
@@ -353,7 +476,7 @@ quyết định bàn nào đi trước.
 
 > Nguyên tắc rút ra, áp cho cả hệ thống: **thông báo có thể tự tắt, việc phải làm thì không.**
 
-## 15. Quản lý
+## 16. Quản lý
 
 **Trung tâm điều hành** — bốn khối, tất cả đều trả lời "cái gì đang cần tôi": việc cần xử lý, sơ đồ
 bàn, trạng thái ca quầy, doanh thu hôm nay.
@@ -373,7 +496,7 @@ bàn, trạng thái ca quầy, doanh thu hôm nay.
 
 # PHẦN IV — TRẢI NGHIỆM
 
-## 16. Bối cảnh vận hành quyết định giao diện
+## 17. Bối cảnh vận hành quyết định giao diện
 
 Ba vai không khác nhau ở màu thương hiệu mà khác nhau ở **điều kiện vật lý lúc họ chạm vào màn
 hình**.
@@ -388,7 +511,7 @@ hình**.
 
 Năm trục này quyết định gần như mọi lựa chọn giao diện bên dưới.
 
-## 17. Bếp — nguyên tắc trải nghiệm
+## 18. Bếp — nguyên tắc trải nghiệm
 
 **a. Đọc được từ 2 mét.** Chữ nhìn từ 2m cần lớn gấp 3–4 lần chữ nhìn từ 50cm để cùng một góc nhìn.
 
@@ -431,7 +554,7 @@ món** vẫn hỏi lại, vì không hoàn tác được về phía khách.
 | Bốn cột cùng một hàng ở màn rộng | Cột hẹp, chữ càng nhỏ. Bếp thường chỉ cần **hai** cột đầu |
 | Ô nhập độ trễ chỉ có bàn phím | Tay bẩn gõ số. Nên có **cả** ô nhập **và** 2–3 mức nhanh — không quay lại bỏ ô nhập |
 
-## 18. Quầy — nguyên tắc trải nghiệm
+## 19. Quầy — nguyên tắc trải nghiệm
 
 **a. Bị cắt ngang là trạng thái mặc định, không phải ngoại lệ.** Người ở quầy gần như không bao giờ
 làm xong một việc trong một mạch.
@@ -440,7 +563,7 @@ làm xong một việc trong một mạch.
 - **Không có hộp thoại chặn toàn màn hình** cho việc dài.
 - Việc đang dở phải **thấy được từ tab khác**.
 
-**b. Việc phải làm thì không tự tắt.** (§14)
+**b. Việc phải làm thì không tự tắt.** (§15)
 
 **c. Tiền hiện theo luật của tiền.** Chữ số đều bề ngang, căn phải, số phải trả to nhất màn, tiền
 thối tính ngay khi gõ, lệch quỹ giữ dấu và có nhãn chữ ("thiếu 50.000đ").
@@ -469,7 +592,7 @@ Còn đúng một chỗ chưa đạt:
 Sửa nhỏ hơn vẻ ngoài: dựng cả tab rồi ẩn bằng `hidden`, hoặc nâng trạng thái đang gõ lên
 `CounterHubPage`. Không đụng nghiệp vụ.
 
-## 19. Quản lý — nguyên tắc trải nghiệm
+## 20. Quản lý — nguyên tắc trải nghiệm
 
 **a. Dày là được, nhưng phải trả lời một câu hỏi.** "Doanh thu hôm nay: 12.400.000đ" một mình không
 nói được gì. Phải kèm **mốc so** — so hôm qua, so cùng thứ tuần trước.
@@ -495,7 +618,7 @@ cũng hỏi lại.
 | **Sửa giá** không cảnh báo gì | Thay đổi lan rộng nhất mà quản lý làm được, hiện lặng lẽ hơn cả tắt một món |
 | Số liệu không có mốc so | Không biết 12,4 triệu là tốt hay tệ |
 
-## 20. Luật giao diện dùng chung
+## 21. Luật giao diện dùng chung
 
 1. **Nhãn nói bằng ngôn ngữ người dùng, không bằng tên trạng thái trong mã.** Bếp thấy "Bắt đầu
    nấu", không thấy `Preparing`.
@@ -512,7 +635,7 @@ cũng hỏi lại.
 
 # PHẦN V — DUYỆT VÀ THỰC HIỆN
 
-## 21. Bốn lỗi đã xảy ra, một hình dạng
+## 22. Bốn lỗi đã xảy ra, một hình dạng
 
 Không phải để kể tội, mà vì cả bốn đều giống nhau: **hai nơi cùng mô tả một sự thật, và không có gì
 bắt chúng lệch nhau.**
@@ -530,7 +653,7 @@ Cách chống đã áp: **sinh ra thay vì viết lại** (kiểm kê endpoint, 
 Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở" (§5) vẫn là hai bản cài đặt độc lập
 ở backend và frontend.
 
-## 22. Bảng duyệt
+## 23. Bảng duyệt
 
 Đánh dấu từng dòng rồi tôi làm. Cột "Khuyến nghị" là ý kiến của tôi, không phải quyết định.
 
@@ -543,6 +666,9 @@ Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở
 | **B1** | Có màn hình quản trị cho `business_rule` không? | **Chưa làm màn hình.** Sửa bằng migration có review | Màn hình mở ra đường đổi luật tiền mà không qua review |
 | **C** | Thêm VAT / phí phục vụ / tip? | **Chờ bạn trả lời** — tôi không biết quán có xuất hoá đơn đỏ không | Đụng công thức tính tiền và hoá đơn đã lưu |
 | **D** | Báo cáo mở rộng sang thời gian phục vụ, tỷ lệ huỷ món, giờ cao điểm? | **Làm sau A và E** — cần số đo thật trước | Endpoint mới + màn hình |
+| **I** | Giới hạn số lượt dùng của mã khuyến mãi (§10.4) | **Làm** — hiện một mã lọt ra ngoài là dùng vô hạn | 2 cột + migration; tăng đếm phải cùng giao dịch với ghi hoá đơn |
+| **J** | Cờ `flashSale` — bỏ hay cho nó nghĩa thật? | **Bỏ cờ.** Dùng `startsAt`/`endsAt` là đủ | Bỏ 1 cột, sửa màn đặt khuyến mãi |
+| **K** | Mã hết hạn giữa bữa: kiểm lúc trả tiền, hay chốt theo lúc mở phiên bàn? | **Chốt theo lúc mở phiên** — khớp cách khách hiểu, và giải thích được ở quầy | Hoá đơn lưu thêm mốc thời gian dùng để kiểm |
 
 ### Trải nghiệm
 
@@ -592,18 +718,20 @@ Ba tính chất bắt buộc, mỗi cái ứng một cách hỏng cụ thể:
    quá khứ** ngay lúc lưu. Phải chặn riêng: chỉ cho nới dài, hoặc chỉ áp cho điểm tích **sau**
    `effective_from`.
 
-## 23. Thứ tự làm
+## 24. Thứ tự làm
 
 | # | Việc | Vì sao thứ tự này |
 |---|---|---|
 | 1 | **A** — bỏ vai `Staff` | Đang có lỗi thật; và mọi việc phân quyền sau đó đều dựa trên mô hình ba vai |
-| 2 | **E** — thang chữ và vùng chạm cho bếp | Ảnh hưởng mọi món của mọi bàn; chỉ CSS, rủi ro thấp nhất |
-| 3 | **F** — giữ dữ liệu đang gõ ở quầy | Lỗi mất dữ liệu, gặp mỗi lần bị cắt ngang |
-| 4 | **B** — bảng `business_rule` | Việc lớn nhất, đụng tiền, nên làm khi ba việc trên đã ổn định |
-| 5 | **G** — cảnh báo phạm vi khi sửa giá | Cần endpoint đếm mới |
-| 6 | **D + H** — báo cáo và mốc so | Cần số đo thật, tức cần quan trắc trước |
+| 2 | **I + J** — giới hạn lượt dùng mã, bỏ cờ `flashSale` | Lỗ hổng tiền đang mở, và sửa gọn: 2 cột thêm, 1 cột bỏ, cùng một migration |
+| 3 | **E** — thang chữ và vùng chạm cho bếp | Ảnh hưởng mọi món của mọi bàn; chỉ CSS, rủi ro thấp nhất |
+| 4 | **F** — giữ dữ liệu đang gõ ở quầy | Lỗi mất dữ liệu, gặp mỗi lần bị cắt ngang |
+| 5 | **K** — chốt hiệu lực mã theo lúc mở phiên | Cùng vùng mã với (2), nên làm liền sau để chỉ đụng một chỗ một lần |
+| 6 | **B** — bảng `business_rule` | Việc lớn nhất, đụng tiền, nên làm khi những việc trên đã ổn định |
+| 7 | **G** — cảnh báo phạm vi khi sửa giá | Cần endpoint đếm mới |
+| 8 | **D + H** — báo cáo và mốc so | Cần số đo thật, tức cần quan trắc trước |
 
-## 24. Phép thử nghiệm thu
+## 25. Phép thử nghiệm thu
 
 Bốn phép thử làm được trong 10 phút, không cần công cụ:
 
