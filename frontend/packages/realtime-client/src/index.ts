@@ -66,8 +66,9 @@ export type OrderRealtimeHandlers = {
  * còn Spring chỉ hiểu khung STOMP. Nên sau khi backend chuyển sang Java, mọi tính năng realtime
  * (bếp cập nhật trực tiếp, theo dõi đơn, xác nhận thanh toán, gọi nhân viên) im lặng chết.
  *
- * Không cổng nào bắt được: test backend kiểm STOMP bằng client STOMP, test frontend là unit test
- * đọc mã, còn `golden-e2e` chỉ đi qua HTTP. Đúng lớp lỗi "hai bên tự nhất quán với chính mình".
+ * Không cổng nào bắt được: test backend kiểm STOMP bằng client STOMP, còn test frontend là unit
+ * test đọc mã. Đúng lớp lỗi "hai bên tự nhất quán với chính mình". Job CI `realtime-e2e` sinh ra
+ * để đóng đúng khe đó: mã client THẬT ở đây, nói với backend THẬT đang chạy.
  *
  * KHÁC BIỆT MÔ HÌNH, và hệ quả ở đây
  * ----------------------------------

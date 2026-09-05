@@ -28,10 +28,6 @@ cd frontend && npm ci && npm run build
 
 # Backend
 cd backend-java && ./gradlew build
-
-# AI service
-python -m pip install -r ai/requirements.txt
-PYTHONPATH=ai python -m compileall ai/app
 ```
 
 ## Nguyên tắc

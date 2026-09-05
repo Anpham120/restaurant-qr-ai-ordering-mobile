@@ -12,12 +12,13 @@
 # CÁI GÌ CẦN MANG, VÀ VÌ SAO CHỈ CÓ NGẦN NÀY
 #
 # Gần như toàn bộ hệ thống dựng lại được từ kho mã và từ GitHub Environments. Thứ KHÔNG dựng lại
-# được chỉ có ba, và cả ba đều là trạng thái sinh ra lúc chạy:
+# được chỉ có hai, và cả hai đều là trạng thái sinh ra lúc chạy:
 #
 #   1. Cơ sở dữ liệu PRODUCTION  — đơn hàng, điểm hội viên, tài khoản quản trị, bản ghi SePay
 #   2. Cơ sở dữ liệu STAGING     — ít quan trọng hơn, nhưng rẻ nên lấy luôn
-#   3. Volume `9router-data`     — cấu hình và khoá nhà cung cấp mô hình. Chính compose ghi:
-#                                  "Mất volume này là phải khai báo lại từ đầu."
+#
+# Script này chỉ biết tới hệ thống nhà hàng. Dịch vụ nào khác của chủ máy cũng đang chạy trên
+# cùng máy chủ thì tự lo phần của nó — kho mã này không đụng tới, không sao lưu hộ.
 #
 # Thứ KHÔNG cần mang, để khỏi mất công:
 #
@@ -80,16 +81,6 @@ dump_mot_moi_truong "cmc-restaurant-production" "production"
 dump_mot_moi_truong "cmc-restaurant-staging" "staging"
 echo
 
-# Volume không phải thư mục trên máy chủ, nên phải mượn một container để đọc nó.
-echo "==> Volume 9router (cấu hình + khoá nhà cung cấp mô hình)"
-for vol in $(docker volume ls --format '{{.Name}}' | grep '9router-data' || true); do
-  echo "  ${vol}"
-  docker run --rm -v "${vol}:/data:ro" -v "${dau_ra}:/out" alpine \
-    tar czf "/out/${vol}.tar.gz" -C /data .
-  echo "     -> ${vol}.tar.gz"
-done
-echo
-
 echo "==> Tệp .env (CHỨA BÍ MẬT — chỉ để đối chiếu)"
 for moi_truong in production staging; do
   duong_dan="/opt/cmc-restaurant/${moi_truong}/.env"
@@ -108,9 +99,6 @@ echo "==> Ảnh chụp phiên bản đang chạy"
 {
   echo "Đóng gói lúc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "Máy: $(hostname)  $(uname -sr)"
-  echo
-  echo "--- CPU (kiểm avx/avx2 cho dịch vụ AI) ---"
-  grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -E '^(avx|avx2|sse4_2)$' | sort -u || echo "(không đọc được)"
   echo
   echo "--- container ---"
   docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
@@ -136,6 +124,6 @@ echo
 echo "Kéo về máy cá nhân NGAY, đừng để trên máy sắp hết hạn:"
 echo "  scp $(whoami)@$(hostname -I 2>/dev/null | awk '{print $1}'):${goi} ."
 echo
-echo "Gói này CHỨA BÍ MẬT (mật khẩu CSDL, khoá ký JWT, khoá mô hình)."
+echo "Gói này CHỨA BÍ MẬT (mật khẩu CSDL, khoá ký JWT)."
 echo "Đừng đẩy lên kho mã, đừng gửi qua chat."
 echo "==================================================================="

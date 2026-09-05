@@ -22,11 +22,9 @@ npm run dev:ops                            # operations app (admin/counter/kitch
 npm run dev:ordering                       # table ordering app
 npm run build                              # type-check and build all Vite apps
 cd backend-java && ./gradlew build            # build + Checkstyle + test
-python -m pip install -r ai/requirements.txt
-python -m compileall ai/app
 ```
 
-Run the API with `cd backend-java && ./gradlew bootRun` (nghe cổng 8081). Run the AI service from `ai/` with `uvicorn app.main:app --reload --port 8001`.
+Run the API with `cd backend-java && ./gradlew bootRun` (nghe cổng 8081).
 
 ## Coding Style & Naming Conventions
 

@@ -29,7 +29,7 @@ if [[ "$MODE" == "--docker" ]]; then
     up --build
 fi
 
-for file in "$ROOT/backend-java/.env" "$ROOT/ai/.env" "$ROOT/frontend/.env"; do
+for file in "$ROOT/backend-java/.env" "$ROOT/frontend/.env"; do
   if [[ -f "$file" ]]; then
     set -a
     # shellcheck disable=SC1090
@@ -59,12 +59,11 @@ trap cleanup EXIT INT TERM
 
 # `bootRun` chứ không phải `java -jar`: nó biên dịch lại khi mã đổi, đúng thứ cần khi đang sửa.
 (cd "$ROOT/backend-java" && ./gradlew bootRun) & pids+=("$!")
-(cd "$ROOT/ai" && python -m uvicorn service:app --app-dir app --reload --host 127.0.0.1 --port "${AI_SERVICE_PORT:-8001}") & pids+=("$!")
 for portal in customer ordering ops; do
   (cd "$ROOT/frontend" && npm run "dev:$portal") & pids+=("$!")
 done
 
-echo "Đã chạy: API Java (:${BACKEND_JAVA_PORT}), dịch vụ AI (:${AI_SERVICE_PORT:-8001}), và ba giao diện. Ctrl+C để dừng."
+echo "Đã chạy: API Java (:${BACKEND_JAVA_PORT}) và ba giao diện. Ctrl+C để dừng."
 wait -n "${pids[@]}"
 echo "Một tiến trình đã thoát; dừng những tiến trình còn lại." >&2
 exit 1

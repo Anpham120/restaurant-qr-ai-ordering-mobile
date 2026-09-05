@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 
 const frontendRoot = new URL("../../", import.meta.url);
 const dockerfilePath = fileURLToPath(new URL("Dockerfile", frontendRoot));
-const aiDockerfilePath = fileURLToPath(new URL("../ai/Dockerfile", frontendRoot));
-const aiRequirementsPath = fileURLToPath(new URL("../ai/requirements.txt", frontendRoot));
 const healthCheckPath = fileURLToPath(
   new URL("../deploy/scripts/health-check.sh", frontendRoot),
 );

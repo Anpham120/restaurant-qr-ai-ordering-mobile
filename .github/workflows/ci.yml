@@ -12,9 +12,7 @@ on:
     #     pull_request  success  12ace33  07:16:47
     #     push          success  12ace33  07:16:43     <- cùng commit, cùng job, chạy lại từ đầu
     #
-    # Gấp đôi mọi thứ, và job đắt nhất là `golden-e2e`: nó dựng ảnh Docker 2,75GB có `torch`.
-    #
-    # Việc này đắt hơn kể từ khi `menu-data` và `golden-e2e` thành check BẮT BUỘC.
+    # Gấp đôi mọi thứ, và job đắt nhất là `realtime-e2e`: nó dựng cả stack rồi mới chạy test.
     #
     # Đánh đổi phải nói rõ: đẩy một nhánh mà CHƯA mở PR thì không có CI. Chấp nhận được vì mọi thay
     # đổi đều đi qua PR (`main` và `develop` đều bị ruleset chặn push thẳng), và đây là nếp chuẩn.
@@ -116,37 +114,29 @@ jobs:
       - name: Kiểm chỉ mục tài liệu khớp thư mục
         run: python docs/build_docs_index.py --check
 
-  golden-e2e:
-    name: golden-e2e
+  realtime-e2e:
+    name: realtime-e2e
     runs-on: ubuntu-latest
-    # Dựng stack THẬT rồi hỏi như khách: QR -> phiên bàn -> phiên chat -> backend Java ->
-    # dịch vụ AI -> câu trả lời -> thẻ giỏ -> giỏ hàng thật.
+    # Dựng stack THẬT rồi nối mã client THẬT của frontend vào backend THẬT đang chạy.
     #
-    # Vì sao job này tồn tại: mọi tập khác dừng ở một chặng khác nhau của chuỗi gọi, và cả
-    # `test_service.py` lẫn `ChatAiProviderV2ContractTests` đều tự nhất quán với chính mình —
-    # nên khung SSE của hai bên lệch nhau suốt mà không tập nào đỏ. Khách nhận "Xin lỗi, hệ
-    # thống hơi chậm." trên ĐƯỜNG CHÍNH (frontend gọi stream trước rồi mới lùi về gọi thường).
+    # Vì sao job này tồn tại: realtime là mắt xích DUY NHẤT mà không tập nào đi qua trọn vẹn.
+    # Frontend dùng SignalR suốt thời gian backend đã chuyển sang STOMP — hai giao thức không nói
+    # chuyện được với nhau nên MỌI tính năng realtime im lặng chết, mà không tập nào đỏ: test
+    # backend kiểm STOMP bằng client STOMP, còn test frontend là unit test đọc mã. Bước này nối
+    # đúng hai đầu đó lại.
     #
-    # KHÔNG cần bí mật thật. `LLM_BASE_URL` trỏ vào cổng không có gì lắng nghe, nên mô hình gọi
-    # thất bại ngay và dịch vụ trả lời bằng mã tất định — đúng đường đã đạt 140/140 ca.
-    #
-    # Và KHÔNG đặt `AI_ENABLE_GENERATION` ở đây, có chủ ý: job này phải đo đường TẤT ĐỊNH. Đường sinh
-    # cần mô hình thật, và một job CI không có mô hình mà bật đường sinh chỉ đo phần lùi về khuôn mẫu.
-    #
-    # CHI PHÍ ĐÃ ĐỔI: ảnh AI nay có tầng embedding, nên bước dựng tải `torch` bản CPU (~200MB) và mô
-    # hình `BAAI/bge-m3` (~2,2GB), rồi tính sẵn vector cho 372 đoạn. Con số mô hình vừa tăng từ
-    # ~500MB của `multilingual-e5-small` sau khi phép đo ghép cặp trên 148 câu cho `bge-m3` hơn có ý
-    # nghĩa thống kê (McNemar p = 0,0351). Job vẫn trong hạn mặc định của GitHub Actions, nhưng con
-    # số này đáng biết trước khi ai đó hỏi vì sao CI chậm hơn.
+    # Job này trước tên `golden-e2e` và dựng thêm ảnh AI 2,75GB có `torch` để chạy bộ golden qua
+    # `ai/evaluation/`. Nghiệp vụ AI đã bỏ và thư mục `ai/` không còn, nên phần đó đi theo. Nhánh
+    # realtime giữ nguyên: nó chưa bao giờ đi qua AI.
     env:
       DEPLOY_ENV: ci
-      COMPOSE_PROJECT_NAME: cmc-restaurant-golden
+      COMPOSE_PROJECT_NAME: cmc-restaurant-realtime
       FRONTEND_PORT: "8080"
       # Backend Java nghe 8081, không phải 5000 của bản .NET (#58).
       # `deploy/docker-compose.java.yml` publish theo BACKEND_JAVA_PORT.
       BACKEND_JAVA_PORT: "8081"
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: restaurant_qr_golden
+      POSTGRES_DB: restaurant_qr_realtime
       POSTGRES_USER: restaurant_user
       POSTGRES_PASSWORD: ci-postgres-placeholder
       FRONTEND_SERVER_NAMES: cmcrestaurant.app
@@ -166,66 +156,21 @@ jobs:
       PAYMENTS_VIETQR_BANKID: "970436"
       PAYMENTS_VIETQR_ACCOUNTNUMBER: "ci-placeholder-account"
       PAYMENTS_VIETQR_ACCOUNTNAME: CMC CI
-      # Stack Java dùng mạng bridge, nên backend gọi dịch vụ AI qua TÊN DỊCH VỤ. Bản .NET dùng
-      # `network_mode: host` nên nó gọi được 127.0.0.1 — chép nguyên sang đây thì backend gọi vào
-      # chính container của nó và chat rơi vào câu dự phòng mà golden vẫn xanh.
-      AI_SERVICE_URL: http://ai-service:8001
-      AI_SERVICE_PORT: "8001"
-      AI_INTERNAL_TOKEN: ci-internal-token-placeholder
-      LLM_BASE_URL: http://127.0.0.1:20128/v1
-      LLM_API_KEY: ci-provider-key-placeholder
-      LLM_MODEL: cx/gpt-5.6-luna-review
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # Bộ chạy golden chỉ dùng thư viện chuẩn — không cài gì.
 
       - name: Di trú cơ sở dữ liệu
         run: |
           docker compose -f deploy/docker-compose.java.yml --profile migrate run --rm migrate
 
-      - name: Dựng postgres, dịch vụ AI, backend
+      # `--wait` chứ không phải một script chờ riêng: `api` đã khai healthcheck trong compose, nên
+      # compose tự chờ nó `healthy`. Chỗ này trước gọi `ai/evaluation/wait_for_stack.py`, một tệp
+      # đã đi cùng thư mục `ai/`; dùng lại healthcheck có sẵn thì không phải nuôi cái thứ hai.
+      - name: Dựng postgres và backend, chờ tới khi khoẻ
         run: |
-          docker compose -f deploy/docker-compose.java.yml up -d --build postgres ai-service api
+          docker compose -f deploy/docker-compose.java.yml up -d --build --wait postgres api
 
-      - name: Chờ backend và dịch vụ AI sẵn sàng
-        run: python ai/evaluation/wait_for_stack.py --api http://127.0.0.1:8081
-
-      - name: Golden đầu-cuối — hỏi như khách thật
-        run: |
-          QR=$(docker compose -f deploy/docker-compose.java.yml exec -T postgres \
-            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
-            -c "select qr_token from restaurant_tables order by table_code limit 1;" | tr -d '\r')
-          test -n "$QR" || { echo "không lấy được mã QR — cơ sở dữ liệu chưa seed bàn nào"; exit 1; }
-          GOLDEN_QR_TOKEN="$QR" python ai/evaluation/run_golden_e2e.py --api http://127.0.0.1:8081 --chi-tiet
-
-      # Ba câu thử của phép kiểm sức khỏe deploy, chạy Ở ĐÂY thay vì chờ tới staging.
-      #
-      # Vì sao bước này tồn tại: `deploy/scripts/health-check.sh` chỉ chạy trên staging, tức chỉ đỏ
-      # SAU khi đã merge, đã đẩy, đã dựng ảnh và đã thay container — vòng phản hồi dài nhất của dự
-      # án. Nó đã đỏ hai lần liên tiếp, và lần thứ hai đáng nói: khách hỏi "có PHỞ không" mà thẻ giỏ
-      # có 4 món BÚN, trong khi **103 lượt golden, 140 ca và 87 lượt phiên đều xanh** trên đúng bản
-      # đó. Ba câu thử kia tồn tại từ hệ thống CŨ, do người khác viết cho mục đích khác, nên chúng
-      # hỏi khác đi — và chính vì thế chúng bắt được thứ ba tập kia không bắt.
-      #
-      # Bộ này KHÔNG sao chép phép khẳng định: nó bóc các khối Python nội tuyến từ chính
-      # `health-check.sh` rồi chạy lại nguyên văn. Sao chép thì nó thành đầu thứ hai của cùng một bất
-      # biến, và dự án đã trả giá tám lần cho đúng chuyện đó.
-      # Realtime là mắt xích DUY NHẤT của chuỗi mà golden không đi qua: golden hỏi và đặt món bằng
-      # HTTP, còn bếp/quầy nhận cập nhật bằng WebSocket.
-      #
-      # Vì sao bước này tồn tại: frontend dùng SignalR suốt thời gian backend đã chuyển sang STOMP.
-      # Hai giao thức không nói chuyện được với nhau, nên MỌI tính năng realtime im lặng chết — và
-      # không tập nào đỏ, vì test backend kiểm STOMP bằng client STOMP, test frontend là unit test
-      # đọc mã, còn golden chỉ đi HTTP. Bước này nối đúng hai đầu đó lại: mã client THẬT của
-      # frontend, nói với backend THẬT đang chạy.
-      #
       # Test tự bỏ qua khi thiếu biến môi trường (`describe.runIf`), nên nó không làm `npm test`
       # thường đỏ — nhưng ở ĐÂY thì biến có đủ, tức nó thật sự chạy chứ không phải một test bị bỏ
       # qua vĩnh viễn.
@@ -275,14 +220,10 @@ jobs:
 
           npm --prefix frontend exec -- vitest run packages/realtime-client/src/liveRealtime.integration.test.ts
 
-      - name: Ba câu thử của phép kiểm deploy — bắt ở CI, không chờ staging
-        run: python ai/evaluation/run_deploy_probes.py
-
       - name: Log khi đỏ
         if: failure()
         run: |
           docker compose -f deploy/docker-compose.java.yml logs --tail 200 api
-          docker compose -f deploy/docker-compose.java.yml logs --tail 100 ai-service
 
       - name: Hạ stack
         if: always()
@@ -310,12 +251,6 @@ jobs:
       PAYMENTS_VIETQR_BANKID: "970436"
       PAYMENTS_VIETQR_ACCOUNTNUMBER: "ci-placeholder-account"
       PAYMENTS_VIETQR_ACCOUNTNAME: CMC CI
-      AI_SERVICE_URL: http://127.0.0.1:8001
-      AI_SERVICE_PORT: "8001"
-      AI_INTERNAL_TOKEN: ci-internal-token-placeholder
-      LLM_BASE_URL: http://127.0.0.1:20128/v1
-      LLM_API_KEY: ci-provider-key-placeholder
-      LLM_MODEL: cx/gpt-5.6-luna-review
     steps:
       - name: Checkout
         uses: actions/checkout@v4
