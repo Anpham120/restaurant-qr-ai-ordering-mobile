@@ -3,12 +3,12 @@
 > **Bản gộp, lập 2026-09-05.** Đây là tài liệu **duy nhất** mô tả nghiệp vụ của dự án. Nó thay cho
 > `PHAN_TICH_NGHIEP_VU.md` và `THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md` — hai tệp đó đã xoá, vì ba tài
 > liệu chồng nhau chính là cái bẫy "hai nơi cùng mô tả một sự thật" mà dự án này đã sập bốn lần
-> (§22).
+> (§23).
 >
 > **Cách đọc:**
 > - Phần chữ thường mô tả **luật đang chạy**, rút từ mã chứ không từ trí nhớ.
 > - Khối `ĐỀ XUẤT` là **thay đổi chờ bạn duyệt**, chưa cài đặt.
-> - §23 là bảng duyệt — đọc phần đó trước nếu bạn chỉ có 5 phút.
+> - §24 là bảng duyệt — đọc phần đó trước nếu bạn chỉ có 5 phút.
 
 ---
 
@@ -201,7 +201,7 @@ tạm tính = Σ (đơn giá × số lượng)
 tổng     = tạm tính − giảm giá        (không âm)
 ```
 
-**Không có VAT, không phí phục vụ, không tip** — xem §23, quyết định C.
+**Không có VAT, không phí phục vụ, không tip** — xem §24, quyết định C.
 
 ### Ba tầng trần
 
@@ -635,7 +635,101 @@ cũng hỏi lại.
 
 # PHẦN V — DUYỆT VÀ THỰC HIỆN
 
-## 22. Bốn lỗi đã xảy ra, một hình dạng
+## 22. Lỗ hổng nghiệp vụ đang mở — soát theo tình huống thật
+
+Soát bằng cách hỏi những câu một quán thật sẽ gặp, rồi đối chiếu mã. Bốn chỗ hở, xếp theo mức
+nghiêm trọng.
+
+### L. Phiên hết hạn khi khách chưa trả tiền → hoá đơn mồ côi
+
+**Nghiêm trọng nhất. Đây là mất tiền, im lặng.**
+
+Chuỗi sự việc:
+
+```
+1. Bàn 6 người, tiệc sinh nhật, ngồi hơn 4 giờ.
+2. Phiên bàn hết hạn (DEFAULT_SESSION_LIFETIME = 4 giờ).
+3. Khách mở điện thoại để trả tiền → 410 GONE, "Phiên đã hết hạn. Vui lòng quét lại QR."
+4. Khách quét lại → phiên CŨ đã Expired nên hệ thống mở phiên MỚI.
+5. Phiên mới: giỏ rỗng, không đơn nào, hoá đơn 0đ.
+6. Toàn bộ món đã ăn nằm ở phiên cũ, đã Expired.
+```
+
+Vì sao không ai thấy:
+
+- **Không có hoá đơn nào được tạo.** Hoá đơn chỉ sinh ra khi khách bấm thanh toán
+  (`requestPayment`), mà đường đó đòi `session.isActiveAt(now)` — phiên hết hạn thì gọi không được.
+- **Danh sách "chờ thu" của quầy chỉ đọc hoá đơn `Pending`.** Không có hoá đơn thì không có dòng nào.
+- **Trung tâm điều hành lọc thẳng phiên hết hạn ra**:
+  `sessions.filter(s => s.status === "Open" && !s.isExpired)`.
+- **Quầy không có đường nào tạo hoá đơn hộ khách.** `requestPayment` không có `@PreAuthorize`, nó
+  đòi **token phiên bàn của khách** — thứ quầy không cầm.
+
+Nghĩa là: món đã ăn, không ai được hỏi tiền, và **không màn hình nào hiện việc đó**.
+
+> **ĐỀ XUẤT L.** Hai việc, làm cùng nhau:
+>
+> 1. **Không cho phiên hết hạn khi còn món chưa thanh toán.** `expireIfPast` phải kiểm: còn đơn nào
+>    chưa vào hoá đơn đã tất toán thì **giữ `Open`** và đánh dấu `quaHan = true` thay vì chuyển
+>    `Expired`. Bàn quá giờ vẫn là bàn còn nợ tiền, không phải bàn đã xong.
+> 2. **Quầy phải thấy và xử lý được.** Thêm mục "Bàn quá giờ, chưa thanh toán" ở màn quầy, và cho
+>    quầy tạo yêu cầu thanh toán hộ (endpoint mới, `@PreAuthorize('CounterStaff','Admin')`, không
+>    đòi token của khách).
+>
+> Hạn 4 giờ vẫn giữ nguyên tác dụng ban đầu — dọn phiên của bàn khách đã đi mà không gọi món.
+
+### M. Nhân viên quầy KHÔNG đóng được phiên bàn
+
+`POST /api/table-sessions/{id}/close` khai `@PreAuthorize("hasAnyRole('Staff', 'Admin')")`.
+
+`CounterStaff` **không có trong danh sách**. Vai duy nhất còn gán được mà làm việc ở quầy thì bị
+chặn, còn vai được phép (`Staff`) thì không tạo mới được nữa (§3).
+
+Đây là triệu chứng thứ hai của cùng một chuyện với ĐỀ XUẤT 1, nhưng nó tự nó là một lỗi phân quyền:
+người đóng bàn trong đời thật không đóng được bàn trong hệ thống.
+
+> **ĐỀ XUẤT M.** Đổi thành `hasAnyRole('CounterStaff', 'Admin')`. Làm cùng lượt bỏ vai `Staff`.
+
+### N. Đóng phiên bằng tay không kiểm đã trả tiền chưa
+
+`closeSession` đặt `status = Closed` và xong. **Không kiểm** còn đơn chưa thanh toán, không kiểm
+hoá đơn đang `Pending`, không cảnh báo gì.
+
+Một lần bấm nhầm ở màn sơ đồ bàn là một bàn đóng lại với tiền chưa thu — và vì đã `Closed`, khách
+quét QR sẽ mở phiên mới, giống hệt tình huống L.
+
+> **ĐỀ XUẤT N.** Đóng phiên còn nợ tiền phải:
+> - **chặn mặc định**, báo `TABLE_SESSION_HAS_UNPAID_ITEMS` kèm số tiền;
+> - cho phép ép đóng bằng một cờ riêng (`force=true`) **kèm lý do bắt buộc**, và ghi lý do đó lại.
+>
+> Có tình huống thật cần ép đóng — khách bỏ chạy, hoặc quán quyết định miễn. Nhưng đó phải là một
+> quyết định được ghi tên, không phải một lần bấm im lặng.
+
+### O. Hoàn tiền không trừ lại điểm đã cộng
+
+Khách trả tiền → cộng điểm. Quầy hoàn tiền → `payment.refund(now)` và hết. **Điểm vẫn còn.**
+
+Hệ thống đã có sẵn cơ chế đảo ngược (`LoyaltyLedgerEntity` với lý do `REVERSE`), nhưng nó chỉ dùng
+cho việc **hoàn ưu đãi khi huỷ đơn** — tức chiều tiêu điểm. Chiều **tích** điểm không có đường lùi.
+
+Khoản rò nhỏ hơn L, nhưng nó là sai lệch sổ sách: `lifetimeSpend` cũng cộng theo, nên một khách
+hoàn tiền nhiều lần có thể **lên hạng bằng tiền chưa từng trả**.
+
+> **ĐỀ XUẤT O.** Khi hoàn tiền, ghi một dòng sổ `REVERSE` trừ đúng số điểm đã cộng cho hoá đơn đó,
+> và trừ lại `lifetimeSpend`. Dùng lại đúng cơ chế `REVERSE` đã có.
+>
+> Lưu ý: **không** để việc trừ điểm làm hỏng lệnh hoàn tiền — cùng nguyên tắc mà mã đã áp cho chiều
+> cộng ("khách đã trả tiền không được thấy lỗi vì một dòng điểm không ghi được"). Ghi nhật ký và
+> xử tay nếu trừ thất bại.
+
+### Một chỗ không phải lỗi, nhưng đáng biết
+
+Món bị quầy huỷ **sau khi bếp đã nấu** thì không tính tiền khách — đúng. Nhưng cũng **không có chỗ
+nào ghi lại phần hao hụt đó**. Báo cáo không phân biệt "huỷ trước khi nấu" với "huỷ sau khi nấu",
+nên quán không đo được mình mất bao nhiêu nguyên liệu vì huỷ muộn. Đưa vào cùng đợt mở rộng báo cáo
+(quyết định D).
+
+## 23. Bốn lỗi đã xảy ra, một hình dạng
 
 Không phải để kể tội, mà vì cả bốn đều giống nhau: **hai nơi cùng mô tả một sự thật, và không có gì
 bắt chúng lệch nhau.**
@@ -653,7 +747,7 @@ Cách chống đã áp: **sinh ra thay vì viết lại** (kiểm kê endpoint, 
 Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở" (§5) vẫn là hai bản cài đặt độc lập
 ở backend và frontend.
 
-## 23. Bảng duyệt
+## 24. Bảng duyệt
 
 Đánh dấu từng dòng rồi tôi làm. Cột "Khuyến nghị" là ý kiến của tôi, không phải quyết định.
 
@@ -669,6 +763,10 @@ Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở
 | **I** | Giới hạn số lượt dùng của mã khuyến mãi (§10.4) | **Làm** — hiện một mã lọt ra ngoài là dùng vô hạn | 2 cột + migration; tăng đếm phải cùng giao dịch với ghi hoá đơn |
 | **J** | Cờ `flashSale` — bỏ hay cho nó nghĩa thật? | **Bỏ cờ.** Dùng `startsAt`/`endsAt` là đủ | Bỏ 1 cột, sửa màn đặt khuyến mãi |
 | **K** | Mã hết hạn giữa bữa: kiểm lúc trả tiền, hay chốt theo lúc mở phiên bàn? | **Chốt theo lúc mở phiên** — khớp cách khách hiểu, và giải thích được ở quầy | Hoá đơn lưu thêm mốc thời gian dùng để kiểm |
+| **L** | Phiên hết hạn khi còn nợ tiền → hoá đơn mồ côi (§22) | **Làm NGAY** — đây là mất tiền và không màn hình nào hiện | Sửa `expireIfPast` + endpoint mới cho quầy + mục mới ở màn quầy |
+| **M** | `CounterStaff` không đóng được phiên bàn (§22) | **Làm cùng A** | Một dòng `@PreAuthorize` |
+| **N** | Đóng phiên bằng tay không kiểm đã trả tiền (§22) | **Làm** | Chặn mặc định + cờ ép đóng kèm lý do bắt buộc |
+| **O** | Hoàn tiền không trừ lại điểm đã cộng (§22) | **Làm** | Dùng lại cơ chế `REVERSE` đã có; cũng phải trừ `lifetimeSpend` |
 
 ### Trải nghiệm
 
@@ -718,20 +816,22 @@ Ba tính chất bắt buộc, mỗi cái ứng một cách hỏng cụ thể:
    quá khứ** ngay lúc lưu. Phải chặn riêng: chỉ cho nới dài, hoặc chỉ áp cho điểm tích **sau**
    `effective_from`.
 
-## 24. Thứ tự làm
+## 25. Thứ tự làm
 
 | # | Việc | Vì sao thứ tự này |
 |---|---|---|
-| 1 | **A** — bỏ vai `Staff` | Đang có lỗi thật; và mọi việc phân quyền sau đó đều dựa trên mô hình ba vai |
-| 2 | **I + J** — giới hạn lượt dùng mã, bỏ cờ `flashSale` | Lỗ hổng tiền đang mở, và sửa gọn: 2 cột thêm, 1 cột bỏ, cùng một migration |
-| 3 | **E** — thang chữ và vùng chạm cho bếp | Ảnh hưởng mọi món của mọi bàn; chỉ CSS, rủi ro thấp nhất |
-| 4 | **F** — giữ dữ liệu đang gõ ở quầy | Lỗi mất dữ liệu, gặp mỗi lần bị cắt ngang |
-| 5 | **K** — chốt hiệu lực mã theo lúc mở phiên | Cùng vùng mã với (2), nên làm liền sau để chỉ đụng một chỗ một lần |
-| 6 | **B** — bảng `business_rule` | Việc lớn nhất, đụng tiền, nên làm khi những việc trên đã ổn định |
-| 7 | **G** — cảnh báo phạm vi khi sửa giá | Cần endpoint đếm mới |
-| 8 | **D + H** — báo cáo và mốc so | Cần số đo thật, tức cần quan trắc trước |
+| 1 | **L** — phiên hết hạn còn nợ tiền | Mất tiền, im lặng, không màn hình nào hiện. Không có việc nào đắt hơn |
+| 2 | **A + M** — bỏ vai `Staff`, mở quyền đóng phiên cho quầy | Cùng một gốc; và mọi việc phân quyền sau đó dựa trên mô hình ba vai |
+| 3 | **I + J** — giới hạn lượt dùng mã, bỏ cờ `flashSale` | Lỗ hổng tiền đang mở, và sửa gọn: 2 cột thêm, 1 cột bỏ, cùng một migration |
+| 4 | **N + O** — chặn đóng phiên còn nợ, trừ điểm khi hoàn tiền | Hai lỗ rò sổ sách, sửa gọn, cùng vùng với (1) |
+| 5 | **E** — thang chữ và vùng chạm cho bếp | Ảnh hưởng mọi món của mọi bàn; chỉ CSS, rủi ro thấp nhất |
+| 6 | **F** — giữ dữ liệu đang gõ ở quầy | Lỗi mất dữ liệu, gặp mỗi lần bị cắt ngang |
+| 7 | **K** — chốt hiệu lực mã theo lúc mở phiên | Cùng vùng mã với (2), nên làm liền sau để chỉ đụng một chỗ một lần |
+| 8 | **B** — bảng `business_rule` | Việc lớn nhất, đụng tiền, nên làm khi những việc trên đã ổn định |
+| 9 | **G** — cảnh báo phạm vi khi sửa giá | Cần endpoint đếm mới |
+| 10 | **D + H** — báo cáo và mốc so | Cần số đo thật, tức cần quan trắc trước |
 
-## 25. Phép thử nghiệm thu
+## 26. Phép thử nghiệm thu
 
 Bốn phép thử làm được trong 10 phút, không cần công cụ:
 
