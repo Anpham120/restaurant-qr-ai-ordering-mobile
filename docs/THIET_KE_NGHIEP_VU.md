@@ -51,7 +51,11 @@ thật.
 | **Lượt đặt món** | Một lần gửi các món đã chọn xuống bếp. Một phiên bàn có nhiều lượt | đơn hàng, hoá đơn |
 | **Hoá đơn bàn** | Bản tổng kết tiền duy nhất cho **mọi** lượt trong một phiên bàn | thanh toán đơn, tổng giỏ |
 | **Món trong đơn** | Một dòng món của một lượt, có trạng thái riêng | — |
-| **Trạm** | Chỗ làm ra món: bếp, quầy pha chế, hoặc lấy sẵn | — |
+| **Bếp** | Nơi làm ra món. Có ba: **bếp nấu**, **quầy pha chế**, **hàng lấy sẵn** | trạm, station |
+
+> **Vì sao không dùng "trạm".** Đó là từ dịch từ *station*. Trong bếp Việt người ta nói bếp nóng,
+> bếp nguội, bếp bánh — "bếp" là từ có sẵn cho đúng khái niệm này, còn "trạm" thì phải giải thích
+> mới hiểu. Tài liệu đã đổi hết; **mã thì chưa** — xem quyết định P ở §24.
 
 ## 3. Tác nhân
 
@@ -172,21 +176,21 @@ minh khách thật sự nhận được món.**
 
 Một quán **không có một hàng đợi**. Nó có mấy chỗ làm việc song song, và chúng không chờ nhau.
 
-| Trạm | Món | Hàng đợi | Việc song song |
+| Bếp | Món | Hàng đợi | Việc làm cùng lúc |
 |---|---|---|---|
-| `BEP` | món nấu (có nhãn `method:`) | có | mặc định **6** |
-| `QUAY` | đồ uống, nước ép | có | mặc định **2** |
-| `SAN` | rượu, trái cây, tráng miệng — lấy sẵn | không | — |
+| **Bếp nấu** (`BEP`) | món nấu (có nhãn `method:`) | có | mặc định **6** |
+| **Quầy pha chế** (`QUAY`) | đồ uống, nước ép | có | mặc định **2** |
+| **Hàng lấy sẵn** (`SAN`) | rượu, trái cây, tráng miệng | không | — |
 
 ```
-chờ = (tải của TRẠM ĐÓ − chính món này) ÷ số việc song song của trạm
+chờ = (việc đang xếp ở BẾP ĐÓ − chính món này) ÷ số việc bếp đó làm cùng lúc
 ```
 
 Ly bia không chậm đi vì bếp đang đông.
 
 **Độ trễ bếp tự khai.** Hàng đợi chỉ đo được thứ đã đi qua ứng dụng. Đầu bếp nghỉ ốm, hỏng lò, đoàn
 đặt trước — không việc nào nằm trong bất kỳ đơn nào. Bếp nhập số phút cộng thêm (tối đa 60), và nó
-**chỉ áp cho món của trạm `BEP`**.
+**chỉ áp cho món của bếp nấu**.
 
 > **Lỗi đã sập một lần:** truy vấn tải bếp cộng `prep_minutes` mà quên nhân `quantity`. 30 phần của
 > một món bị đếm như 1. Không tập kiểm nào bắt được vì mọi ca kiểm đều dùng `quantity: 1`.
@@ -451,7 +455,7 @@ Chi tiết thứ hai là luật nghiệp vụ, không phải tiện ích: ngư�
 | Nhìn hàng đợi | Bốn cột: `Đơn mới → Đang nấu → Chờ ra món → Đã ra món` |
 | Đẩy từng món | Một chạm đẩy đúng một bước. Không kéo thả |
 | Báo hết món | Tắt còn hàng ngay tại bếp; thực đơn khách đổi lập tức |
-| Khai độ trễ | Số phút cộng thêm, tối đa 60, chỉ áp cho món trạm `BEP` |
+| Khai độ trễ | Số phút cộng thêm, tối đa 60, chỉ áp cho món của bếp nấu |
 | Thấy mức gấp | Chờ ≥ **12 phút** cảnh báo, ≥ **20 phút** gấp |
 
 ## 15. Quầy
@@ -767,6 +771,7 @@ Chỗ **chưa** có cách chống: quy tắc "quay lại đúng chỗ đang dở
 | **M** | `CounterStaff` không đóng được phiên bàn (§22) | **Làm cùng A** | Một dòng `@PreAuthorize` |
 | **N** | Đóng phiên bằng tay không kiểm đã trả tiền (§22) | **Làm** | Chặn mặc định + cờ ép đóng kèm lý do bắt buộc |
 | **O** | Hoàn tiền không trừ lại điểm đã cộng (§22) | **Làm** | Dùng lại cơ chế `REVERSE` đã có; cũng phải trừ `lifetimeSpend` |
+| **P** | Đổi tên `TramChuanBi` → `Bep` trong mã cho khớp từ vựng §2 | **Làm cùng một việc khác đụng vùng đó** — đừng làm riêng | 41 chỗ, 6 tệp, thuần đổi tên. Để lệch là tự tạo lại đúng lỗi §23 |
 
 ### Trải nghiệm
 

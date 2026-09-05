@@ -147,17 +147,17 @@ khách thật sự nhận được món.
 
 Một quán không có một hàng đợi. Nó có mấy chỗ làm việc song song, và chúng không chờ nhau.
 
-| Trạm | Món điển hình | Có hàng đợi? | Số việc làm song song |
+| Bếp | Món điển hình | Có hàng đợi? | Số việc làm cùng lúc |
 |---|---|---|---|
 | `BEP` | món nấu (có nhãn `method:`) | có | `KITCHEN_PARALLEL_DISHES`, mặc định **6** |
 | `QUAY` | đồ uống, nước ép | có | `KITCHEN_PARALLEL_BAR_ITEMS`, mặc định **2** |
 | `SAN` | rượu, trái cây, tráng miệng — lấy sẵn | không | — |
 
-Trạm được suy ra từ chính dữ liệu món (`orders/domain/TramChuanBi.java`): có nhãn `method:` thì là
+Bếp nào làm món nào suy ra từ chính dữ liệu món (`orders/domain/TramChuanBi.java`): có nhãn `method:` thì là
 bếp; còn lại xếp theo danh mục.
 
-Thời gian chờ của một món = (tải của **trạm đó**, trừ đi chính món này) ÷ số việc làm song song của
-trạm. Ly bia không chậm đi vì bếp đang đông.
+Thời gian chờ của một món = (việc đang xếp ở **bếp đó**, trừ đi chính món này) ÷ số việc bếp đó làm
+cùng lúc. Ly bia không chậm đi vì bếp nấu đang đông.
 
 Hai con số song song là **cấu hình, không phải hằng số nghiệp vụ** — quán tự đo rồi chỉnh.
 

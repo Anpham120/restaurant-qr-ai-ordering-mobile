@@ -12,7 +12,7 @@ Fork cá nhân, đặt lại phạm vi quanh hai mảng: **hạ tầng triển k
 ### Added
 - **Trạng thái theo từng món** — bếp cập nhật từng món, khách thấy đúng món nào đã lên thay vì
   một trạng thái chung cho cả đơn.
-- **Ước lượng thời gian lên món theo trạm** — bếp, quầy pha chế và món lấy sẵn có hàng đợi riêng
+- **Ước lượng thời gian lên món theo từng bếp** — bếp nấu, quầy pha chế và hàng lấy sẵn có hàng đợi riêng
   và số việc song song riêng (`KITCHEN_PARALLEL_DISHES`, `KITCHEN_PARALLEL_BAR_ITEMS`).
 - **Bếp tự khai độ trễ** — nhập số phút cộng thêm khi có việc mà hệ thống không thấy được (hỏng
   lò, thiếu người, đoàn đặt trước). Chỉ áp cho món của bếp.

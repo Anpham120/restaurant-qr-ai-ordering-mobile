@@ -30,13 +30,13 @@ Dự án làm sâu đúng hai mảng, thay vì trải mỏng ra nhiều tính n�
 1. **Hạ tầng triển khai** — CI/CD, hai môi trường tách biệt, kiểm sức khoẻ sau khi triển khai,
    đường quay lui.
 2. **Nghiệp vụ đặt món** — trạng thái từng món chứ không chỉ từng đơn, ước lượng thời gian lên
-   món theo tải của từng trạm, tích điểm, thanh toán QR đối soát tự động.
+   món theo tải của từng bếp, tích điểm, thanh toán QR đối soát tự động.
 
 | Khả năng | Giá trị nhận được |
 | --- | --- |
 | **Gọi món bằng QR tại bàn** | Không phải cài app, không nhầm bàn, không phải chờ gọi nhân viên |
 | **Trạng thái theo TỪNG MÓN** | Bàn 4 món mà xong 1 thì khách thấy đúng món nào đã lên, không phải đoán |
-| **Ước lượng thời gian lên món** | Tính theo tải của từng trạm — bếp, quầy pha chế, món lấy sẵn — thay vì một hàng đợi chung |
+| **Ước lượng thời gian lên món** | Tính theo tải của từng bếp — bếp nấu, quầy pha chế, hàng lấy sẵn — thay vì một hàng đợi chung |
 | **Điều phối thời gian thực** | Khách, nhân viên và bếp nhận cùng một sự kiện qua STOMP/WebSocket |
 | **Vận hành kiểm chứng được** | CI, quét bảo mật, kiểm sức khoẻ, staging, production và quay lui đều chạy bằng workflow |
 

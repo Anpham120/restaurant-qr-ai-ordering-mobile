@@ -54,7 +54,7 @@ Số liệu dưới đây sinh ra từ mã và có cổng CI đối chiếu
 | Realtime | SignalR → STOMP over WebSocket, kèm một phép kiểm đầu-cuối chạy trong CI |
 | Triển khai | Hai môi trường thật trên một máy chủ, tách project/cổng/nginx; CD bấm tay có người duyệt |
 | Thanh toán | VietQR + đối soát tự động qua webhook SePay |
-| Đặt món | Trạng thái theo từng món; ước lượng thời gian theo trạm (bếp / quầy / lấy sẵn) |
+| Đặt món | Trạng thái theo từng món; ước lượng thời gian theo từng bếp (bếp nấu / quầy pha chế / lấy sẵn) |
 | Bếp | Bảng bếp 4 cột; nhập số phút trễ do bếp tự khai |
 | Quầy | Ca quầy: mở ca, thu chi, chốt ca; đổi điểm phải quầy xác nhận |
 | Di động | App khách hàng thân thiết bằng **Expo / React Native** (không phải Flutter như bản kế hoạch đầu); khách tự tạo tài khoản và tự gắn số điện thoại |
