@@ -69,6 +69,7 @@ public class PaymentService {
 		if (order == null || !orderLookup.matchesCustomerToken(orderCode, suppliedAccessToken)) {
 			throw ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found.");
 		}
+		orderService.requirePayableOrder(orderCode);
 		PaymentEntity payment = paymentRepository.findByOrderId(order.id())
 				.orElseThrow(() -> ApiException.notFound("PAYMENT_NOT_FOUND", "Payment was not found."));
 
@@ -76,6 +77,7 @@ public class PaymentService {
 			throw ApiException.badRequest("REQUEST_INVALID", "Request body is required.");
 		}
 		String method = request.method();
+		orderService.requirePaymentMethodAllowed(orderCode, method);
 		if (!"COD".equals(method) && !"VietQR".equals(method)) {
 			throw ApiException.badRequest("PAYMENT_METHOD_INVALID", "Payment method must be COD or VietQR.");
 		}

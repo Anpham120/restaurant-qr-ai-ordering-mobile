@@ -1,5 +1,5 @@
 export type UserRole = "Customer" | "Staff" | "CounterStaff" | "Kitchen" | "Admin";
-export type OrderType = "DineIn";
+export type OrderType = "DineIn" | "Pickup" | "Delivery";
 export type OrderStatus = "Draft" | "Placed" | "Confirmed" | "Preparing" | "Ready" | "Served" | "Completed" | "Cancelled";
 export type OrderItemStatus = "Pending" | "Preparing" | "Ready" | "Served" | "Cancelled";
 export type PaymentMethod = "Unselected" | "COD" | "VietQR";
@@ -30,13 +30,14 @@ export type MenuCategory = { categoryId: string; name: string };
 // diện không có ô. Đây là kiểu cho đường ghi vừa mở.
 export type MenuItem = { id: string; name: string; description: string; price: number; categoryId: string; categoryName: string; imageUrl: string | null; isAvailable: boolean; tags: string[]; prepMinutes: number | null };
 export type MenuResponse = { categories: MenuCategory[]; items: MenuItem[] };
-export type CreateOrderRequest = { orderType: OrderType; tableCode?: string | null; qrToken?: string | null; tableSessionId?: string | null; items: Array<{ menuItemId: string; quantity: number }>; promotionCode?: string | null; customerPhoneNumber?: string | null };
+export type DeliveryDetails = { recipientName: string; phoneNumber: string; address?: string | null; note?: string | null };
+export type CreateOrderRequest = { orderType: OrderType; tableCode?: string | null; qrToken?: string | null; tableSessionId?: string | null; items: Array<{ menuItemId: string; quantity: number }>; promotionCode?: string | null; customerPhoneNumber?: string | null; deliveryDetails?: DeliveryDetails | null };
 // `estimatedReadyMinutes*` và `kitchenBusy`: máy chủ ĐÃ gửi ba trường này từ lâu (xem
 // `OrderDtos.OrderItemResponse` bên Java) nhưng kiểu của web không khai, nên web vứt đi và khách
 // trên web không thấy ước lượng nào — trong khi app di động có. `null` khi món không còn chờ nữa.
 export type OrderItem = { orderItemId: string; menuItemId: string; name: string; unitPrice: number; quantity: number; status: OrderItemStatus; lineTotal: number; updatedAt: string; estimatedReadyMinutesLow?: number | null; estimatedReadyMinutesHigh?: number | null; kitchenBusy?: boolean };
 export type OrderStatusEvent = { status: OrderStatus | PaymentStatus; source?: OrderEventSource; changedByRole?: string | null; note?: string | null; createdAt: string };
-export type Order = { orderId: string; orderCode: string; orderType: OrderType; tableCode: string | null; tableSessionId?: string | null; status: OrderStatus; paymentStatus: PaymentStatus; paymentMethod: PaymentMethod; subtotalAmount: number; discountAmount: number; totalAmount: number; promotionCode?: string | null; createdAt: string; updatedAt: string; items: OrderItem[]; events: OrderStatusEvent[] };
+export type Order = { orderId: string; orderCode: string; orderType: OrderType; tableCode: string | null; tableSessionId?: string | null; status: OrderStatus; paymentStatus: PaymentStatus; paymentMethod: PaymentMethod; subtotalAmount: number; discountAmount: number; deliveryFee?: number | null; totalAmount: number; promotionCode?: string | null; deliveryDetails?: DeliveryDetails | null; fulfillmentStatus?: string | null; createdAt: string; updatedAt: string; items: OrderItem[]; events: OrderStatusEvent[] };
 export type CreateOrderResponse = Order & { customerAccessToken: string };
 export type OrderListResponse = { orders: Order[]; total: number };
 export type PaymentTransaction = { transactionId: string; method: PaymentMethod; status: PaymentStatus; amount: number; provider: string; providerTransactionId: string | null; note: string | null; createdAt: string };

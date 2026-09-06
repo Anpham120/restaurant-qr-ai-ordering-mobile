@@ -66,6 +66,16 @@ function createStableFingerprint(value: unknown): string {
   return (hash >>> 0).toString(36);
 }
 
+export function createOrderFingerprint({
+  orderType,
+  tableCode,
+  items,
+  promotionCode,
+  deliveryDetails,
+}: CreateOrderRequest): string {
+  return createStableFingerprint({ orderType, tableCode, items, promotionCode, deliveryDetails });
+}
+
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
@@ -75,15 +85,10 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-function getOrderIdempotency({
-  orderType,
-  tableCode,
-  items,
-  promotionCode,
-}: CreateOrderRequest): PendingIdempotency {
-  // Keep only non-sensitive order details in browser storage. The idempotency
-  // fingerprint must not persist customer contact or table access credentials.
-  const fingerprint = JSON.stringify({ orderType, tableCode, items, promotionCode });
+function getOrderIdempotency(payload: CreateOrderRequest): PendingIdempotency {
+  // Hash the payload identity so delivery contact/address affects retry identity without
+  // persisting those sensitive values or table access credentials in browser storage.
+  const fingerprint = createOrderFingerprint(payload);
   const pending = readJson<PendingIdempotency | null>(ORDER_IDEMPOTENCY_KEY, null);
   if (pending?.fingerprint === fingerprint) return pending;
   const next = { fingerprint, key: createIdempotencyKey("order") };

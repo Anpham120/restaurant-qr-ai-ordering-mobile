@@ -1,0 +1,16 @@
+import { useState, type FormEvent } from "react";
+import { ArrowRight, Cloud, LogOut, MapPin, Package, ShieldCheck, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
+import { readStored, shopApi, writeStored } from "./api";
+import type { Session } from "./model";
+import { useShop } from "./ShopContext";
+import { ErrorNotice } from "./ui";
+
+export function AccountPage() {
+  const { config } = useShop();
+  const [session, setSession] = useState<Session | null>(() => { const s = readStored<Session | null>("may.customer.session", null, sessionStorage); return s && Date.parse(s.expiresAt) > Date.now() ? s : null; });
+  const [identifier, setIdentifier] = useState(""); const [password, setPassword] = useState("");
+  const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  async function login(e: FormEvent) { e.preventDefault(); setError(""); setBusy(true); try { const s = await shopApi.login(identifier, password); if (s.user.role !== "Customer") throw new Error("Đây là ứng dụng khách. Nhân viên vui lòng đăng nhập ở ứng dụng vận hành."); writeStored("may.customer.session", s, sessionStorage); setSession(s); setPassword(""); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
+  return <div className="may-account"><div className="may-account-art"><Cloud size={65} strokeWidth={1} /><p className="may-kicker">Chào bạn, người bạn của Mây</p><h1>Món ngon.<br /><em>Niềm vui nhỏ.</em></h1><p>Ghé quán hoặc đặt giao tận nơi.<br />Mây luôn sẵn sàng một món bạn thích.</p><div className="may-account-address"><MapPin size={20} /><span>{config?.address}</span></div></div><div className="may-account-content">{session ? <><span className="may-large-icon"><UserRound size={32} /></span><h2>Chào {session.user.fullName}</h2><p className="may-muted">{session.user.email || "Tài khoản khách hàng Mây"}</p><Link className="may-account-link" to="/orders"><Package size={21} /><span>Đơn của bạn</span><ArrowRight size={18} /></Link><Link className="may-account-link" to="/"><Cloud size={21} /><span>Khám phá thực đơn</span><ArrowRight size={18} /></Link><button className="may-tool may-logout" onClick={() => { sessionStorage.removeItem("may.customer.session"); setSession(null); }}><LogOut size={18} />Đăng xuất</button></> : <><p className="may-kicker">Rất vui được gặp bạn</p><h2>Đăng nhập cùng Mây</h2><p className="may-muted">Bạn vẫn có thể đặt món và theo dõi đơn mà không cần đăng nhập.</p><form onSubmit={login}><label className="may-field">Số điện thoại hoặc email<input required autoComplete="username" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="Thông tin tài khoản của bạn" /></label><label className="may-field">Mật khẩu<input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>{error && <ErrorNotice message={error} />}<button className="may-button" disabled={busy}>{busy ? "Đang đăng nhập…" : "Đăng nhập"}<ArrowRight size={18} /></button></form><Link className="may-link may-guest-link" to="/">Tiếp tục đặt món với tư cách khách <ArrowRight size={16} /></Link></>}<p className="may-small may-account-safety"><ShieldCheck size={17} />Thông tin giao hàng chỉ dùng để xử lý đơn của bạn.</p></div></div>;
+}

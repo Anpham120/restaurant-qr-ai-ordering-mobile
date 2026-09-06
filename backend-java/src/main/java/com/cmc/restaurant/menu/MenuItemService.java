@@ -36,6 +36,7 @@ public class MenuItemService {
 				normalizeTags(request.tags()),
 				OffsetDateTime.now());
 		item.setPrepMinutes(request.prepMinutes());
+		item.setOptionGroups(request.optionGroups() == null ? List.of() : request.optionGroups());
 
 		return menuItemRepository.save(item);
 	}
@@ -52,7 +53,10 @@ public class MenuItemService {
 		item.setPrice(request.price());
 		item.setImageUrl(normalizeOptional(request.imageUrl()));
 		item.setAvailable(request.isAvailable() == null || request.isAvailable());
-		item.setTags(normalizeTags(request.tags()));
+		item.setTags(normalizeTags(request.tags()));
+		if (request.optionGroups() != null) {
+			item.setOptionGroups(request.optionGroups());
+		}
 		// null = GIỮ NGUYÊN, không phải xoá. Xem ghi chú ở MenuItemRequest: PUT thay toàn bộ bản ghi,
 		// nên coi null là xoá thì một lần sửa TÊN món bằng client cũ sẽ thổi bay con số bếp đã khai và
 		// mọi ước lượng của món đó, không một tiếng động.
@@ -101,6 +105,7 @@ public class MenuItemService {
 		if (isBlank(request.name())) {
 			throw ApiException.badRequest("MENU_ITEM_NAME_REQUIRED", "Menu item name is required.");
 		}
+		validateOptions(request.optionGroups());
 
 		if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
 			throw ApiException.badRequest("MENU_ITEM_PRICE_INVALID", "Menu item price must be greater than zero.");
@@ -132,6 +137,31 @@ public class MenuItemService {
 				.orElse(0);
 
 		return "m_%03d".formatted(lastNumber + 1);
+	}
+
+	static void validateOptions(List<MenuOptionGroup> groups) {
+		if (groups == null) {
+			return;
+		}
+		java.util.Set<String> groupIds = new java.util.HashSet<>();
+		java.util.Set<String> optionIds = new java.util.HashSet<>();
+		if (groups.size() > 10) {
+			throw ApiException.badRequest("MENU_OPTIONS_INVALID", "Tối đa 10 nhóm tùy chọn.");
+		}
+		for (MenuOptionGroup group : groups) {
+			if (group == null || isBlank(group.id()) || isBlank(group.name()) || !groupIds.add(group.id())
+					|| group.options() == null || group.options().isEmpty() || group.options().size() > 20
+					|| group.minSelections() < 0 || group.maxSelections() < 1
+					|| group.maxSelections() < group.minSelections() || group.maxSelections() > group.options().size()) {
+				throw ApiException.badRequest("MENU_OPTIONS_INVALID", "Cấu hình nhóm tùy chọn không hợp lệ.");
+			}
+			for (MenuOptionGroup.Option option : group.options()) {
+				if (option == null || isBlank(option.id()) || isBlank(option.name()) || !optionIds.add(option.id())
+						|| option.price() == null || option.price().signum() < 0 || option.price().scale() > 0) {
+					throw ApiException.badRequest("MENU_OPTIONS_INVALID", "Tùy chọn cần mã duy nhất, tên và phụ thu hợp lệ.");
+				}
+			}
+		}
 	}
 
 	private static String normalizeOptional(String value) {

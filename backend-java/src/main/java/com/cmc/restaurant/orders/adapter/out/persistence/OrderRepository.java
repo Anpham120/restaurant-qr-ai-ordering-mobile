@@ -13,6 +13,12 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
 	Optional<OrderEntity> findByOrderCode(String orderCode);
 
+	@org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+	@Query("select o from OrderEntity o where o.orderCode = :orderCode")
+	Optional<OrderEntity> findForUpdateByOrderCode(@Param("orderCode") String orderCode);
+
+	List<OrderEntity> findTop100ByCourierIdOrderByUpdatedAtDesc(String courierId);
+
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 
 	/**
@@ -37,8 +43,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 	 */
 	@Query(value = """
 			select o.* from orders o
-			join table_sessions s on s.id = o.table_session_id
-			where s.member_id = :memberId
+			left join table_sessions s on s.id = o.table_session_id
+			where o.customer_user_id = :memberId or s.member_id = :memberId
 			order by o.created_at desc
 			limit :gioiHan
 			""", nativeQuery = true)
@@ -78,8 +84,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 			       sum(oi.quantity) as tongSoLuong
 			from order_items oi
 			join orders o on o.id = oi.order_id
-			join table_sessions s on s.id = o.table_session_id
-			where s.member_id = :memberId
+			left join table_sessions s on s.id = o.table_session_id
+			where (o.customer_user_id = :memberId or s.member_id = :memberId)
 			  and oi.status <> 'Cancelled'
 			  and o.status <> 'Cancelled'
 			group by oi.menu_item_id

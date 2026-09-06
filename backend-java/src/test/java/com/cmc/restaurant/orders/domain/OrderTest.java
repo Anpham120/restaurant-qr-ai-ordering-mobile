@@ -40,6 +40,10 @@ class OrderTest {
 		order.transitionTo(OrderStatus.Preparing, Actor.SYSTEM, T0);
 
 		assertThat(order.status()).isEqualTo(OrderStatus.Preparing);
+		assertThat(order.items().getFirst().status()).isEqualTo(OrderItemStatus.Preparing);
+		order.transitionTo(OrderStatus.Ready, Actor.SYSTEM, T0.plusMinutes(5));
+		assertThat(order.items().getFirst().status()).isEqualTo(OrderItemStatus.Ready);
+		assertThat(order.items().getFirst().readyAt()).isEqualTo(T0.plusMinutes(5));
 	}
 
 	@Test

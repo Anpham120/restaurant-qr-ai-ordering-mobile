@@ -73,7 +73,7 @@ public class CategoryService {
 				.reduce((a, b) -> a + "_" + b)
 				.orElse("category");
 
-		String baseId = "cat_" + slug;
+		String baseId = "shop_" + slug.substring(0, Math.min(slug.length(), 35));
 		String id = baseId;
 		int index = 2;
 		while (categoryRepository.existsById(id)) {

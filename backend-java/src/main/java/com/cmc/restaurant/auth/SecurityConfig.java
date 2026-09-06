@@ -47,7 +47,8 @@ public class SecurityConfig {
 						.accessDeniedHandler(accessDeniedHandler))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/api/auth/google", "/error").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/tables/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/menu", "/api/shop/menu", "/api/shop/config", "/api/tables/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/shop-assets/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/table-sessions").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/table-sessions/*/invoice").permitAll()
@@ -61,6 +62,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/promotions/active").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/promotions/validate").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/shop/quote").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/orders/*").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/orders/*/items/*/cancel").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/orders/*/payment").permitAll()

@@ -35,7 +35,7 @@ kế: trạng thái, ước lượng thời gian, màn hình bếp, và cả cá
 
 | Trong phạm vi | Ngoài phạm vi |
 |---|---|
-| Ăn tại bàn (`DineIn`) | Giao hàng, mang về |
+| Ăn tại bàn (`DineIn`); nền tảng API cho `Pickup`/`Delivery` | Checkout giao hàng hoàn chỉnh, điều phối tài xế, báo giá phí giao |
 | Một nhà hàng | Nhiều chi nhánh, multi-tenant |
 | Tiền mặt và VietQR | Thẻ, ví điện tử khác |
 | Tiếng Việt và tiếng Anh | Ngôn ngữ khác |

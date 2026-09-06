@@ -1,6 +1,7 @@
 package com.cmc.restaurant.orders.adapter.out.persistence;
 
 import com.cmc.restaurant.orders.domain.OrderStatus;
+import com.cmc.restaurant.orders.domain.OrderType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,8 +28,9 @@ public class OrderEntity {
 	@Column(name = "order_code", nullable = false, unique = true)
 	private String orderCode;
 
+	@Enumerated(EnumType.STRING)
 	@Column(name = "order_type", nullable = false)
-	private String orderType;
+	private OrderType orderType;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
@@ -79,6 +81,40 @@ public class OrderEntity {
 	@Column(name = "customer_phone_number")
 	private String customerPhoneNumber;
 
+	@Column(name = "recipient_name")
+	private String recipientName;
+
+	@Column(name = "recipient_phone")
+	private String recipientPhone;
+
+	@Column(name = "delivery_address")
+	private String deliveryAddress;
+
+	@Column(name = "delivery_note")
+	private String deliveryNote;
+
+	@Column(name = "delivery_fee", nullable = false)
+	private BigDecimal deliveryFee = BigDecimal.ZERO;
+
+	@Column(name = "customer_user_id")
+	private String customerUserId;
+
+	@Column(name = "courier_id")
+	private String courierId;
+
+	@Column(name = "fulfillment_status")
+	private String fulfillmentStatus;
+
+	@Column(name = "cod_accepted", nullable = false)
+	private boolean codAccepted;
+
+	@Column(name = "delivery_latitude")
+	private Double deliveryLatitude;
+	@Column(name = "delivery_longitude")
+	private Double deliveryLongitude;
+	@Column(name = "delivery_distance_km")
+	private BigDecimal deliveryDistanceKm;
+
 	// mappedBy, not @JoinColumn: the child owns the FK (see OrderItemEntity). Cascade means saving
 	// an order saves its lines in one unit of work, and loading one brings them along — so nothing
 	// has to remember to fetch them, which is what the old @Transient version required.
@@ -100,7 +136,7 @@ public class OrderEntity {
 		// JPA
 	}
 
-	public OrderEntity(String id, String orderCode, String orderType, String restaurantTableId, String tableCode,
+	public OrderEntity(String id, String orderCode, OrderType orderType, String restaurantTableId, String tableCode,
 			String tableSessionId, String customerAccessToken, String idempotencyKey, String requestFingerprint,
 			String customerPhoneNumber, OffsetDateTime now) {
 		this.id = id;
@@ -141,6 +177,10 @@ public class OrderEntity {
 	}
 
 	public String getOrderType() {
+		return orderType.name();
+	}
+
+	public OrderType getOrderTypeValue() {
 		return orderType;
 	}
 
@@ -223,6 +263,83 @@ public class OrderEntity {
 
 	public String getCustomerPhoneNumber() {
 		return customerPhoneNumber;
+	}
+
+	public String getRecipientName() {
+		return recipientName;
+	}
+
+	public String getRecipientPhone() {
+		return recipientPhone;
+	}
+
+	public String getDeliveryAddress() {
+		return deliveryAddress;
+	}
+
+	public String getDeliveryNote() {
+		return deliveryNote;
+	}
+
+	public BigDecimal getDeliveryFee() {
+		return deliveryFee;
+	}
+
+	public String getCourierId() {
+		return courierId;
+	}
+
+	public String getFulfillmentStatus() {
+		return fulfillmentStatus == null && orderType == OrderType.Delivery && status == OrderStatus.Ready
+				? "ReadyForDispatch" : fulfillmentStatus;
+	}
+
+	public void assignCourier(String courierId, OffsetDateTime now) {
+		this.courierId = courierId;
+		this.fulfillmentStatus = "Assigned";
+		this.updatedAt = now;
+	}
+
+	public void setFulfillmentStatus(String fulfillmentStatus, OffsetDateTime now) {
+		this.fulfillmentStatus = fulfillmentStatus;
+		this.updatedAt = now;
+	}
+
+	public boolean isCodAccepted() {
+		return codAccepted;
+	}
+
+	public void acceptCod(OffsetDateTime now) {
+		this.codAccepted = true;
+		this.updatedAt = now;
+	}
+
+	public void setCustomerUserId(String customerUserId) {
+		this.customerUserId = customerUserId;
+	}
+
+	public Double getDeliveryLatitude() {
+		return deliveryLatitude;
+	}
+
+	public Double getDeliveryLongitude() {
+		return deliveryLongitude;
+	}
+
+	public void setDeliveryCoordinates(Double latitude, Double longitude, BigDecimal distanceKm) {
+		this.deliveryLatitude = latitude;
+		this.deliveryLongitude = longitude;
+		this.deliveryDistanceKm = distanceKm;
+	}
+
+	public void setFulfillmentDetails(
+			String recipientName, String recipientPhone, String deliveryAddress,
+			String deliveryNote, BigDecimal deliveryFee) {
+		this.recipientName = recipientName;
+		this.recipientPhone = recipientPhone;
+		this.deliveryAddress = deliveryAddress;
+		this.deliveryNote = deliveryNote;
+		this.deliveryFee = deliveryFee == null ? BigDecimal.ZERO : deliveryFee;
 	}
 
 	public List<OrderItemEntity> getItems() {

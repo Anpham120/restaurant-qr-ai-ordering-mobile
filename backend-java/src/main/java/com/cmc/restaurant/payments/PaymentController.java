@@ -52,7 +52,7 @@ public class PaymentController {
 	}
 
 	@PostMapping("/api/orders/{orderCode}/payment/confirm")
-	@PreAuthorize("hasAnyRole('Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
 	public PaymentDtos.PaymentResponse confirmPayment(
 			@PathVariable String orderCode,
 			@RequestBody(required = false) PaymentDtos.ConfirmPaymentRequest body,
@@ -61,7 +61,7 @@ public class PaymentController {
 	}
 
 	@PostMapping("/api/orders/{orderCode}/payment/fail")
-	@PreAuthorize("hasAnyRole('Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
 	public PaymentDtos.PaymentResponse failPayment(
 			@PathVariable String orderCode,
 			@RequestBody(required = false) PaymentDtos.FailPaymentRequest body,
@@ -70,7 +70,7 @@ public class PaymentController {
 	}
 
 	@PostMapping("/api/orders/{orderCode}/payment/refund")
-	@PreAuthorize("hasAnyRole('Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Staff', 'CounterStaff', 'Admin')")
 	public PaymentDtos.PaymentResponse refundPayment(
 			@PathVariable String orderCode,
 			@RequestBody(required = false) PaymentDtos.RefundPaymentRequest body,

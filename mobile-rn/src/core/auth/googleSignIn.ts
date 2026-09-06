@@ -1,5 +1,6 @@
-import { type LayTokenGoogle } from '../../ui/LoginScreen';
 import { GOOGLE_WEB_CLIENT_ID } from './googleClientId';
+
+export type LayTokenGoogle = () => Promise<string | null>;
 
 /**
  * Chỗ DUY NHẤT trong dự án chạm vào thư viện đăng nhập Google.

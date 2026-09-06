@@ -13,6 +13,7 @@ export type {
   CreateOrderRequest,
   CreateOrderResponse,
   CustomerOrderType,
+  DeliveryDetails,
   OrderCreatedRealtimeEvent,
   OrderEventSource,
   OrderItemStatus,

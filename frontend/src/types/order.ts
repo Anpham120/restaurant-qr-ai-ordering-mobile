@@ -1,6 +1,13 @@
 import type { OrderStatus, TableCode } from "./api";
 
-export type CustomerOrderType = "DineIn";
+export type CustomerOrderType = "DineIn" | "Pickup" | "Delivery";
+
+export type DeliveryDetails = {
+  recipientName: string;
+  phoneNumber: string;
+  address?: string | null;
+  note?: string | null;
+};
 
 export type PaymentMethod = "Unselected" | "COD" | "VietQR";
 export type RequestedPaymentMethod = Exclude<PaymentMethod, "Unselected">;
@@ -26,6 +33,7 @@ export type CreateOrderRequest = {
   items: CreateOrderItem[];
   promotionCode?: string | null;
   customerPhoneNumber?: string | null;
+  deliveryDetails?: DeliveryDetails | null;
 };
 
 export type PromotionType = "Percentage" | "FixedAmount";
@@ -54,6 +62,9 @@ export type CreateOrderResponse = {
   discountAmount: number;
   totalAmount: number;
   promotionCode?: string | null;
+  deliveryDetails?: DeliveryDetails | null;
+  deliveryFee?: number | null;
+  fulfillmentStatus?: string | null;
   createdAt: string;
   updatedAt: string;
   items: Array<{
@@ -111,6 +122,9 @@ export type OrderTrackingOrder = {
   paymentMethod: PaymentMethod;
   subtotalAmount: number;
   totalAmount: number;
+  deliveryDetails?: DeliveryDetails | null;
+  deliveryFee?: number | null;
+  fulfillmentStatus?: string | null;
   createdAt: string;
   updatedAt: string;
   items: OrderTrackingItem[];

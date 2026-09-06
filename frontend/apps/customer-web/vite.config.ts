@@ -5,6 +5,6 @@ export default defineConfig({
   envDir: "../..",
   plugins: [react()],
   publicDir: "../../public",
-  server: { port: 5173 },
+  server: { port: 5173, proxy: { "/api": "http://localhost:8081" } },
   build: { outDir: "dist" },
 });

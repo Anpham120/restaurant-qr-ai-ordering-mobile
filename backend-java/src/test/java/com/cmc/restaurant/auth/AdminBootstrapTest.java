@@ -120,6 +120,7 @@ class AdminBootstrapTest {
 	 * kiểm gọi thêm gì ngoài dự kiến.
 	 */
 	private static final class KhoGia implements UserRepository {
+		@Override public List<UserEntity> findByRoleOrderByFullNameAsc(String role) { throw khongDung(); }
 		final List<UserEntity> daLuu = new ArrayList<>();
 		boolean coAdmin;
 		boolean emailDaCo;

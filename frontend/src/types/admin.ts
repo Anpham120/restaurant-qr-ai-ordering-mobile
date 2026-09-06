@@ -1,6 +1,6 @@
 import type { OrderStatus, TableCode } from "./api";
 import type { MenuItem } from "./menu";
-import type { OrderItemStatus, PaymentStatus } from "./order";
+import type { CustomerOrderType, DeliveryDetails, OrderItemStatus, PaymentStatus } from "./order";
 
 export type AdminMenuCategory = {
   id: string;
@@ -18,7 +18,7 @@ export type AdminMenuOverview = {
   items: AdminMenuItem[];
 };
 
-export type AdminOrderType = "DineIn";
+export type AdminOrderType = CustomerOrderType;
 
 export type AdminOrderItem = {
   id: string;
@@ -36,6 +36,9 @@ export type AdminOrder = {
   customerName: string;
   status: OrderStatus;
   total: number;
+  deliveryDetails?: DeliveryDetails | null;
+  deliveryFee?: number | null;
+  fulfillmentStatus?: string | null;
   placedAt: string;
   paymentStatus: PaymentStatus;
   items: AdminOrderItem[];

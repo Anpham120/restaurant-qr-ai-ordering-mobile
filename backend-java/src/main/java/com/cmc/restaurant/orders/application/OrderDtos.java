@@ -11,12 +11,28 @@ public final class OrderDtos {
 	private OrderDtos() {
 	}
 
-	public record CreateOrderItemRequest(String menuItemId, int quantity) {
+	public record CreateOrderItemRequest(String menuItemId, int quantity, List<String> optionIds, String note) {
+		public CreateOrderItemRequest(String menuItemId, int quantity) {
+			this(menuItemId, quantity, List.of(), null);
+		}
+	}
+
+	public record DeliveryDetails(
+			String recipientName, String phoneNumber, String address, String note, Double latitude, Double longitude) {
+		public DeliveryDetails(String recipientName, String phoneNumber, String address, String note) {
+			this(recipientName, phoneNumber, address, note, null, null);
+		}
 	}
 
 	public record CreateOrderRequest(
 			String orderType, String tableCode, String qrToken, String tableSessionId,
-			List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode) {
+			List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode,
+			DeliveryDetails deliveryDetails, BigDecimal expectedTotalAmount) {
+		public CreateOrderRequest(String orderType, String tableCode, String qrToken, String tableSessionId,
+				List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode,
+				DeliveryDetails deliveryDetails) {
+			this(orderType, tableCode, qrToken, tableSessionId, items, customerPhoneNumber, promotionCode, deliveryDetails, null);
+		}
 	}
 
 	public record UpdateOrderStatusRequest(String status) {
@@ -38,7 +54,7 @@ public final class OrderDtos {
 			String orderItemId, String menuItemId, String name, BigDecimal unitPrice, int quantity,
 			String status, BigDecimal lineTotal, OffsetDateTime updatedAt,
 			Integer estimatedReadyMinutesLow, Integer estimatedReadyMinutesHigh,
-			boolean kitchenBusy) {
+			boolean kitchenBusy, String note) {
 	}
 
 	public record OrderStatusEventResponse(
@@ -48,14 +64,18 @@ public final class OrderDtos {
 	public record OrderResponse(
 			String orderId, String orderCode, String orderType, String tableCode, String tableSessionId,
 			String status, String paymentStatus, String paymentMethod, BigDecimal subtotalAmount,
-			BigDecimal discountAmount, BigDecimal totalAmount, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+			BigDecimal discountAmount, BigDecimal deliveryFee, BigDecimal totalAmount,
+			String fulfillmentStatus, DeliveryDetails deliveryDetails, String courierId, boolean codAccepted,
+			OffsetDateTime createdAt, OffsetDateTime updatedAt,
 			List<OrderItemResponse> items, List<OrderStatusEventResponse> events) {
 	}
 
 	public record CreateOrderResponse(
 			String orderId, String orderCode, String orderType, String tableCode, String tableSessionId,
 			String status, String paymentStatus, String paymentMethod, BigDecimal subtotalAmount,
-			BigDecimal discountAmount, BigDecimal totalAmount, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+			BigDecimal discountAmount, BigDecimal deliveryFee, BigDecimal totalAmount,
+			String fulfillmentStatus, DeliveryDetails deliveryDetails, String courierId, boolean codAccepted,
+			OffsetDateTime createdAt, OffsetDateTime updatedAt,
 			List<OrderItemResponse> items, List<OrderStatusEventResponse> events, String customerAccessToken) {
 	}
 

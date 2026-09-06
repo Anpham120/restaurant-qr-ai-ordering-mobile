@@ -99,7 +99,7 @@ public class OrderController {
 	}
 
 	@GetMapping("/api/orders")
-	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'CounterStaff', 'Admin')")
 	public OrderDtos.OrderListResponse listOrders(
 			@RequestParam(required = false) String status,
 			@RequestParam(required = false) String tableCode,
@@ -116,7 +116,7 @@ public class OrderController {
 	}
 
 	@PatchMapping("/api/orders/{orderCode}/status")
-	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'CounterStaff', 'Admin')")
 	public OrderDtos.OrderResponse updateOrderStatus(
 			@PathVariable String orderCode,
 			@RequestBody OrderDtos.UpdateOrderStatusRequest request,
@@ -136,7 +136,7 @@ public class OrderController {
 	}
 
 	@PatchMapping("/api/orders/{orderCode}/items/{orderItemId}/status")
-	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'Admin')")
+	@PreAuthorize("hasAnyRole('Kitchen', 'Staff', 'CounterStaff', 'Admin')")
 	public OrderDtos.OrderResponse updateOrderItemStatus(
 			@PathVariable String orderCode,
 			@PathVariable String orderItemId,

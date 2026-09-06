@@ -58,7 +58,13 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Stri
 			       coalesce(sum(m.prep_minutes * oi.quantity), 0) as tongPhut
 			from order_items oi
 			join menu_items m on m.id = oi.menu_item_id
+			join orders o on o.id = oi.order_id
 			where oi.status in ('Pending', 'Preparing')
+			  and o.status not in ('Completed', 'Cancelled')
+			  and (o.order_type = 'DineIn' or exists (
+			      select 1 from payments p where p.order_id = o.id
+			      and (p.status in ('Paid', 'Confirmed') or
+			           (o.cod_accepted = true and p.method = 'COD' and p.status = 'Pending'))))
 			group by m.id, m.tags, m.category_id
 			""", nativeQuery = true)
 	List<DongHangDoi> hangDoiTheoMon();

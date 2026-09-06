@@ -29,7 +29,7 @@ public final class MenuDtos {
 	public record MenuItemResponse(
 			String id, String name, String description, BigDecimal price, String categoryId,
 			String categoryName, String imageUrl, boolean isAvailable, List<String> tags,
-			Integer prepMinutes) {
+			Integer prepMinutes, List<MenuOptionGroup> optionGroups) {
 	}
 
 	public record CategoryRequest(String name, int displayOrder, Boolean isActive) {
@@ -45,7 +45,11 @@ public final class MenuDtos {
 	 */
 	public record MenuItemRequest(
 			String categoryId, String name, String description, BigDecimal price, String imageUrl,
-			Boolean isAvailable, List<String> tags, Integer prepMinutes) {
+			Boolean isAvailable, List<String> tags, Integer prepMinutes, List<MenuOptionGroup> optionGroups) {
+		public MenuItemRequest(String categoryId, String name, String description, BigDecimal price, String imageUrl,
+				Boolean isAvailable, List<String> tags, Integer prepMinutes) {
+			this(categoryId, name, description, price, imageUrl, isAvailable, tags, prepMinutes, null);
+		}
 	}
 
 	public record ToggleAvailabilityRequest(boolean isAvailable) {

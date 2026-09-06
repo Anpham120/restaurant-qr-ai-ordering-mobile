@@ -53,6 +53,9 @@ public class OrderItemEntity {
 	@Column(name = "ready_at")
 	private OffsetDateTime readyAt;
 
+	@Column(name = "selection_note", columnDefinition = "text")
+	private String note;
+
 	protected OrderItemEntity() {
 		// JPA
 	}
@@ -71,6 +74,14 @@ public class OrderItemEntity {
 
 	public String getId() {
 		return id;
+	}
+
+	public String getNote() {
+		return note;
+	}
+
+	public void setNote(String note) {
+		this.note = note;
 	}
 
 	public OrderEntity getOrder() {

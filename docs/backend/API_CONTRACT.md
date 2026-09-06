@@ -167,8 +167,9 @@
 Tai lieu nay la contract chinh thuc giua backend, frontend, app di dong va DevOps. Doi endpoint, field, enum, ma loi hoac payload su kien thi phai ghi breaking-change note trong issue/PR lien quan.
 
 > **Nguon chuan ve kien truc va nghiep vu: [`ARCHITECTURE.md`](ARCHITECTURE.md).** Tai lieu nay giu
-> chi tiet request/response. Chi co `OrderType = DineIn` (QR tai ban) — khong co Delivery hay
-> Pickup; per-order access token (`X-Order-Token`); hoan tien; optimistic concurrency
+> chi tiet request/response. Backend nhận `DineIn`, `Pickup`, `Delivery`; giao diện ngoài quán
+> chưa được bật và phí giao hiện là `0` cho tới khi có báo giá do máy chủ phát hành. Contract còn
+> có per-order access token (`X-Order-Token`), hoan tien, optimistic concurrency
 > (`CONFLICT_STALE`); khoa dang nhap sau nhieu lan sai.
 
 ## 1. Nguyen Tac Chung
@@ -207,7 +208,7 @@ Quy tac:
 | Nhom | Gia tri hop le | Ghi chu |
 | --- | --- | --- |
 | `UserRole` | `Customer`, `Staff`, `Kitchen`, `Admin` | `Customer` cho khach; cac role van hanh dung auth seed/admin. |
-| `OrderType` | `DineIn` | Bat buoc `tableCode` hop le; chi dat mon tai ban qua QR/session. `Pickup` va Delivery da bo khoi backend. |
+| `OrderType` | `DineIn`, `Pickup`, `Delivery` | `DineIn` bắt buộc QR/bàn/session. `Pickup` bắt buộc tên + số điện thoại; `Delivery` thêm địa chỉ. Hai loại ngoài quán phải thanh toán trước khi chuẩn bị. |
 | `PaymentMethod` | `COD`, `VietQR` | VietQR tao payload/QR de doi soat thu cong. |
 | `PaymentStatus` | `Unpaid`, `Pending`, `Paid`, `Confirmed`, `Failed`, `Cancelled`, `Refunded` | Staff/Admin xac nhan, fail hoac refund payment. |
 | `OrderStatus` | `Draft`, `Placed`, `Confirmed`, `Preparing`, `Ready`, `Served`, `Completed`, `Cancelled` | Order tao o `Placed`. `Completed` yeu cau payment `Confirmed/Paid`. |

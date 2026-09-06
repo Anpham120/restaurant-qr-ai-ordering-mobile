@@ -88,6 +88,14 @@ public class Order {
 					.forEach(i -> i.moveTo(OrderItemStatus.Cancelled, now));
 		}
 		// Serving from the board is one atomic step: the order and every non-cancelled item agree.
+		if (next == OrderStatus.Preparing) {
+			items.stream().filter(i -> i.status() == OrderItemStatus.Pending)
+					.forEach(i -> i.moveTo(OrderItemStatus.Preparing, now));
+		}
+		if (next == OrderStatus.Ready) {
+			items.stream().filter(i -> i.status() == OrderItemStatus.Pending || i.status() == OrderItemStatus.Preparing)
+					.forEach(i -> i.moveTo(OrderItemStatus.Ready, now));
+		}
 		if (next == OrderStatus.Served) {
 			items.stream().filter(OrderItem::isActive).forEach(i -> i.moveTo(OrderItemStatus.Served, now));
 		}
@@ -274,6 +282,18 @@ public class Order {
 				from, OrderStatus.Completed, StatusChange.SOURCE_STATUS, actor,
 				"Table invoice settled.", now));
 		return true;
+	}
+
+	/** Delivery completion is permitted only after dispatching a Ready order. */
+	public void completeOnDelivery(Actor actor, OffsetDateTime now) {
+		if (status != OrderStatus.Ready) {
+			throw new OrderRuleViolation("DELIVERY_ORDER_NOT_READY", "Only a Ready order can finish delivery.");
+		}
+		items.stream().filter(OrderItem::isActive).forEach(item -> item.moveTo(OrderItemStatus.Served, now));
+		status = OrderStatus.Completed;
+		updatedAt = now;
+		newChanges.add(new StatusChange(OrderStatus.Ready, OrderStatus.Completed, StatusChange.SOURCE_STATUS,
+				actor, "Giao hàng thành công.", now));
 	}
 
 	/** Changes made since this aggregate was loaded, for the persistence adapter to append. Cleared

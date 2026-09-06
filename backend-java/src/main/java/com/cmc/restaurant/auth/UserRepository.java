@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<UserEntity, String> {
 
+	java.util.List<UserEntity> findByRoleOrderByFullNameAsc(String role);
+
 	Optional<UserEntity> findByEmailIgnoreCase(String email);
 
 	/** Nối theo {@code sub}, không theo email: email của tài khoản Google đổi được, {@code sub} thì không. */

@@ -2,6 +2,8 @@ package com.cmc.restaurant.orders.application;
 
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
+import com.cmc.restaurant.menu.MenuSelection;
+import com.cmc.restaurant.menu.ShopConfig;
 import com.cmc.restaurant.shared.ActorContext;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemEntity;
@@ -14,6 +16,8 @@ import com.cmc.restaurant.orders.domain.Order;
 import com.cmc.restaurant.orders.domain.OrderItem;
 import com.cmc.restaurant.orders.domain.OrderItemStatus;
 import com.cmc.restaurant.orders.domain.OrderStatus;
+import com.cmc.restaurant.orders.domain.OrderType;
+import com.cmc.restaurant.orders.domain.PreparationPaymentPolicy;
 import com.cmc.restaurant.payments.PaymentEntity;
 import com.cmc.restaurant.payments.PaymentRepository;
 import com.cmc.restaurant.realtime.OrderRealtimeNotifier;
@@ -65,6 +69,7 @@ public class OrderService {
 	private final OrderPersistenceAdapter persistence;
 	private final com.cmc.restaurant.cart.CartService cartService;
 	private final com.cmc.restaurant.promotions.PromotionService promotionService;
+	private final ShopConfig shopConfig;
 
 	private final org.springframework.context.ApplicationEventPublisher suKien;
 
@@ -76,7 +81,8 @@ public class OrderService {
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
 			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService,
 			com.cmc.restaurant.promotions.PromotionService promotionService,
-			org.springframework.context.ApplicationEventPublisher suKien) {
+			org.springframework.context.ApplicationEventPublisher suKien, ShopConfig shopConfig) {
+		this.shopConfig = shopConfig;
 		this.suKien = suKien;
 		this.cartService = cartService;
 		this.promotionService = promotionService;
@@ -105,51 +111,73 @@ public class OrderService {
 			return toCreateResponse(existing.get());
 		}
 
-		validateCreateRequest(request);
-
-		String normalizedTableCode = request.tableCode().trim().toUpperCase(Locale.ROOT);
-		RestaurantTableEntity table = tableRepository.findByTableCodeAndActiveTrue(normalizedTableCode)
-				.orElseThrow(() -> ApiException.badRequest("TABLE_CODE_INVALID", "Table code must match format T01."));
-
+		OrderType orderType = validateCreateRequest(request);
 		OffsetDateTime now = OffsetDateTime.now();
-		TableSessionEntity session = tableSessionRepository.findById(request.tableSessionId().trim())
-				.filter(s -> s.getRestaurantTableId().equals(table.getId()))
-				.filter(s -> s.getStatus() == TableSessionStatus.Open)
-				.filter(s -> s.getExpiresAt().isAfter(now))
-				.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
-						"Table session has expired. Please scan QR again."));
-
-		// V16: touch the shared session row (mirrors .NET's comment verbatim) so an Order Round
-		// being created and a settlement starting concurrently cannot both commit — whichever
-		// writes second sees a stale @Version and fails here instead of silently corrupting state.
-		session.setUpdatedAt(now);
-		try {
-			tableSessionRepository.saveAndFlush(session);
-		} catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-			throw ApiException.conflict("TABLE_SESSION_CONFLICT",
-					"The table session changed while this order was being submitted. Reload and try again.");
+		RestaurantTableEntity table = null;
+		TableSessionEntity session = null;
+		if (orderType == OrderType.DineIn) {
+			String normalizedTableCode = request.tableCode().trim().toUpperCase(Locale.ROOT);
+			table = tableRepository.findByTableCodeAndActiveTrue(normalizedTableCode)
+					.orElseThrow(() -> ApiException.badRequest("TABLE_CODE_INVALID", "Table code must match format T01."));
+			RestaurantTableEntity dineInTable = table;
+			session = tableSessionRepository.findById(request.tableSessionId().trim())
+					.filter(s -> s.getRestaurantTableId().equals(dineInTable.getId()))
+					.filter(s -> s.getStatus() == TableSessionStatus.Open)
+					.filter(s -> s.getExpiresAt().isAfter(now))
+					.orElseThrow(() -> new ApiException(HttpStatus.GONE, "TABLE_SESSION_EXPIRED",
+							"Table session has expired. Please scan QR again."));
+			session.setUpdatedAt(now);
+			try {
+				tableSessionRepository.saveAndFlush(session);
+			} catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+				throw ApiException.conflict("TABLE_SESSION_CONFLICT",
+						"The table session changed while this order was being submitted. Reload and try again.");
+			}
 		}
 
 		String orderId = "ord_" + UUID.randomUUID().toString().replace("-", "");
 		String orderCode = "ORD-" + orderRepository.nextOrderCodeNumber();
 
 		OrderEntity order = new OrderEntity(
-				orderId, orderCode, "DineIn", table.getId(), table.getTableCode(), session.getId(),
+				orderId, orderCode, orderType, table == null ? null : table.getId(),
+				table == null ? null : table.getTableCode(), session == null ? null : session.getId(),
 				generateAccessToken(), idempotencyKey, requestFingerprint,
 				normalizeOptional(request.customerPhoneNumber()), now);
+		OrderDtos.DeliveryDetails details = request.deliveryDetails();
+		ShopConfig.Quote quote = orderType == OrderType.Delivery
+				? shopConfig.quote(details.latitude(), details.longitude()) : null;
+		BigDecimal deliveryFee = quote == null ? BigDecimal.ZERO : quote.deliveryFee();
+		if ("Customer".equals(actor.role())) {
+			order.setCustomerUserId(actor.userId());
+		}
+		if (orderType != OrderType.DineIn) {
+			order.setFulfillmentDetails(
+					normalizeOptional(details.recipientName()), normalizeOptional(details.phoneNumber()),
+					orderType == OrderType.Delivery ? normalizeOptional(details.address()) : null,
+					normalizeOptional(details.note()), deliveryFee);
+			if (quote != null) {
+				order.setDeliveryCoordinates(details.latitude(), details.longitude(), quote.distanceKm());
+			}
+		}
 
 		BigDecimal subtotal = BigDecimal.ZERO;
 		for (OrderDtos.CreateOrderItemRequest requestItem : request.items()) {
 			MenuItemEntity menuItem = menuItemRepository.findById(requestItem.menuItemId().trim())
+					.filter(MenuItemEntity::isAvailable)
 					.orElseThrow(() -> ApiException.badRequest("MENU_ITEM_UNAVAILABLE", "Menu item is unavailable."));
 
+			MenuSelection selection = MenuSelection.price(menuItem, requestItem.optionIds(), requestItem.note());
 			OrderItemEntity item = new OrderItemEntity(
 					"oi_" + UUID.randomUUID().toString().replace("-", ""), menuItem.getId(), menuItem.getName(),
-					menuItem.getPrice(), requestItem.quantity(), now);
+					selection.unitPrice(), requestItem.quantity(), now);
+			item.setNote(selection.note());
 			order.addItem(item);
 			subtotal = subtotal.add(item.lineTotal());
 		}
 		final BigDecimal orderSubtotal = subtotal;
+		if (orderType == OrderType.Delivery && subtotal.compareTo(shopConfig.response().minimumOrder()) < 0) {
+			throw ApiException.badRequest("ORDER_MINIMUM_REQUIRED", "Đơn chưa đạt giá trị tối thiểu để giao hàng.");
+		}
 		order.setSubtotalAmount(orderSubtotal);
 
 		// Applied at order time, not at preview time. Until issue #70 the customer could validate a
@@ -157,15 +185,17 @@ public class OrderService {
 		// looked at promotionCode. A code that is present but unusable fails the whole order rather
 		// than being dropped silently: quietly charging more than the customer just agreed to is
 		// worse than making them fix the code.
-		promotionService.tryApply(request.promotionCode(), orderSubtotal, now).ifPresentOrElse(
+		promotionService.tryApply(request.promotionCode(), orderSubtotal, now).ifPresent(
 				discount -> {
 					order.setDiscountAmount(discount.discountAmount());
-					order.setTotalAmount(discount.totalAmount());
 					order.applyPromotion(
 							com.cmc.restaurant.promotions.domain.Promotion.normalizeCode(request.promotionCode()),
 							discount.promotionId());
-				},
-				() -> order.setTotalAmount(orderSubtotal));
+				});
+		order.setTotalAmount(orderSubtotal.subtract(order.getDiscountAmount()).add(deliveryFee));
+		if (request.expectedTotalAmount() != null && request.expectedTotalAmount().compareTo(order.getTotalAmount()) != 0) {
+			throw ApiException.conflict("ORDER_TOTAL_CHANGED", "Giá món hoặc phí giao đã thay đổi. Vui lòng xem lại tổng tiền.");
+		}
 
 		OrderStatusHistoryEntity initialEvent = new OrderStatusHistoryEntity(
 				"osh_" + UUID.randomUUID().toString().replace("-", ""), null, OrderStatus.Placed.name(), "Status",
@@ -182,7 +212,9 @@ public class OrderService {
 
 		// Was a raw DELETE while Cart still lived on .NET (issue #7). Now the Cart module owns its
 		// own table, so Orders asks it instead of reaching into another module.s rows.
-		cartService.clearAfterOrderPlaced(session.getId());
+		if (session != null) {
+			cartService.clearAfterOrderPlaced(session.getId());
+		}
 
 		// DoD của issue #13: bếp nhận order.created qua WebSocket.
 		realtimeNotifier.orderCreated(new RealtimeDtos.OrderCreatedEvent(
@@ -303,8 +335,19 @@ public class OrderService {
 
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderStatus(String orderCode, OrderStatus status, ActorContext actor) {
+		OrderEntity entity = lockOrder(orderCode);
+		if (entity.getOrderTypeValue() == OrderType.Delivery
+				&& (status == OrderStatus.Served || status == OrderStatus.Completed)) {
+			throw ApiException.badRequest("DELIVERY_TRANSITION_REQUIRED", "Đơn giao hàng phải hoàn tất qua nhân viên giao hàng.");
+		}
+		if (status == OrderStatus.Cancelled) {
+			requireCancellablePayment(entity);
+		}
 		Order order = persistence.loadByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+		if (status == OrderStatus.Preparing) {
+			requirePrepaymentBeforePreparation(orderCode);
+		}
 
 		// Payment settlement is not the aggregate's business — it belongs to another module, so the
 		// use case checks it and the domain stays free of that dependency.
@@ -348,13 +391,27 @@ public class OrderService {
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderItemStatus(
 			String orderCode, String orderItemId, OrderItemStatus status, ActorContext actor) {
+		OrderEntity entity = lockOrder(orderCode);
+		if (entity.getOrderTypeValue() == OrderType.Delivery && status == OrderItemStatus.Served) {
+			throw ApiException.badRequest("DELIVERY_TRANSITION_REQUIRED", "Món giao hàng được bàn giao qua điều phối.");
+		}
+		if (status == OrderItemStatus.Cancelled) {
+			requireCancellablePayment(entity);
+		}
 		Order order = persistence.loadByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+		if (status == OrderItemStatus.Preparing || status == OrderItemStatus.Ready
+				|| status == OrderItemStatus.Served) {
+			requirePrepaymentBeforePreparation(orderCode);
+		}
 
 		OffsetDateTime now = OffsetDateTime.now();
 		OrderStatus previousOrderStatus = order.status();
 		OrderItem item = order.updateItemStatus(orderItemId, status, actor.toDomain(), now);
 		persistence.save(order);
+		if (status == OrderItemStatus.Cancelled) {
+			refreshCancelledAmounts(entity, order);
+		}
 
 		publishItemStatusChanged(order, item, previousOrderStatus);
 		return toResponse(reload(order.orderCode()));
@@ -369,6 +426,7 @@ public class OrderService {
 	@Transactional
 	public OrderDtos.OrderResponse cancelOrderItemAsCustomer(
 			String orderCode, String orderItemId, String suppliedAccessToken) {
+		OrderEntity entity = lockOrder(orderCode);
 		Order order = persistence.loadByOrderCode(orderCode)
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 
@@ -377,11 +435,13 @@ public class OrderService {
 		if (!order.matchesCustomerToken(suppliedAccessToken)) {
 			throw ApiException.notFound("ORDER_NOT_FOUND", "Order was not found.");
 		}
+		requireCancellablePayment(entity);
 
 		OffsetDateTime now = OffsetDateTime.now();
 		OrderStatus previousOrderStatus = order.status();
 		OrderItem item = order.cancelItemAsCustomer(orderItemId, now);
 		persistence.save(order);
+		refreshCancelledAmounts(entity, order);
 
 		// A customer cancelling a dish must reach the kitchen board as fast as a staff change would
 		// — that is the whole point of hạn chế #11.
@@ -436,10 +496,12 @@ public class OrderService {
 
 	// --- validation / helpers ---------------------------------------------------------------
 
-	private void validateCreateRequest(OrderDtos.CreateOrderRequest request) {
-		if (!"DineIn".equalsIgnoreCase(request.orderType())) {
-			throw ApiException.badRequest("ORDER_TYPE_INVALID", "Order type is invalid.");
+	private OrderType validateCreateRequest(OrderDtos.CreateOrderRequest request) {
+		if (request == null) {
+			throw ApiException.badRequest("REQUEST_INVALID", "Request body is required.");
 		}
+		OrderType orderType = OrderType.parse(request.orderType())
+				.orElseThrow(() -> ApiException.badRequest("ORDER_TYPE_INVALID", "Order type is invalid."));
 		if (request.items() == null || request.items().isEmpty()) {
 			throw ApiException.badRequest("ORDER_ITEMS_REQUIRED", "Order must contain at least one item.");
 		}
@@ -448,29 +510,116 @@ public class OrderService {
 					"Order cannot contain more than " + MAX_ITEM_LINES + " item lines.");
 		}
 		for (OrderDtos.CreateOrderItemRequest item : request.items()) {
-			if (item.quantity() < 1 || item.quantity() > MAX_QUANTITY_PER_ITEM) {
+			if (item == null || item.quantity() < 1 || item.quantity() > MAX_QUANTITY_PER_ITEM) {
 				throw ApiException.badRequest("ORDER_ITEM_QUANTITY_INVALID",
 						"Order item quantity must be between 1 and " + MAX_QUANTITY_PER_ITEM + ".");
 			}
 		}
 		Set<String> seen = new HashSet<>();
 		for (OrderDtos.CreateOrderItemRequest item : request.items()) {
-			if (item.menuItemId() == null || !seen.add(item.menuItemId().trim().toLowerCase(Locale.ROOT))) {
+			if (item.menuItemId() == null || item.menuItemId().isBlank()) {
+				throw ApiException.badRequest("MENU_ITEM_UNAVAILABLE", "Menu item is required.");
+			}
+			List<String> optionIds = item.optionIds() == null ? List.of() : item.optionIds();
+			if (optionIds.stream().anyMatch(java.util.Objects::isNull)) {
+				throw ApiException.badRequest("MENU_OPTIONS_INVALID", "Tùy chọn không hợp lệ.");
+			}
+			String identity = item.menuItemId().trim() + "|" + optionIds.stream().sorted().toList()
+					+ "|" + (item.note() == null ? "" : item.note().trim());
+			if (!seen.add(identity)) {
 				throw ApiException.badRequest("ORDER_ITEM_DUPLICATE",
-						"Each menu item can appear only once per order; combine quantities instead.");
+						"Gộp số lượng cho các món có cùng tùy chọn và ghi chú.");
 			}
 		}
-		if (request.tableCode() == null || request.tableCode().isBlank()) {
-			throw ApiException.badRequest("DINE_IN_TABLE_REQUIRED", "Dine-in orders require a table code.");
+		if (orderType == OrderType.DineIn) {
+			if (request.tableCode() == null || request.tableCode().isBlank()) {
+				throw ApiException.badRequest("DINE_IN_TABLE_REQUIRED", "Dine-in orders require a table code.");
+			}
+			if (request.qrToken() == null || request.qrToken().isBlank()) {
+				throw ApiException.badRequest("QR_TOKEN_INVALID",
+						"Dine-in orders require the table QR token. Please scan the table QR to order.");
+			}
+			if (request.tableSessionId() == null || request.tableSessionId().isBlank()) {
+				throw ApiException.badRequest("TABLE_SESSION_REQUIRED",
+						"Dine-in orders require an active table session. Please scan QR again.");
+			}
+			return orderType;
 		}
-		if (request.qrToken() == null || request.qrToken().isBlank()) {
-			throw ApiException.badRequest("QR_TOKEN_INVALID",
-					"Dine-in orders require the table QR token. Please scan the table QR to order.");
+
+		OrderDtos.DeliveryDetails details = request.deliveryDetails();
+		if (details == null || details.recipientName() == null || details.recipientName().isBlank()
+				|| details.phoneNumber() == null || details.phoneNumber().isBlank()) {
+			throw ApiException.badRequest("FULFILLMENT_DETAILS_REQUIRED",
+					"Pickup and delivery orders require a recipient name and phone number.");
 		}
-		if (request.tableSessionId() == null || request.tableSessionId().isBlank()) {
-			throw ApiException.badRequest("TABLE_SESSION_REQUIRED",
-					"Dine-in orders require an active table session. Please scan the table QR to start ordering.");
+		if (orderType == OrderType.Delivery
+				&& (details.address() == null || details.address().isBlank())) {
+			throw ApiException.badRequest("DELIVERY_ADDRESS_REQUIRED", "Delivery orders require an address.");
 		}
+		if (details.note() != null && details.note().trim().length() > 500) {
+			throw ApiException.badRequest("DELIVERY_NOTE_TOO_LONG", "Delivery note must be 500 characters or fewer.");
+		}
+		if (details.recipientName().trim().length() > 200
+				|| !details.phoneNumber().trim().matches("[+0-9 ()-]{8,20}")
+				|| (details.address() != null && details.address().trim().length() > 1000)) {
+			throw ApiException.badRequest("FULFILLMENT_DETAILS_INVALID", "Thông tin người nhận không hợp lệ.");
+		}
+		return orderType;
+	}
+
+	private void requirePrepaymentBeforePreparation(String orderCode) {
+		OrderEntity entity = orderRepository.findByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+		PaymentEntity payment = paymentRepository.findByOrderId(entity.getId()).orElse(null);
+		boolean settled = payment != null && (payment.toDomain().isSettled()
+				|| (entity.isCodAccepted() && payment.getMethod() == com.cmc.restaurant.payments.domain.PaymentMethod.COD
+						&& payment.getStatus() == com.cmc.restaurant.payments.domain.PaymentStatus.Pending));
+		if (!PreparationPaymentPolicy.allowsPreparation(entity.getOrderTypeValue(), settled)) {
+			throw ApiException.badRequest("ORDER_PREPARATION_REQUIRES_PAYMENT",
+					"Đơn cần thanh toán hoặc được quầy chấp nhận COD trước khi chuẩn bị.");
+		}
+	}
+
+	private OrderEntity lockOrder(String orderCode) {
+		return orderRepository.findForUpdateByOrderCode(orderCode.trim())
+				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
+	}
+
+	@Transactional
+	public void requirePayableOrder(String orderCode) {
+		OrderEntity order = lockOrder(orderCode);
+		if (order.getStatus() == OrderStatus.Cancelled || order.getStatus() == OrderStatus.Completed) {
+			throw ApiException.badRequest("ORDER_NOT_PAYABLE", "Đơn đã đóng, không thể yêu cầu thanh toán.");
+		}
+	}
+
+	@Transactional
+	public void requirePaymentMethodAllowed(String orderCode, String method) {
+		OrderEntity order = lockOrder(orderCode);
+		if ("COD".equals(method) && order.getOrderTypeValue() == OrderType.Delivery && !shopConfig.response().allowCod()) {
+			throw ApiException.badRequest("COD_UNAVAILABLE", "Quán tạm ngừng nhận thanh toán COD cho giao hàng.");
+		}
+	}
+
+	private void requireCancellablePayment(OrderEntity order) {
+		PaymentEntity payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+		if (payment != null && (payment.toDomain().isSettled()
+				|| payment.getStatus() == com.cmc.restaurant.payments.domain.PaymentStatus.Pending
+				|| payment.getStatus() == com.cmc.restaurant.payments.domain.PaymentStatus.Refunded)) {
+			throw ApiException.conflict("ORDER_CANCEL_PAYMENT_LOCKED",
+					"Đơn đang thanh toán hoặc đã thu tiền. Nhân viên cần xử lý thanh toán trước khi hủy.");
+		}
+	}
+
+	private void refreshCancelledAmounts(OrderEntity entity, Order order) {
+		BigDecimal subtotal = order.subtotal();
+		entity.setSubtotalAmount(subtotal);
+		entity.setDiscountAmount(entity.getDiscountAmount().min(subtotal));
+		entity.setTotalAmount(subtotal.subtract(entity.getDiscountAmount()).add(entity.getDeliveryFee()));
+		paymentRepository.findByOrderId(entity.getId()).ifPresent(payment -> {
+			payment.setAmount(entity.getTotalAmount());
+			paymentRepository.save(payment);
+		});
 	}
 
 	private List<OrderItemEntity> itemsOf(OrderEntity order) {
@@ -490,8 +639,7 @@ public class OrderService {
 				"osh_" + UUID.randomUUID().toString().replace("-", ""),
 				fromStatus == null ? null : fromStatus.name(), toStatus.name(), source,
 				actor.userId(), actor.role(), note, now);
-		order.getStatusHistory().add(event);
-		orderStatusHistoryRepository.save(event);
+		order.addStatusChange(event);
 	}
 
 	/** Mirrors {@code OrderStore.RecordPaymentStatusEvent} (.NET) — called by
@@ -517,7 +665,7 @@ public class OrderService {
 
 	// --- response mapping --------------------------------------------------------------------
 
-	private OrderDtos.OrderResponse toResponse(OrderEntity order) {
+	OrderDtos.OrderResponse toResponse(OrderEntity order) {
 		return toResponse(
 				order, paymentRepository.findByOrderId(order.getId()).orElse(null),
 				estimationService.chupTaiBep());
@@ -533,7 +681,7 @@ public class OrderService {
 	 * <p>Không đổi {@code toResponse(order)} một-đơn: ở đó đúng là cần một lượt tra, và ép nó đi qua
 	 * đường lô sẽ làm mã khó đọc hơn để đổi lấy không gì.
 	 */
-	private List<OrderDtos.OrderResponse> toResponses(List<OrderEntity> orders) {
+	List<OrderDtos.OrderResponse> toResponses(List<OrderEntity> orders) {
 		if (orders.isEmpty()) {
 			return List.of();
 		}
@@ -556,7 +704,8 @@ public class OrderService {
 				order.getTableSessionId(), order.getStatus().name(),
 				payment == null ? "NotRequested" : payment.getStatus().name(),
 				payment == null ? "Unselected" : payment.getMethod().name(),
-				order.getSubtotalAmount(), order.getDiscountAmount(), order.getTotalAmount(),
+				order.getSubtotalAmount(), order.getDiscountAmount(), order.getDeliveryFee(), order.getTotalAmount(),
+				order.getFulfillmentStatus(), fulfillmentDetails(order), order.getCourierId(), order.isCodAccepted(),
 				order.getCreatedAt(), order.getUpdatedAt(),
 				order.getItems().stream().map(item -> toItemResponse(item, tai)).toList(),
 				order.getStatusHistory().stream().map(this::toEventResponse).toList());
@@ -567,8 +716,18 @@ public class OrderService {
 		return new OrderDtos.CreateOrderResponse(
 				base.orderId(), base.orderCode(), base.orderType(), base.tableCode(), base.tableSessionId(),
 				base.status(), base.paymentStatus(), base.paymentMethod(), base.subtotalAmount(),
-				base.discountAmount(), base.totalAmount(), base.createdAt(), base.updatedAt(), base.items(),
+				base.discountAmount(), base.deliveryFee(), base.totalAmount(), base.fulfillmentStatus(),
+				base.deliveryDetails(), base.courierId(), base.codAccepted(), base.createdAt(), base.updatedAt(), base.items(),
 				base.events(), order.getCustomerAccessToken());
+	}
+
+	private OrderDtos.DeliveryDetails fulfillmentDetails(OrderEntity order) {
+		if (order.getOrderTypeValue() == OrderType.DineIn) {
+			return null;
+		}
+		return new OrderDtos.DeliveryDetails(
+				order.getRecipientName(), order.getRecipientPhone(), order.getDeliveryAddress(),
+				order.getDeliveryNote(), order.getDeliveryLatitude(), order.getDeliveryLongitude());
 	}
 
 	private static final Set<OrderItemStatus> AWAITING_ESTIMATE_STATUS =
@@ -584,7 +743,7 @@ public class OrderService {
 				item.getStatus().name(), item.lineTotal(), item.getUpdatedAt(),
 				estimate == null ? null : estimate.lowMinutes(),
 				estimate == null ? null : estimate.highMinutes(),
-				estimate != null && estimate.bepDong());
+				estimate != null && estimate.bepDong(), item.getNote());
 	}
 
 	private OrderDtos.OrderStatusEventResponse toEventResponse(OrderStatusHistoryEntity event) {

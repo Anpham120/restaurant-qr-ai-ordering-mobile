@@ -46,6 +46,10 @@ public class MenuItemEntity {
 	@Column(name = "prep_minutes")
 	private Integer prepMinutes;
 
+	@jakarta.persistence.Convert(converter = MenuOptionsConverter.class)
+	@Column(name = "option_groups_json", nullable = false, columnDefinition = "text")
+	private List<MenuOptionGroup> optionGroups = List.of();
+
 	@Column(name = "is_available", nullable = false)
 	private boolean available;
 
@@ -139,6 +143,14 @@ public class MenuItemEntity {
 
 	public Integer getPrepMinutes() {
 		return prepMinutes;
+	}
+
+	public List<MenuOptionGroup> getOptionGroups() {
+		return optionGroups == null ? List.of() : optionGroups;
+	}
+
+	public void setOptionGroups(List<MenuOptionGroup> optionGroups) {
+		this.optionGroups = optionGroups;
 	}
 
 	public void setPrepMinutes(Integer prepMinutes) {
