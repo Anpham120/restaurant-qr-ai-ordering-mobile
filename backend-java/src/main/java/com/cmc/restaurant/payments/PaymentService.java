@@ -77,7 +77,6 @@ public class PaymentService {
 			throw ApiException.badRequest("REQUEST_INVALID", "Request body is required.");
 		}
 		String method = request.method();
-		orderService.requirePaymentMethodAllowed(orderCode, method);
 		if (!"COD".equals(method) && !"VietQR".equals(method)) {
 			throw ApiException.badRequest("PAYMENT_METHOD_INVALID", "Payment method must be COD or VietQR.");
 		}
