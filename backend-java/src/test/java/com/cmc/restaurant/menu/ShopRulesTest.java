@@ -50,28 +50,21 @@ class ShopRulesTest {
 		assertThat(converter.convertToEntityAttribute(null)).isEmpty();
 	}
 
+	/**
+	 * Hàng {@code shop_settings} đã lưu còn mang các khoá của biểu phí giao hàng cũ
+	 * ({@code shippingPerKm}, {@code allowCod}, toạ độ...). Đọc lại phải bỏ qua chúng, không vỡ.
+	 */
 	@Test
-	void deliveryHasFreeFiveKmThenRoundsUpOnlyExcessKm() {
-		BigDecimal free = new BigDecimal("5");
-		BigDecimal rate = new BigDecimal("4000");
-		assertThat(ShopConfig.feeForDistance(new BigDecimal("4.999"), free, rate)).isZero();
-		assertThat(ShopConfig.feeForDistance(new BigDecimal("5"), free, rate)).isZero();
-		assertThat(ShopConfig.feeForDistance(new BigDecimal("5.001"), free, rate)).isEqualByComparingTo("4000");
-		assertThat(ShopConfig.feeForDistance(new BigDecimal("6"), free, rate)).isEqualByComparingTo("4000");
-		assertThat(ShopConfig.feeForDistance(new BigDecimal("7.2"), free, rate)).isEqualByComparingTo("12000");
-	}
-
-	@Test
-	void quoteUsesShopOriginAndRejectsInvalidCoordinates() {
+	void docDuocCauHinhCuConMangKhoaBieuPhiShip() {
 		ShopSettingsRepository settings = mock(ShopSettingsRepository.class);
-		when(settings.findById("main")).thenReturn(Optional.empty());
-		ShopConfig config = new ShopConfig(settings, new ObjectMapper());
-		assertThat(config.quote(20.9834, 105.77267).distanceKm()).isZero();
-		assertThat(config.quote(20.9834, 105.77267).deliveryFee()).isZero();
-		assertThat(config.quote(21.0834, 105.77267).deliveryFee()).isEqualByComparingTo("28000");
-		assertThatThrownBy(() -> config.quote(null, 105.0)).isInstanceOf(ApiException.class);
-		assertThatThrownBy(() -> config.quote(Double.NaN, 105.0)).isInstanceOf(ApiException.class);
-		assertThatThrownBy(() -> config.quote(91.0, 105.0)).isInstanceOf(ApiException.class);
+		when(settings.findById("main")).thenReturn(Optional.of(new ShopSettingsEntity(
+				"{\"name\":\"Mây\",\"address\":\"Hà Đông\",\"phone\":\"\",\"estimatedMinutesLow\":25,"
+				+ "\"estimatedMinutesHigh\":40,\"shippingPerKm\":4000,\"allowCod\":true,\"latitude\":20.98}")));
+
+		ShopConfig.Response doc = new ShopConfig(settings, new ObjectMapper()).response();
+
+		assertThat(doc.name()).isEqualTo("Mây");
+		assertThat(doc.estimatedMinutesHigh()).isEqualTo(40);
 	}
 
 	@Test

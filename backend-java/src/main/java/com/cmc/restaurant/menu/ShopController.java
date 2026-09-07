@@ -31,11 +31,6 @@ public class ShopController {
 		return config.update(request);
 	}
 
-	@org.springframework.web.bind.annotation.PostMapping("/api/shop/quote")
-	public ShopConfig.Quote quote(@org.springframework.web.bind.annotation.RequestBody ShopConfig.QuoteRequest request) {
-		return config.quote(request.latitude(), request.longitude());
-	}
-
 	@GetMapping("/api/shop/menu")
 	@Transactional(readOnly = true)
 	public MenuResponse menu() {
