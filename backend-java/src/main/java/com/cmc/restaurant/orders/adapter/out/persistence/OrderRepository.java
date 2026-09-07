@@ -17,7 +17,6 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 	@Query("select o from OrderEntity o where o.orderCode = :orderCode")
 	Optional<OrderEntity> findForUpdateByOrderCode(@Param("orderCode") String orderCode);
 
-	List<OrderEntity> findTop100ByCourierIdOrderByUpdatedAtDesc(String courierId);
 
 	Optional<OrderEntity> findByIdempotencyKey(String idempotencyKey);
 

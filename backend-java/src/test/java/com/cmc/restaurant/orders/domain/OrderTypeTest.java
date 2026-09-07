@@ -7,23 +7,39 @@ import org.junit.jupiter.api.Test;
 class OrderTypeTest {
 
 	@Test
-	void parsesAllSupportedTypesWithoutBreakingLegacyCase() {
+	void docDuocCaHaiKenhVaKhongPhanBietHoaThuong() {
 		assertThat(OrderType.parse("DineIn")).contains(OrderType.DineIn);
-		assertThat(OrderType.parse("pickup")).contains(OrderType.Pickup);
-		assertThat(OrderType.parse(" Delivery ")).contains(OrderType.Delivery);
+		assertThat(OrderType.parse(" takeaway ")).contains(OrderType.Takeaway);
 		assertThat(OrderType.parse("Ship")).isEmpty();
 	}
 
+	/**
+	 * {@code Pickup} là tên cũ của {@code Takeaway}. Đọc được nó là đường lùi cho hàng đã ghi
+	 * trước lúc đổi tên — bỏ nhánh này là mọi đơn cũ trở thành không đọc nổi.
+	 */
 	@Test
-	void dineInMayPrepareBeforePayment() {
+	void docDuocTenCuPickup() {
+		assertThat(OrderType.parse("Pickup")).contains(OrderType.Takeaway);
+		assertThat(OrderType.parse("pickup")).contains(OrderType.Takeaway);
+	}
+
+	/**
+	 * KHÔNG đọc {@code Delivery} thành loại khác. Giao tận nhà đã ra khỏi phạm vi; một đơn mang
+	 * nhãn đó là dữ liệu cần người xem, không phải thứ đoán bừa thành đơn mang về.
+	 */
+	@Test
+	void khongDocDuocDeliveryDaBoKhoiPhamVi() {
+		assertThat(OrderType.parse("Delivery")).isEmpty();
+	}
+
+	@Test
+	void anTaiQuanDuocLamTruocKhiTraTien() {
 		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.DineIn, false)).isTrue();
 	}
 
 	@Test
-	void pickupAndDeliveryRequireSettledPayment() {
-		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Pickup, false)).isFalse();
-		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Delivery, false)).isFalse();
-		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Pickup, true)).isTrue();
-		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Delivery, true)).isTrue();
+	void mangVePhaiTraDuTienRoiMoiDuocLam() {
+		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Takeaway, false)).isFalse();
+		assertThat(PreparationPaymentPolicy.allowsPreparation(OrderType.Takeaway, true)).isTrue();
 	}
 }

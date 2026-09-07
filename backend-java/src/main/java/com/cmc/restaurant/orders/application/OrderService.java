@@ -3,7 +3,6 @@ package com.cmc.restaurant.orders.application;
 import com.cmc.restaurant.menu.MenuItemEntity;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.menu.MenuSelection;
-import com.cmc.restaurant.menu.ShopConfig;
 import com.cmc.restaurant.shared.ActorContext;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderEntity;
 import com.cmc.restaurant.orders.adapter.out.persistence.OrderItemEntity;
@@ -69,7 +68,6 @@ public class OrderService {
 	private final OrderPersistenceAdapter persistence;
 	private final com.cmc.restaurant.cart.CartService cartService;
 	private final com.cmc.restaurant.promotions.PromotionService promotionService;
-	private final ShopConfig shopConfig;
 
 	private final org.springframework.context.ApplicationEventPublisher suKien;
 
@@ -81,8 +79,7 @@ public class OrderService {
 			OrderItemEstimationService estimationService, OrderRealtimeNotifier realtimeNotifier,
 			OrderPersistenceAdapter persistence, com.cmc.restaurant.cart.CartService cartService,
 			com.cmc.restaurant.promotions.PromotionService promotionService,
-			org.springframework.context.ApplicationEventPublisher suKien, ShopConfig shopConfig) {
-		this.shopConfig = shopConfig;
+			org.springframework.context.ApplicationEventPublisher suKien) {
 		this.suKien = suKien;
 		this.cartService = cartService;
 		this.promotionService = promotionService;
@@ -143,21 +140,13 @@ public class OrderService {
 				table == null ? null : table.getTableCode(), session == null ? null : session.getId(),
 				generateAccessToken(), idempotencyKey, requestFingerprint,
 				normalizeOptional(request.customerPhoneNumber()), now);
-		OrderDtos.DeliveryDetails details = request.deliveryDetails();
-		ShopConfig.Quote quote = orderType == OrderType.Delivery
-				? shopConfig.quote(details.latitude(), details.longitude()) : null;
-		BigDecimal deliveryFee = quote == null ? BigDecimal.ZERO : quote.deliveryFee();
 		if ("Customer".equals(actor.role())) {
 			order.setCustomerUserId(actor.userId());
 		}
-		if (orderType != OrderType.DineIn) {
-			order.setFulfillmentDetails(
-					normalizeOptional(details.recipientName()), normalizeOptional(details.phoneNumber()),
-					orderType == OrderType.Delivery ? normalizeOptional(details.address()) : null,
-					normalizeOptional(details.note()), deliveryFee);
-			if (quote != null) {
-				order.setDeliveryCoordinates(details.latitude(), details.longitude(), quote.distanceKm());
-			}
+		if (orderType == OrderType.Takeaway) {
+			OrderDtos.RecipientDetails recipient = request.recipient();
+			order.setRecipient(
+					normalizeOptional(recipient.recipientName()), normalizeOptional(recipient.phoneNumber()));
 		}
 
 		BigDecimal subtotal = BigDecimal.ZERO;
@@ -175,9 +164,6 @@ public class OrderService {
 			subtotal = subtotal.add(item.lineTotal());
 		}
 		final BigDecimal orderSubtotal = subtotal;
-		if (orderType == OrderType.Delivery && subtotal.compareTo(shopConfig.response().minimumOrder()) < 0) {
-			throw ApiException.badRequest("ORDER_MINIMUM_REQUIRED", "Đơn chưa đạt giá trị tối thiểu để giao hàng.");
-		}
 		order.setSubtotalAmount(orderSubtotal);
 
 		// Applied at order time, not at preview time. Until issue #70 the customer could validate a
@@ -192,9 +178,9 @@ public class OrderService {
 							com.cmc.restaurant.promotions.domain.Promotion.normalizeCode(request.promotionCode()),
 							discount.promotionId());
 				});
-		order.setTotalAmount(orderSubtotal.subtract(order.getDiscountAmount()).add(deliveryFee));
+		order.setTotalAmount(orderSubtotal.subtract(order.getDiscountAmount()));
 		if (request.expectedTotalAmount() != null && request.expectedTotalAmount().compareTo(order.getTotalAmount()) != 0) {
-			throw ApiException.conflict("ORDER_TOTAL_CHANGED", "Giá món hoặc phí giao đã thay đổi. Vui lòng xem lại tổng tiền.");
+			throw ApiException.conflict("ORDER_TOTAL_CHANGED", "Giá món đã thay đổi. Vui lòng xem lại tổng tiền.");
 		}
 
 		OrderStatusHistoryEntity initialEvent = new OrderStatusHistoryEntity(
@@ -336,10 +322,6 @@ public class OrderService {
 	@Transactional
 	public OrderDtos.OrderResponse updateOrderStatus(String orderCode, OrderStatus status, ActorContext actor) {
 		OrderEntity entity = lockOrder(orderCode);
-		if (entity.getOrderTypeValue() == OrderType.Delivery
-				&& (status == OrderStatus.Served || status == OrderStatus.Completed)) {
-			throw ApiException.badRequest("DELIVERY_TRANSITION_REQUIRED", "Đơn giao hàng phải hoàn tất qua nhân viên giao hàng.");
-		}
 		if (status == OrderStatus.Cancelled) {
 			requireCancellablePayment(entity);
 		}
@@ -392,9 +374,6 @@ public class OrderService {
 	public OrderDtos.OrderResponse updateOrderItemStatus(
 			String orderCode, String orderItemId, OrderItemStatus status, ActorContext actor) {
 		OrderEntity entity = lockOrder(orderCode);
-		if (entity.getOrderTypeValue() == OrderType.Delivery && status == OrderItemStatus.Served) {
-			throw ApiException.badRequest("DELIVERY_TRANSITION_REQUIRED", "Món giao hàng được bàn giao qua điều phối.");
-		}
 		if (status == OrderItemStatus.Cancelled) {
 			requireCancellablePayment(entity);
 		}
@@ -546,22 +525,14 @@ public class OrderService {
 			return orderType;
 		}
 
-		OrderDtos.DeliveryDetails details = request.deliveryDetails();
-		if (details == null || details.recipientName() == null || details.recipientName().isBlank()
-				|| details.phoneNumber() == null || details.phoneNumber().isBlank()) {
+		OrderDtos.RecipientDetails recipient = request.recipient();
+		if (recipient == null || recipient.recipientName() == null || recipient.recipientName().isBlank()
+				|| recipient.phoneNumber() == null || recipient.phoneNumber().isBlank()) {
 			throw ApiException.badRequest("FULFILLMENT_DETAILS_REQUIRED",
-					"Pickup and delivery orders require a recipient name and phone number.");
+					"Đơn mang về cần tên và số điện thoại người nhận.");
 		}
-		if (orderType == OrderType.Delivery
-				&& (details.address() == null || details.address().isBlank())) {
-			throw ApiException.badRequest("DELIVERY_ADDRESS_REQUIRED", "Delivery orders require an address.");
-		}
-		if (details.note() != null && details.note().trim().length() > 500) {
-			throw ApiException.badRequest("DELIVERY_NOTE_TOO_LONG", "Delivery note must be 500 characters or fewer.");
-		}
-		if (details.recipientName().trim().length() > 200
-				|| !details.phoneNumber().trim().matches("[+0-9 ()-]{8,20}")
-				|| (details.address() != null && details.address().trim().length() > 1000)) {
+		if (recipient.recipientName().trim().length() > 200
+				|| !recipient.phoneNumber().trim().matches("[+0-9 ()-]{8,20}")) {
 			throw ApiException.badRequest("FULFILLMENT_DETAILS_INVALID", "Thông tin người nhận không hợp lệ.");
 		}
 		return orderType;
@@ -571,9 +542,7 @@ public class OrderService {
 		OrderEntity entity = orderRepository.findByOrderCode(orderCode.trim())
 				.orElseThrow(() -> ApiException.notFound("ORDER_NOT_FOUND", "Order was not found."));
 		PaymentEntity payment = paymentRepository.findByOrderId(entity.getId()).orElse(null);
-		boolean settled = payment != null && (payment.toDomain().isSettled()
-				|| (entity.isCodAccepted() && payment.getMethod() == com.cmc.restaurant.payments.domain.PaymentMethod.COD
-						&& payment.getStatus() == com.cmc.restaurant.payments.domain.PaymentStatus.Pending));
+		boolean settled = payment != null && payment.toDomain().isSettled();
 		if (!PreparationPaymentPolicy.allowsPreparation(entity.getOrderTypeValue(), settled)) {
 			throw ApiException.badRequest("ORDER_PREPARATION_REQUIRES_PAYMENT",
 					"Đơn cần thanh toán hoặc được quầy chấp nhận COD trước khi chuẩn bị.");
@@ -593,14 +562,6 @@ public class OrderService {
 		}
 	}
 
-	@Transactional
-	public void requirePaymentMethodAllowed(String orderCode, String method) {
-		OrderEntity order = lockOrder(orderCode);
-		if ("COD".equals(method) && order.getOrderTypeValue() == OrderType.Delivery && !shopConfig.response().allowCod()) {
-			throw ApiException.badRequest("COD_UNAVAILABLE", "Quán tạm ngừng nhận thanh toán COD cho giao hàng.");
-		}
-	}
-
 	private void requireCancellablePayment(OrderEntity order) {
 		PaymentEntity payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
 		if (payment != null && (payment.toDomain().isSettled()
@@ -615,7 +576,7 @@ public class OrderService {
 		BigDecimal subtotal = order.subtotal();
 		entity.setSubtotalAmount(subtotal);
 		entity.setDiscountAmount(entity.getDiscountAmount().min(subtotal));
-		entity.setTotalAmount(subtotal.subtract(entity.getDiscountAmount()).add(entity.getDeliveryFee()));
+		entity.setTotalAmount(subtotal.subtract(entity.getDiscountAmount()));
 		paymentRepository.findByOrderId(entity.getId()).ifPresent(payment -> {
 			payment.setAmount(entity.getTotalAmount());
 			paymentRepository.save(payment);
@@ -704,9 +665,8 @@ public class OrderService {
 				order.getTableSessionId(), order.getStatus().name(),
 				payment == null ? "NotRequested" : payment.getStatus().name(),
 				payment == null ? "Unselected" : payment.getMethod().name(),
-				order.getSubtotalAmount(), order.getDiscountAmount(), order.getDeliveryFee(), order.getTotalAmount(),
-				order.getFulfillmentStatus(), fulfillmentDetails(order), order.getCourierId(), order.isCodAccepted(),
-				order.getCreatedAt(), order.getUpdatedAt(),
+				order.getSubtotalAmount(), order.getDiscountAmount(), order.getTotalAmount(),
+				recipientDetails(order), order.getCreatedAt(), order.getUpdatedAt(),
 				order.getItems().stream().map(item -> toItemResponse(item, tai)).toList(),
 				order.getStatusHistory().stream().map(this::toEventResponse).toList());
 	}
@@ -716,18 +676,17 @@ public class OrderService {
 		return new OrderDtos.CreateOrderResponse(
 				base.orderId(), base.orderCode(), base.orderType(), base.tableCode(), base.tableSessionId(),
 				base.status(), base.paymentStatus(), base.paymentMethod(), base.subtotalAmount(),
-				base.discountAmount(), base.deliveryFee(), base.totalAmount(), base.fulfillmentStatus(),
-				base.deliveryDetails(), base.courierId(), base.codAccepted(), base.createdAt(), base.updatedAt(), base.items(),
+				base.discountAmount(), base.totalAmount(), base.recipient(),
+				base.createdAt(), base.updatedAt(), base.items(),
 				base.events(), order.getCustomerAccessToken());
 	}
 
-	private OrderDtos.DeliveryDetails fulfillmentDetails(OrderEntity order) {
+	/** Đơn ăn tại quán không có người nhận riêng — khách đang ngồi ngay đó. */
+	private OrderDtos.RecipientDetails recipientDetails(OrderEntity order) {
 		if (order.getOrderTypeValue() == OrderType.DineIn) {
 			return null;
 		}
-		return new OrderDtos.DeliveryDetails(
-				order.getRecipientName(), order.getRecipientPhone(), order.getDeliveryAddress(),
-				order.getDeliveryNote(), order.getDeliveryLatitude(), order.getDeliveryLongitude());
+		return new OrderDtos.RecipientDetails(order.getRecipientName(), order.getRecipientPhone());
 	}
 
 	private static final Set<OrderItemStatus> AWAITING_ESTIMATE_STATUS =

@@ -284,18 +284,6 @@ public class Order {
 		return true;
 	}
 
-	/** Delivery completion is permitted only after dispatching a Ready order. */
-	public void completeOnDelivery(Actor actor, OffsetDateTime now) {
-		if (status != OrderStatus.Ready) {
-			throw new OrderRuleViolation("DELIVERY_ORDER_NOT_READY", "Only a Ready order can finish delivery.");
-		}
-		items.stream().filter(OrderItem::isActive).forEach(item -> item.moveTo(OrderItemStatus.Served, now));
-		status = OrderStatus.Completed;
-		updatedAt = now;
-		newChanges.add(new StatusChange(OrderStatus.Ready, OrderStatus.Completed, StatusChange.SOURCE_STATUS,
-				actor, "Giao hàng thành công.", now));
-	}
-
 	/** Changes made since this aggregate was loaded, for the persistence adapter to append. Cleared
 	 * once taken so a second save cannot duplicate the audit trail. */
 	public List<StatusChange> takeNewChanges() {

@@ -1,11 +1,9 @@
 package com.cmc.restaurant.orders;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,12 +18,9 @@ import com.cmc.restaurant.menu.CategoryRepository;
 import com.cmc.restaurant.menu.MenuItemRepository;
 import com.cmc.restaurant.menu.ShopConfig;
 import com.cmc.restaurant.menu.ShopController;
-import com.cmc.restaurant.orders.adapter.in.web.DeliveryController;
 import com.cmc.restaurant.orders.adapter.in.web.OrderController;
-import com.cmc.restaurant.orders.application.DeliveryService;
 import com.cmc.restaurant.orders.application.OrderDtos;
 import com.cmc.restaurant.orders.application.OrderService;
-import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,13 +33,18 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-@WebMvcTest({DeliveryController.class, OrderController.class, ShopController.class})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, JsonAccessDeniedHandler.class, JsonAuthenticationEntryPoint.class})
+/**
+ * Ranh giới quyền của các endpoint quán.
+ *
+ * <p>Các ca về tài xế, điều phối và COD giao hàng đã bỏ cùng phạm vi giao tận nhà — xem
+ * {@code docs/pm/CHOT_NGHIEP_VU_QUAN_P0.md} §1.
+ */
+@WebMvcTest({OrderController.class, ShopController.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, JsonAccessDeniedHandler.class,
+		JsonAuthenticationEntryPoint.class})
 class ShopApiSecurityTest {
 	@Autowired
 	private MockMvc mvc;
-	@MockBean
-	private DeliveryService delivery;
 	@MockBean
 	private OrderService orders;
 	@MockBean
@@ -62,37 +62,27 @@ class ShopApiSecurityTest {
 				List.of(new SimpleGrantedAuthority("ROLE_" + role))));
 	}
 
+	/**
+	 * Thực đơn và cấu hình quán mở công khai, có chủ ý: khách vãng lai phải xem được món trước khi
+	 * quyết định vào quán. Bắt đăng nhập mới thấy thực đơn là biến app thành cửa duy nhất.
+	 */
 	@Test
-	void publicMenuConfigAndQuoteDoNotRequireLogin() throws Exception {
+	void thucDonVaCauHinhQuanKhongCanDangNhap() throws Exception {
 		when(categories.findByActiveTrueOrderByDisplayOrderAscNameAsc()).thenReturn(List.of());
 		when(config.response()).thenReturn(ShopConfig.defaults());
-		when(config.quote(21.0, 105.8)).thenReturn(new ShopConfig.Quote(new BigDecimal("2"), BigDecimal.ZERO));
-		mvc.perform(get("/api/shop/menu")).andExpect(status().isOk()).andExpect(jsonPath("$.items").isArray());
-		mvc.perform(get("/api/shop/config")).andExpect(status().isOk()).andExpect(jsonPath("$.shippingFreeRadiusKm").value(5));
-		mvc.perform(post("/api/shop/quote").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"latitude\":21,\"longitude\":105.8}"))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.deliveryFee").value(0));
+
+		mvc.perform(get("/api/shop/menu")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.items").isArray());
+		mvc.perform(get("/api/shop/config")).andExpect(status().isOk());
 	}
 
+	/** Đổi cấu hình quán là việc của quản lý. Nhân viên quầy đọc được, không sửa được. */
 	@Test
-	void courierCanListOnlyTheirAssignmentsAndCannotReadGlobalOrders() throws Exception {
-		when(delivery.assignedOrders("courier-1")).thenReturn(new OrderDtos.OrderListResponse(List.of(), 0));
-		mvc.perform(get("/api/delivery/orders").with(as("courier-1", "Courier")))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
-		verify(delivery).assignedOrders("courier-1");
-		mvc.perform(get("/api/orders").with(as("courier-1", "Courier"))).andExpect(status().isForbidden());
-		mvc.perform(get("/api/delivery/orders").with(as("customer", "Customer"))).andExpect(status().isForbidden());
-	}
-
-	@Test
-	void kitchenCannotDispatchOrAcceptCodAndOnlyAdminCanChangeTariff() throws Exception {
-		mvc.perform(post("/api/orders/ORD-1/accept-cod").with(as("kitchen", "Kitchen"))).andExpect(status().isForbidden());
-		mvc.perform(post("/api/orders/ORD-1/dispatch").with(as("kitchen", "Kitchen"))
-				.contentType(MediaType.APPLICATION_JSON).content("{\"courierId\":\"c\"}"))
-				.andExpect(status().isForbidden());
+	void chiQuanLyDuocDoiCauHinhQuan() throws Exception {
 		mvc.perform(put("/api/shop/config").with(as("counter", "CounterStaff"))
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 				.andExpect(status().isForbidden());
+
 		when(config.update(any())).thenReturn(ShopConfig.defaults());
 		mvc.perform(put("/api/shop/config").with(as("admin", "Admin"))
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
@@ -100,9 +90,14 @@ class ShopApiSecurityTest {
 	}
 
 	@Test
-	void counterCanReadOrdersAndAcceptCod() throws Exception {
+	void nhanVienQuayDocDuocDanhSachDon() throws Exception {
 		when(orders.listOrders(null, null, null)).thenReturn(new OrderDtos.OrderListResponse(List.of(), 0));
 		mvc.perform(get("/api/orders").with(as("counter", "CounterStaff"))).andExpect(status().isOk());
-		mvc.perform(post("/api/orders/ORD-1/accept-cod").with(as("counter", "CounterStaff"))).andExpect(status().isOk());
+	}
+
+	/** Khách không được đọc danh sách đơn của cả quán. */
+	@Test
+	void khachKhongDocDuocDonCuaNguoiKhac() throws Exception {
+		mvc.perform(get("/api/orders").with(as("customer", "Customer"))).andExpect(status().isForbidden());
 	}
 }

@@ -17,21 +17,23 @@ public final class OrderDtos {
 		}
 	}
 
-	public record DeliveryDetails(
-			String recipientName, String phoneNumber, String address, String note, Double latitude, Double longitude) {
-		public DeliveryDetails(String recipientName, String phoneNumber, String address, String note) {
-			this(recipientName, phoneNumber, address, note, null, null);
-		}
+	/**
+	 * Người nhận của một đơn mang về.
+	 *
+	 * <p>Chỉ tên và số điện thoại: quầy cần gọi được khách khi món xong. Địa chỉ, ghi chú giao,
+	 * toạ độ và phí ship đã ra khỏi phạm vi cùng với giao tận nhà.
+	 */
+	public record RecipientDetails(String recipientName, String phoneNumber) {
 	}
 
 	public record CreateOrderRequest(
 			String orderType, String tableCode, String qrToken, String tableSessionId,
 			List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode,
-			DeliveryDetails deliveryDetails, BigDecimal expectedTotalAmount) {
+			RecipientDetails recipient, BigDecimal expectedTotalAmount) {
 		public CreateOrderRequest(String orderType, String tableCode, String qrToken, String tableSessionId,
 				List<CreateOrderItemRequest> items, String customerPhoneNumber, String promotionCode,
-				DeliveryDetails deliveryDetails) {
-			this(orderType, tableCode, qrToken, tableSessionId, items, customerPhoneNumber, promotionCode, deliveryDetails, null);
+				RecipientDetails recipient) {
+			this(orderType, tableCode, qrToken, tableSessionId, items, customerPhoneNumber, promotionCode, recipient, null);
 		}
 	}
 
@@ -64,8 +66,7 @@ public final class OrderDtos {
 	public record OrderResponse(
 			String orderId, String orderCode, String orderType, String tableCode, String tableSessionId,
 			String status, String paymentStatus, String paymentMethod, BigDecimal subtotalAmount,
-			BigDecimal discountAmount, BigDecimal deliveryFee, BigDecimal totalAmount,
-			String fulfillmentStatus, DeliveryDetails deliveryDetails, String courierId, boolean codAccepted,
+			BigDecimal discountAmount, BigDecimal totalAmount, RecipientDetails recipient,
 			OffsetDateTime createdAt, OffsetDateTime updatedAt,
 			List<OrderItemResponse> items, List<OrderStatusEventResponse> events) {
 	}
@@ -73,8 +74,7 @@ public final class OrderDtos {
 	public record CreateOrderResponse(
 			String orderId, String orderCode, String orderType, String tableCode, String tableSessionId,
 			String status, String paymentStatus, String paymentMethod, BigDecimal subtotalAmount,
-			BigDecimal discountAmount, BigDecimal deliveryFee, BigDecimal totalAmount,
-			String fulfillmentStatus, DeliveryDetails deliveryDetails, String courierId, boolean codAccepted,
+			BigDecimal discountAmount, BigDecimal totalAmount, RecipientDetails recipient,
 			OffsetDateTime createdAt, OffsetDateTime updatedAt,
 			List<OrderItemResponse> items, List<OrderStatusEventResponse> events, String customerAccessToken) {
 	}

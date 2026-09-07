@@ -87,33 +87,16 @@ public class OrderEntity {
 	@Column(name = "recipient_phone")
 	private String recipientPhone;
 
-	@Column(name = "delivery_address")
-	private String deliveryAddress;
-
-	@Column(name = "delivery_note")
-	private String deliveryNote;
-
-	@Column(name = "delivery_fee", nullable = false)
-	private BigDecimal deliveryFee = BigDecimal.ZERO;
-
 	@Column(name = "customer_user_id")
 	private String customerUserId;
 
-	@Column(name = "courier_id")
-	private String courierId;
-
-	@Column(name = "fulfillment_status")
-	private String fulfillmentStatus;
-
-	@Column(name = "cod_accepted", nullable = false)
-	private boolean codAccepted;
-
-	@Column(name = "delivery_latitude")
-	private Double deliveryLatitude;
-	@Column(name = "delivery_longitude")
-	private Double deliveryLongitude;
-	@Column(name = "delivery_distance_km")
-	private BigDecimal deliveryDistanceKm;
+	// Các cột giao hàng của V29/V30 — delivery_address, delivery_note, delivery_fee, courier_id,
+	// fulfillment_status, cod_accepted, delivery_latitude/longitude/distance_km — CỐ Ý không ánh xạ
+	// ở đây nữa: giao tận nhà đã ra khỏi phạm vi.
+	//
+	// Cột vẫn còn trong lược đồ, không xoá. Migration chỉ mở rộng, không co lại: một cột đã tồn tại
+	// mà bị DROP là đường một chiều, còn để nguyên thì không tốn gì. Hai cột NOT NULL trong nhóm đó
+	// (`delivery_fee`, `cod_accepted`) đều có DEFAULT, nên INSERT không nhắc tới chúng vẫn chạy.
 
 	// mappedBy, not @JoinColumn: the child owns the FK (see OrderItemEntity). Cascade means saving
 	// an order saves its lines in one unit of work, and loading one brings them along — so nothing
@@ -273,73 +256,19 @@ public class OrderEntity {
 		return recipientPhone;
 	}
 
-	public String getDeliveryAddress() {
-		return deliveryAddress;
-	}
-
-	public String getDeliveryNote() {
-		return deliveryNote;
-	}
-
-	public BigDecimal getDeliveryFee() {
-		return deliveryFee;
-	}
-
-	public String getCourierId() {
-		return courierId;
-	}
-
-	public String getFulfillmentStatus() {
-		return fulfillmentStatus == null && orderType == OrderType.Delivery && status == OrderStatus.Ready
-				? "ReadyForDispatch" : fulfillmentStatus;
-	}
-
-	public void assignCourier(String courierId, OffsetDateTime now) {
-		this.courierId = courierId;
-		this.fulfillmentStatus = "Assigned";
-		this.updatedAt = now;
-	}
-
-	public void setFulfillmentStatus(String fulfillmentStatus, OffsetDateTime now) {
-		this.fulfillmentStatus = fulfillmentStatus;
-		this.updatedAt = now;
-	}
-
-	public boolean isCodAccepted() {
-		return codAccepted;
-	}
-
-	public void acceptCod(OffsetDateTime now) {
-		this.codAccepted = true;
-		this.updatedAt = now;
-	}
-
 	public void setCustomerUserId(String customerUserId) {
 		this.customerUserId = customerUserId;
 	}
 
-	public Double getDeliveryLatitude() {
-		return deliveryLatitude;
-	}
-
-	public Double getDeliveryLongitude() {
-		return deliveryLongitude;
-	}
-
-	public void setDeliveryCoordinates(Double latitude, Double longitude, BigDecimal distanceKm) {
-		this.deliveryLatitude = latitude;
-		this.deliveryLongitude = longitude;
-		this.deliveryDistanceKm = distanceKm;
-	}
-
-	public void setFulfillmentDetails(
-			String recipientName, String recipientPhone, String deliveryAddress,
-			String deliveryNote, BigDecimal deliveryFee) {
+	/**
+	 * Tên và số điện thoại người nhận, cho đơn mang về.
+	 *
+	 * <p>Vẫn cần cho {@code Takeaway} dù đã bỏ giao hàng: quầy phải gọi được khách khi món xong.
+	 * Đơn {@code DineIn} để trống — khách đang ngồi ngay đó.
+	 */
+	public void setRecipient(String recipientName, String recipientPhone) {
 		this.recipientName = recipientName;
 		this.recipientPhone = recipientPhone;
-		this.deliveryAddress = deliveryAddress;
-		this.deliveryNote = deliveryNote;
-		this.deliveryFee = deliveryFee == null ? BigDecimal.ZERO : deliveryFee;
 	}
 
 	public List<OrderItemEntity> getItems() {
