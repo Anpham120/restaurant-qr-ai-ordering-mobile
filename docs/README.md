@@ -1,6 +1,6 @@
 # Mây — chỉ mục tài liệu
 
-**16 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
+**17 tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi
 `docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không
 tồn tại, và không thể bỏ sót tệp mới.
 
@@ -24,6 +24,7 @@ Thêm tài liệu mới: đặt đúng thư mục rồi chạy `python docs/buil
 | Tài liệu | Nội dung |
 |---|---|
 | [THIET_KE_NGHIEP_VU.md](THIET_KE_NGHIEP_VU.md) | Thiết kế nghiệp vụ — quán Mây |
+| [THUC_DON_QUAN.md](THUC_DON_QUAN.md) | Thực đơn quán Mây |
 | [API_CONTRACT.md](backend/API_CONTRACT.md) | Hop Dong API - CMC Restaurant |
 | [ARCHITECTURE.md](backend/ARCHITECTURE.md) | Kiến trúc backend |
 | [DATABASE.md](backend/DATABASE.md) | Database Setup Guide |
