@@ -1,5 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ShopApp } from "../../../src/shop/ShopApp";
+import { DangXayLai } from "../../../src/DangXayLai";
 
-createRoot(document.getElementById("root")!).render(<StrictMode><ShopApp /></StrictMode>);
+createRoot(document.getElementById("root")!).render(
+	<StrictMode>
+		<DangXayLai ten="Mây · Gọi món tại bàn" />
+	</StrictMode>,
+);

@@ -6,7 +6,7 @@
 
 ## Project Structure & Module Organization
 
-- `frontend/` is a React 19/TypeScript workspace. Three deployable Vite apps: `customer-web`, `ordering-web`, and `admin-web` (package `@cmc/ops-web`, serving admin/kitchen/staff/counter). `staff-web` and `kitchen-web` are redirect stubs only. Shared pages live under `src/`.
+- `frontend/` is a React 19/TypeScript workspace. Three deployable Vite apps: `customer-web`, `ordering-web`, and `admin-web` (package `@cmc/ops-web`, serving admin/counter). Giao diện cũ của nhà hàng đã gỡ hết cùng đợt chuyển sang nghiệp vụ quán; ba app hiện dựng một màn hình giữ chỗ (`src/DangXayLai.tsx`) để đường build còn nguyên. Phần dùng lại được nằm ở `packages/` (api-client, auth, brand-ui, i18n, realtime-client, shared-types, shared-ui).
 - `backend-java/` là backend đang chạy: Spring Boot 3.3 / Java 21, build bằng Gradle. Mã theo kiến trúc lục giác cho module `orders` (`domain/`, `application/`, `adapter/in/web/`, `adapter/out/persistence/`); các module còn lại theo lối phẳng vì mật độ invariant thấp — xem kế hoạch §5.3.
 - `deploy/` and `.github/workflows/` hold deployment and CI configuration; architecture and operational guidance belongs in `docs/`.
 

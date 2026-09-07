@@ -22,12 +22,11 @@ ENV VITE_USE_MOCK_MENU=$VITE_USE_MOCK_MENU
 COPY frontend/package*.json ./
 COPY frontend/apps/admin-web/package.json ./apps/admin-web/package.json
 COPY frontend/apps/customer-web/package.json ./apps/customer-web/package.json
-COPY frontend/apps/kitchen-web/package.json ./apps/kitchen-web/package.json
 COPY frontend/apps/ordering-web/package.json ./apps/ordering-web/package.json
-COPY frontend/apps/staff-web/package.json ./apps/staff-web/package.json
 COPY frontend/packages/brand-ui/package.json ./packages/brand-ui/package.json
 COPY frontend/packages/api-client/package.json ./packages/api-client/package.json
 COPY frontend/packages/auth/package.json ./packages/auth/package.json
+COPY frontend/packages/i18n/package.json ./packages/i18n/package.json
 COPY frontend/packages/realtime-client/package.json ./packages/realtime-client/package.json
 COPY frontend/packages/shared-types/package.json ./packages/shared-types/package.json
 COPY frontend/packages/shared-ui/package.json ./packages/shared-ui/package.json
@@ -41,8 +40,6 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build --chown=nginx:nginx /app/apps/customer-web/dist /usr/share/nginx/html/customer
 COPY --from=build --chown=nginx:nginx /app/apps/ordering-web/dist /usr/share/nginx/html/ordering
 COPY --from=build --chown=nginx:nginx /app/apps/admin-web/dist /usr/share/nginx/html/admin
-COPY --from=build --chown=nginx:nginx /app/apps/kitchen-web/dist /usr/share/nginx/html/kitchen
-COPY --from=build --chown=nginx:nginx /app/apps/staff-web/dist /usr/share/nginx/html/staff
 
 EXPOSE 8080
 USER nginx
