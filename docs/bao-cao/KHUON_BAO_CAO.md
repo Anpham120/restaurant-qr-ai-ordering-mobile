@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="../../frontend/src/mocks/images/logo.png" alt="Logo CMC Restaurant" width="150" />
+  <img src="../../frontend/public/shop-assets/icon.png" alt="Logo quán Mây" width="150" />
 
 # BÁO CÁO BÀI TẬP LỚN
 ## Học phần: {{TÊN HỌC PHẦN}} — {{MÃ HP}} ({{SỐ}} tín chỉ)

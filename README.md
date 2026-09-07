@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="frontend/src/mocks/images/logo.png" alt="Logo CMC Restaurant" width="220" />
-  <h1>CMC Restaurant — QR Ordering</h1>
-  <p><strong>Quét QR, gọi món và phối hợp vận hành nhà hàng trên một nền tảng thống nhất.</strong></p>
+  <img src="frontend/public/shop-assets/icon.svg" alt="Logo quán Mây" width="120" />
+  <h1>Mây — Gọi món bằng QR tại quán</h1>
+  <p><strong>Quán trà, kem, chè và món ăn nhẹ. Khách quét QR tại bàn để gọi món; quầy và quản lý
+  nhìn cùng một trạng thái.</strong></p>
   <p>
-    <a href="https://cmcrestaurant.app">Trải nghiệm khách hàng</a> ·
-    <a href="https://admin.cmcrestaurant.app">Cổng vận hành</a> ·
+    <a href="docs/pm/CHOT_NGHIEP_VU_QUAN_P0.md">Nghiệp vụ P0</a> ·
     <a href="docs/backend/ARCHITECTURE.md">Kiến trúc</a> ·
     <a href="docs/backend/API_CONTRACT.md">API</a> ·
     <a href="#bắt-đầu-phát-triển">Bắt đầu phát triển</a>
@@ -12,93 +12,67 @@
   <p>
     <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/ci.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/ci.yml/badge.svg?branch=develop" alt="CI" /></a>
     <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/security.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/security.yml/badge.svg?branch=develop" alt="Security" /></a>
-    <a href="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/cd.yml"><img src="https://github.com/Anpham120/restaurant-qr-ordering-mobile/actions/workflows/cd.yml/badge.svg" alt="Deploy" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-c9a227.svg" alt="License: MIT" /></a>
   </p>
 </div>
 
 ---
 
+> **Kho đang trong đợt chuyển đổi.** Hệ thống được xây lại quanh nghiệp vụ **quán nước — kem —
+> chè — ăn nhanh**, thay cho mô hình nhà hàng trước đó. Backend đã chuyển xong phần lõi; giao diện
+> web cũ **đã gỡ hết** và đang được dựng lại. Phạm vi đã chốt và những gì còn chờ duyệt nằm ở
+> [Chốt nghiệp vụ quán — P0](docs/pm/CHOT_NGHIEP_VU_QUAN_P0.md).
+
 ## Sản phẩm giải quyết điều gì?
 
-CMC Restaurant số hoá hành trình phục vụ tại bàn: khách mở menu bằng QR mà không cần cài ứng
-dụng, tự chọn món và theo dõi từng món; nhân viên và bếp nhìn cùng một trạng thái vận hành; quản
-trị viên kiểm soát menu, bàn và đơn hàng từ một hệ thống duy nhất.
+Một quán đồ uống và tráng miệng bán tại chỗ. Khách ngồi tại bàn quét QR để tự gọi món và theo dõi
+đơn của mình; khách tới quầy mua mang về thì nhân viên nhập món, thu tiền trước và cấp mã nhận.
+Quản lý xem thực đơn, ưu đãi, ca quầy và số liệu từ một cổng duy nhất.
 
-Dự án làm sâu đúng hai mảng, thay vì trải mỏng ra nhiều tính năng:
-
-1. **Hạ tầng triển khai** — CI/CD, hai môi trường tách biệt, kiểm sức khoẻ sau khi triển khai,
-   đường quay lui.
-2. **Nghiệp vụ đặt món** — trạng thái từng món chứ không chỉ từng đơn, ước lượng thời gian lên
-   món theo tải của từng bếp, tích điểm, thanh toán QR đối soát tự động.
+**Hai kênh, không có kênh thứ ba.** `DineIn` (ăn tại quán) và `Takeaway` (mua tại quầy mang về).
+Không đặt trước từ xa, không giao tận nhà — mọi thứ liên quan tới địa chỉ, phí ship và tài xế đã
+ra khỏi phạm vi.
 
 | Khả năng | Giá trị nhận được |
 | --- | --- |
 | **Gọi món bằng QR tại bàn** | Không phải cài app, không nhầm bàn, không phải chờ gọi nhân viên |
-| **Trạng thái theo TỪNG MÓN** | Bàn 4 món mà xong 1 thì khách thấy đúng món nào đã lên, không phải đoán |
-| **Ước lượng thời gian lên món** | Tính theo tải của từng bếp — bếp nấu, quầy pha chế, hàng lấy sẵn — thay vì một hàng đợi chung |
-| **Điều phối thời gian thực** | Khách, nhân viên và bếp nhận cùng một sự kiện qua STOMP/WebSocket |
+| **Tuỳ chọn theo ly** | Cỡ, mức đường, mức đá, topping — hai ly cùng món khác cỡ là hai dòng riêng, mỗi dòng chụp lại giá đã tính phụ thu |
+| **Trạng thái theo TỪNG MÓN** | Bàn gọi 4 món mà xong 1 thì khách thấy đúng món nào đã xong, không phải đoán |
+| **Chốt giá lúc đặt** | Khách gửi kèm tổng đang nhìn thấy; máy chủ tính lại và từ chối nếu lệch, thay vì âm thầm thu theo giá mới |
+| **Điều phối thời gian thực** | Khách, quầy và quản lý nhận cùng một sự kiện qua STOMP/WebSocket |
 | **Vận hành kiểm chứng được** | CI, quét bảo mật, kiểm sức khoẻ, staging, production và quay lui đều chạy bằng workflow |
 
-## Trải nghiệm theo vai trò
+## Ba vai trò
 
 | Vai trò | Trải nghiệm chính |
 | --- | --- |
-| **Khách hàng** | Xem giới thiệu nhà hàng, thực đơn và bắt đầu hành trình gọi món |
-| **Khách tại bàn** | Quét QR, chọn món, gửi đơn và theo dõi trạng thái từng món |
-| **Nhân viên** | Theo dõi bàn, tiếp nhận đơn, xử lý yêu cầu hỗ trợ và thu ngân |
-| **Bếp** | Xem hàng đợi món, cập nhật tiến độ chuẩn bị, báo trễ |
-| **Quản trị viên** | Quản lý menu, bàn, mã QR, đơn hàng, ưu đãi và số liệu vận hành |
+| **Khách hàng** | Quét QR tại bàn, chọn món kèm tuỳ chọn, gửi đơn, theo dõi từng món, tích điểm và đổi ưu đãi |
+| **Nhân viên quầy** | Nhận đơn tại bàn, nhập đơn mang về, pha chế, thu tiền, mở và chốt ca |
+| **Quản lý** | Thực đơn, tuỳ chọn, ưu đãi, khách hàng thân thiết, tài khoản nhân sự, báo cáo |
+
+Quán **không có vai bếp riêng** — người pha chế chính là người đứng quầy. `Staff` và `Kitchen` còn
+trong mã nguồn thuần tuý để **đọc được** tài khoản cũ, không phải để cấp mới.
 
 ```mermaid
 flowchart LR
-  Scan["Khách quét QR tại bàn"] --> Menu["Xem menu điện tử"]
-  Menu --> Cart["Chọn món và kiểm tra giỏ"]
+  Scan["Khách quét QR tại bàn"] --> Menu["Xem thực đơn"]
+  Menu --> Cart["Chọn món và tuỳ chọn"]
   Cart --> Order["Gửi đơn"]
-  Order --> Staff["Nhân viên tiếp nhận"]
-  Staff --> Kitchen["Bếp chuẩn bị từng món"]
-  Kitchen --> Ready["Món sẵn sàng"]
+  Order --> Counter["Quầy nhận và pha chế"]
+  Counter --> Ready["Món sẵn sàng"]
   Ready --> Served["Phục vụ tại bàn"]
   Order -. "STOMP/WebSocket" .-> Track["Khách theo dõi từng món"]
-  Staff -. "STOMP/WebSocket" .-> Track
-  Kitchen -. "STOMP/WebSocket" .-> Track
+  Counter -. "STOMP/WebSocket" .-> Track
 ```
-
-## Giao diện sản phẩm
-
-Ảnh chụp trực tiếp từ ứng dụng đang chạy, ngày **17/07/2026**.
-
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/readme/customer-home-2026-07-17.png" alt="Trang giới thiệu CMC Restaurant" />
-      <br /><strong>Website nhà hàng</strong>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/readme/customer-menu-2026-07-17.png" alt="Menu CMC Restaurant" />
-      <br /><strong>Thực đơn</strong>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/readme/order-scan-2026-07-17.png" alt="Trang quét QR để gọi món tại bàn" />
-      <br /><strong>Điểm vào gọi món bằng QR</strong>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/readme/operations-login-2026-07-17.png" alt="Cổng đăng nhập vận hành" />
-      <br /><strong>Cổng vận hành</strong>
-    </td>
-  </tr>
-</table>
 
 ## Kiến trúc
 
 ```mermaid
 flowchart TB
   subgraph Clients["React 19 + TypeScript + Vite"]
-    Customer["Customer Web<br/>giới thiệu · thực đơn"]
+    Customer["Customer Web"]
     Ordering["Ordering Web<br/>gọi món tại bàn"]
-    Ops["Ops Web<br/>quản trị · bếp · nhân viên · quầy"]
+    Ops["Ops Web<br/>quầy · quản lý"]
   end
 
   Mobile["App khách — Expo / React Native"]
@@ -110,8 +84,8 @@ flowchart TB
 
   subgraph Backend["Java Spring Boot API"]
     API["REST API"]
-    Auth["JWT & phân quyền theo vai trò"]
-    Orders["Menu · Bàn · Đơn · Thanh toán · Tích điểm"]
+    Auth["JWT và phân quyền theo vai trò"]
+    Orders["Thực đơn · Bàn · Đơn · Thanh toán · Tích điểm"]
     Hub["STOMP Order Hub"]
   end
 
@@ -131,9 +105,9 @@ không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích �
 
 | Lớp | Công nghệ |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite — 3 ứng dụng triển khai thật, 7 gói dùng chung |
+| Frontend | React 19, TypeScript, Vite — 3 ứng dụng triển khai, 7 gói dùng chung |
 | App di động | Expo SDK 57, React Native |
-| Backend | Java 21, Spring Boot 3.3.4, Spring Data JPA, Flyway (28 migration), STOMP/WebSocket, JWT |
+| Backend | Java 21, Spring Boot 3.3.4, Spring Data JPA, Flyway (32 migration), STOMP/WebSocket, JWT |
 | Dữ liệu | PostgreSQL 16 |
 | Kiểm thử | Vitest, JUnit 5 + ArchUnit + Testcontainers, Jest |
 | Triển khai | GitHub Actions, Docker Compose, Nginx, HTTPS, staging/production |
@@ -142,11 +116,14 @@ không có trạng thái nửa vời giữa đơn hàng, thanh toán và tích �
 
 - **Phiên tại bàn:** mã QR và phiên bàn do backend cấp, xoay vòng và xác thực; không tin dữ liệu
   từ phía client.
-- **Phân quyền:** JWT tách quyền khách, nhân viên, bếp và quản trị.
+- **Phân quyền:** JWT tách quyền khách, nhân viên quầy và quản lý.
 - **Bí mật:** khoá ký JWT, khoá webhook thanh toán và thông tin cơ sở dữ liệu chỉ nằm trong biến
   môi trường phía máy chủ — không có giá trị thật nào nằm trong kho mã.
 - **Mặc định an toàn:** cấu hình để trống thì cổng liên quan TỪ CHỐI mọi lời gọi, không phải nhận
   tất cả. Áp cho Google, Firebase và webhook SePay.
+- **Migration chỉ mở rộng, không co lại:** cột đã tồn tại không bị `DROP`. Nơi dữ liệu cũ không
+  ánh xạ được sang nghiệp vụ mới, migration **dừng và bắt người xem** thay vì đoán — xem
+  `V32__renames_pickup_to_takeaway.sql`.
 - **Kiểm chứng:** CI dựng và kiểm frontend, backend, app di động, dữ liệu thực đơn, cấu hình
   Docker Compose, và chạy một phép kiểm realtime đầu-cuối với backend thật.
 
@@ -193,8 +170,8 @@ npm run dev
 
 Các workspace khác: `npm run dev:ordering`, `npm run dev:ops`.
 
-`dev:kitchen` và `dev:staff` chỉ dựng hai stub chuyển hướng sang ứng dụng vận hành — bếp và nhân
-viên dùng chung `ops-web`, không phải hai ứng dụng riêng.
+Ba ứng dụng hiện dựng **một màn hình giữ chỗ** (`frontend/src/DangXayLai.tsx`): giao diện của mô
+hình nhà hàng đã gỡ hết, giao diện quán chưa dựng. Phần dùng lại được nằm ở `frontend/packages/`.
 
 ### Backend
 
@@ -217,12 +194,12 @@ docker compose --env-file deploy\.env -f deploy\docker-compose.java.yml config
 
 ```text
 .
-├── frontend/      # 3 ứng dụng React/Vite (+2 stub chuyển hướng), 7 gói dùng chung, test
+├── frontend/      # 3 ứng dụng React/Vite, 7 gói dùng chung, test
 ├── backend-java/  # API Spring Boot, 12 module nghiệp vụ và test
 ├── mobile-rn/     # App khách hàng thân thiết (Expo / React Native)
 ├── deploy/        # Docker Compose, cấu hình môi trường và script triển khai
 ├── data/          # Dữ liệu thực đơn — nguồn của các cổng kiểm trong CI
-├── docs/          # Kiến trúc, API, vận hành và khuôn báo cáo
+├── docs/          # Nghiệp vụ, kiến trúc, API, vận hành và khuôn báo cáo
 └── .github/       # CI/CD, quét bảo mật, khuôn issue và pull request
 ```
 
@@ -233,6 +210,7 @@ có thật, nên nó không thể trỏ vào tệp không tồn tại.
 
 | Chủ đề | Tài liệu chính |
 | --- | --- |
+| Nghiệp vụ | [Chốt nghiệp vụ quán — P0](docs/pm/CHOT_NGHIEP_VU_QUAN_P0.md) · [Thiết kế nghiệp vụ](docs/THIET_KE_NGHIEP_VU.md) |
 | Kiến trúc và hợp đồng | [Kiến trúc backend](docs/backend/ARCHITECTURE.md) · [Hợp đồng API](docs/backend/API_CONTRACT.md) · [SPEC](SPEC.md) |
 | Cơ sở dữ liệu | [Database](docs/backend/DATABASE.md) |
 | Vận hành | [CI/CD và triển khai](docs/devops/PIPELINE_AND_DEPLOY.md) · [Triển khai máy chủ](docs/trien-khai-may-chu.md) |
@@ -240,16 +218,16 @@ có thật, nên nó không thể trỏ vào tệp không tồn tại.
 
 ## Trạng thái và định hướng
 
-Hệ thống đang chạy trực tuyến ở mức MVP, trên hai môi trường tách biệt (staging và production).
-Các luồng phiên bàn QR, thực đơn, đơn hàng, thanh toán, thời gian thực và phân quyền theo vai trò
-đều đã có bản cài đặt kèm test trong kho mã.
+Backend đã chuyển sang nghiệp vụ quán: hai kênh `DineIn`/`Takeaway`, ba vai trò, không còn giao
+tận nhà. Giao diện web đang được dựng lại từ đầu theo nghiệp vụ mới.
 
 Ưu tiên tiếp theo:
 
+- Dựng lại ba ứng dụng web theo nghiệp vụ quán, bắt đầu từ luồng quét QR và gọi món tại bàn.
+- Thay dữ liệu thực đơn: bộ hiện tại vẫn là món ăn nhà hàng, chưa phải đồ uống và tráng miệng.
+- Giỏ hàng giữ được nhiều dòng cùng một món với tuỳ chọn khác nhau — ràng buộc hiện tại chưa cho.
 - Quan trắc: log tập trung, cảnh báo, và số đo thời gian phục vụ thật thay vì ước lượng.
 - Sao lưu và khôi phục cơ sở dữ liệu có kiểm chứng, không chỉ có script.
-- Mở rộng kiểm hồi quy cho hành trình nhiều thiết bị.
-- Hoàn thiện khả năng tiếp cận, ngân sách hiệu năng và trải nghiệm trên di động.
 
 ## Đóng góp
 

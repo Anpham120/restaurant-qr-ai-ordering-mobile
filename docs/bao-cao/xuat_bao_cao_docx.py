@@ -640,7 +640,7 @@ def trang_bia(doc: Document, meta: dict) -> None:
     d("TRƯỜNG ĐẠI HỌC CMC", 14, True, 0, 2)
     d("KHOA CÔNG NGHỆ THÔNG TIN & TRUYỀN THÔNG", 13, True, 0, 24)
 
-    logo = (HERE / "../../frontend/src/mocks/images/logo.png").resolve()
+    logo = (HERE / "../../frontend/public/shop-assets/icon.png").resolve()
     if logo.exists():
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER

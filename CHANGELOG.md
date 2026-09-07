@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Fork cá nhân, đặt lại phạm vi quanh hai mảng: **hạ tầng triển khai** và **nghiệp vụ đặt món**.
 
+### Chuyển sang mô hình quán
+
+Hệ thống chuyển từ **nhà hàng** sang **quán nước — kem — chè — ăn nhanh**. Phạm vi và các
+quyết định còn chờ duyệt: `docs/pm/CHOT_NGHIEP_VU_QUAN_P0.md`.
+
+- **Hai kênh nhận món**: `DineIn` và `Takeaway`. `Pickup` đổi tên thành `Takeaway` vì từ cũ gợi
+  ý "đặt trước rồi tới lấy" — đúng thứ vừa bị loại khỏi phạm vi.
+- **Gỡ giao tận nhà**: tài xế, phí ship, toạ độ, biểu phí, COD giao hàng và `POST /api/shop/quote`.
+  Migration `V32` **dừng và bắt người xem** nếu còn đơn `Delivery` trong cơ sở dữ liệu, thay vì
+  âm thầm đổi chúng thành đơn mang về — một đơn giao tận nhà có địa chỉ, có phí ship và có thể
+  đã thu tiền, biến nó thành đơn mang về là làm sai chứng từ tiền.
+- **Ba vai trò**: Khách hàng, Nhân viên quầy, Quản lý. Không có vai bếp — người pha chế chính là
+  người đứng quầy. `Staff` và `Kitchen` chỉ còn để **đọc** tài khoản cũ, không cấp mới.
+- **Gỡ toàn bộ giao diện web của mô hình nhà hàng** (356 tệp) cùng 103 ảnh món ăn và hai app
+  stub `staff-web`, `kitchen-web`. Ba ứng dụng còn lại dựng một màn hình giữ chỗ trong lúc giao
+  diện quán được dựng lại.
+
 ### Added
 - **Trạng thái theo từng món** — bếp cập nhật từng món, khách thấy đúng món nào đã lên thay vì
   một trạng thái chung cho cả đơn.

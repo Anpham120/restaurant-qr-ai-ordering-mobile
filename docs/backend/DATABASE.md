@@ -120,7 +120,7 @@ Host=${DB_HOST};Port=${DB_PORT:-5432};Database=${DB_NAME};Username=${DB_USERNAME
 |-------|-------|
 | `categories` | Danh mục món ăn |
 | `menu_items` | Món ăn trong menu |
-| `restaurant_tables` | Bàn trong nhà hàng |
+| `restaurant_tables` | Bàn trong quán |
 | `orders` | Đơn hàng |
 | `order_items` | Chi tiết món trong đơn hàng |
 | `payments` | Thông tin thanh toán |

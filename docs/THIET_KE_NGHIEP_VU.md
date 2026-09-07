@@ -1,4 +1,4 @@
-# Thiết kế nghiệp vụ — CMC Restaurant
+# Thiết kế nghiệp vụ — quán Mây
 
 > **Bản gộp, lập 2026-09-05.** Đây là tài liệu **duy nhất** mô tả nghiệp vụ của dự án. Nó thay cho
 > `PHAN_TICH_NGHIEP_VU.md` và `THIET_KE_VAI_TRO_VA_TRAI_NGHIEM.md` — hai tệp đó đã xoá, vì ba tài
@@ -36,7 +36,7 @@ kế: trạng thái, ước lượng thời gian, màn hình bếp, và cả cá
 | Trong phạm vi | Ngoài phạm vi |
 |---|---|
 | Ăn tại bàn (`DineIn`); nền tảng API cho `Pickup`/`Delivery` | Checkout giao hàng hoàn chỉnh, điều phối tài xế, báo giá phí giao |
-| Một nhà hàng | Nhiều chi nhánh, multi-tenant |
+| Một quán | Nhiều chi nhánh, multi-tenant |
 | Tiền mặt và VietQR | Thẻ, ví điện tử khác |
 | Tiếng Việt và tiếng Anh | Ngôn ngữ khác |
 

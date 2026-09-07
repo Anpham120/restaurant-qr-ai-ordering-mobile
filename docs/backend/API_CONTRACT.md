@@ -11,11 +11,11 @@
 
 ## Kiểm kê endpoint — SINH TỪ MÃ
 
-**88 endpoint** trong **11 module**, đọc trực tiếp từ
+**91 endpoint** trong **11 module**, đọc trực tiếp từ
 `backend-java/src/main/java/com/cmc/restaurant/**/*.java` bởi `docs/build_api_inventory.py`.
 
 > Bảng này **không thể thiếu endpoint**: CI chạy `--check` và đỏ nếu mã có endpoint mà
-> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/88 endpoint.
+> bảng chưa có. Trước khi có nó, tài liệu viết tay liệt kê 10/91 endpoint.
 >
 > Nhưng nó chỉ biết **đường dẫn và động từ**. Dạng phản hồi, mã lỗi, quy tắc phân quyền là
 > phần người viết — xem các mục bên dưới.
@@ -72,7 +72,7 @@
 | `POST` | `/api/loyalty/me/redeem` | `loyalty/LoyaltyController.java` |
 | `POST` | `/api/loyalty/redemptions/{redemptionId}/honour` | `loyalty/LoyaltyController.java` |
 
-### menu (14)
+### menu (17)
 
 | Động từ | Đường dẫn | Khai ở |
 |---|---|---|
@@ -90,6 +90,9 @@
 | `GET` | `/api/kitchen/menu-items` | `menu/KitchenMenuController.java` |
 | `PATCH` | `/api/kitchen/menu-items/{menuItemId}/availability` | `menu/KitchenMenuController.java` |
 | `GET` | `/api/menu` | `menu/MenuController.java` |
+| `GET` | `/api/shop/config` | `menu/ShopController.java` |
+| `PUT` | `/api/shop/config` | `menu/ShopController.java` |
+| `GET` | `/api/shop/menu` | `menu/ShopController.java` |
 
 ### orders (10)
 

@@ -4,8 +4,11 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -25,9 +28,9 @@ public class ShopController {
 		return config.response();
 	}
 
-	@org.springframework.web.bind.annotation.PutMapping("/api/shop/config")
-	@org.springframework.security.access.prepost.PreAuthorize("hasRole('Admin')")
-	public ShopConfig.Response updateConfig(@org.springframework.web.bind.annotation.RequestBody ShopConfig.Response request) {
+	@PutMapping("/api/shop/config")
+	@PreAuthorize("hasRole('Admin')")
+	public ShopConfig.Response updateConfig(@RequestBody ShopConfig.Response request) {
 		return config.update(request);
 	}
 

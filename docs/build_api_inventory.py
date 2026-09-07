@@ -66,8 +66,14 @@ NHOM_RE = re.compile(r'@RequestMapping\(\s*"([^"]*)"\s*\)')
 # dấu mở ngoặc, nên endpoint SSE của chat — endpoint duy nhất phải khai `produces` — bị đếm thiếu.
 # Một cái gate dựng ra để phát hiện endpoint thiếu mà lại tự giấu mất một endpoint thì tệ hơn không
 # có gate, vì nó còn khiến người đọc tin là đã đủ.
+#
+# Tiền tố tên gói đầy đủ là TUỲ CHỌN, và đó là lần thứ hai gate này tự giấu endpoint:
+# `ShopController` từng khai `@org.springframework.web.bind.annotation.PutMapping`, và vì regex
+# bắt buộc `@` đứng ngay trước `Put` nên `PUT /api/shop/config` không có trong bảng — trong khi
+# bảng vẫn ghi rằng nó không thể thiếu endpoint. Java cho viết cả hai dạng, nên regex phải nhận
+# cả hai; trông cậy vào việc mọi người luôn viết dạng ngắn là trông cậy vào thói quen.
 MAP_RE = re.compile(
-    r'@(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*(?:value\s*=\s*)?"([^"]*)")?')
+    r'@(?:[\w.]+\.)?(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*(?:value\s*=\s*)?"([^"]*)")?')
 
 
 def quet() -> dict[str, list[tuple[str, str, str]]]:

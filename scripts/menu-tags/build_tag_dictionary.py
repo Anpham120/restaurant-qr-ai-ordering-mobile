@@ -30,7 +30,8 @@ Nguồn của nghĩa từng nhãn
 -------------------------
 `frontend/src/components/menu/MenuItemCard.tsx` đã có sẵn từ điển 80 nhãn → nhãn
 tiếng Việt, do người làm giao diện viết, phủ đúng 80/80 nhãn trong dữ liệu. Đó là
-nguồn có thẩm quyền, và nó xác nhận `toi` = "Tối" (bữa tối) chứ không phải "tỏi" —
+nguồn có thẩm quyền. (Tệp đó đã bị xoá cùng giao diện nhà hàng; nội dung của nó
+nằm trong lịch sử git, và từ điển đã chép sang tệp này nên nghĩa không mất.) Nó và nó xác nhận `toi` = "Tối" (bữa tối) chứ không phải "tỏi" —
 kết luận cũng khớp với bốn phép thử trên dữ liệu (tráng miệng và trái cây tươi đều
 100% mang nhãn `toi`, mà không món nào có tỏi).
 

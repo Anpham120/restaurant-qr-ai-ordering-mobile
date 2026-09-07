@@ -42,11 +42,14 @@ describe('nhãn trạng thái đơn', () => {
 
 describe('nhãn trạng thái món', () => {
   it('nói theo việc đã xảy ra với món, và KHỚP TỪNG CHỮ với web', () => {
-    // Bộ chữ này phải giống hệt `ITEM_STATUS_VI` bên web
-    // (`frontend/src/utils/opsStatusLabels.ts`), và bên đó có một phép kiểm y hệt.
+    // Bộ chữ này từng phải giống hệt `ITEM_STATUS_VI` bên web
+    // (`frontend/src/utils/opsStatusLabels.ts`), và bên đó có một phép kiểm y hệt: hai kho không
+    // dùng chung mã được, nên ghim chuỗi ở CẢ HAI bên là cách duy nhất khiến việc trôi khỏi nhau
+    // nhìn thấy được.
     //
-    // Hai kho không dùng chung mã được, nên ghim chuỗi ở CẢ HAI bên là cách duy nhất khiến việc
-    // trôi khỏi nhau nhìn thấy được: sửa một bên mà quên bên kia thì phép kiểm bên đó đỏ.
+    // Bản web đã gỡ cùng giao diện nhà hàng, nên phép kiểm này giờ đứng một mình — nó vẫn ghim
+    // được chữ của app, nhưng KHÔNG còn phát hiện được việc web nói khác. Giao diện quán khi dựng
+    // lại phải lấy chữ từ đây và mang theo phép kiểm của nó.
     //
     // Trước bản này hai bên đã trôi thật — cùng trạng thái `Ready`, app nói "Nấu xong", web nói
     // "Sẵn sàng phục vụ". Nhóm khách một người mở app một người quét web thấy hai câu khác nhau

@@ -1,6 +1,6 @@
 # Hướng Dẫn Đóng Góp
 
-Cảm ơn bạn đã đóng góp cho **CMC Restaurant — QR Ordering**.
+Cảm ơn bạn đã đóng góp cho **Mây — Gọi món bằng QR tại quán**.
 
 ## Quy trình làm việc
 

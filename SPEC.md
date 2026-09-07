@@ -1,4 +1,4 @@
-# CMC Restaurant QR Ordering
+# Mây — Gọi món bằng QR tại quán
 
 ## §G
 
@@ -14,7 +14,7 @@ Refactor repo: cấu trúc rõ, code live, logic state đúng, build/test/deploy
 
 ## §I
 
-- ui: customer, ordering, admin, staff, kitchen Vite portals; Expo app khách.
+- ui: customer, ordering, admin Vite portals (giao diện nhà hàng đã gỡ, đang dựng lại); Expo app khách.
 - api: Spring Boot `/api/*`.
 - api: `POST /api/table-sessions` → active session + capability + `resumeState ∈ {New,CartPending,OrderInProgress,ReadyForPayment,PaymentPending,Paid}`.
 - db: Spring Data JPA + PostgreSQL 16; Flyway migrations.

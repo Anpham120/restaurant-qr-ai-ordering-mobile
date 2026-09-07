@@ -88,7 +88,7 @@ def dung() -> str:
     bang = thu_thap()
     tong = sum(len(v) for v in bang.values())
     dong = [
-        "# CMC Restaurant — chỉ mục tài liệu",
+        "# Mây — chỉ mục tài liệu",
         "",
         f"**{tong} tài liệu**, nhóm theo mục đích. Trang này **được SINH RA** bởi",
         "`docs/build_docs_index.py` từ chính các tệp có thật — nên nó không thể trỏ vào tệp không",

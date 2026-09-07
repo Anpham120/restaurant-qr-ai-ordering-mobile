@@ -1,6 +1,6 @@
-# Restaurant Table Ordering
+# Shop Table Ordering
 
-This context covers dine-in ordering from QR entry through kitchen fulfilment and settlement of the table.
+This context covers dine-in ordering at the shop, from QR entry through counter fulfilment and settlement of the table. Takeaway orders are taken at the counter and settled before preparation; there is no delivery channel.
 
 ## Language
 
@@ -9,7 +9,7 @@ The active dine-in visit opened from a table QR. It contains every order round p
 _Avoid_: Order session, cart session
 
 **Order Round**:
-One submission of selected dishes to the kitchen within a Table Session. A Table Session may contain many Order Rounds.
+One submission of selected items to the counter within a Table Session. A Table Session may contain many Order Rounds.
 _Avoid_: Invoice, bill
 
 **Table Invoice**:
